@@ -90,7 +90,6 @@ function NavBar() {
   const navLinks = [
     { label: "Home", href: "#home" },
     { label: "Features", href: "#features" },
-    { label: "Roadmap", href: "#roadmap" },
     { label: "For Teachers", href: "#about" },
     { label: "Blog", href: "#blog" },
     { label: "Contact", href: "#contact" },
@@ -153,7 +152,7 @@ function NavBar() {
             {/* CTA Button - Desktop */}
             <button
               onClick={() => navigate("/login")}
-              className="hidden lg:inline-flex px-6 py-2.5 bg-gradient-primary text-white font-semibold rounded-lg hover:shadow-glow transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+              className="hidden lg:inline-flex px-6 py-2.5 bg-gradient-primary text-white font-semibold rounded-2xl hover:shadow-glow hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 shadow-md"
             >
               Start Learning Free
             </button>
@@ -200,7 +199,7 @@ function NavBar() {
                     navigate("/login");
                     setIsOpen(false);
                   }}
-                  className="block mx-4 mt-4 px-6 py-2.5 bg-gradient-primary text-white text-center font-semibold rounded-lg hover:shadow-glow transition-all focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="block mx-4 mt-4 px-6 py-2.5 bg-gradient-primary text-white text-center font-semibold rounded-2xl hover:shadow-glow hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-primary shadow-md"
                 >
                   Start Learning Free
                 </button>
@@ -287,13 +286,13 @@ function Hero() {
             >
               <a
                 href="#contact"
-                className="inline-flex items-center justify-center px-8 py-4 bg-gradient-primary text-white font-semibold rounded-lg hover:shadow-glow transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 text-lg"
+                className="inline-flex items-center justify-center px-8 py-4 bg-gradient-primary text-white font-semibold rounded-2xl hover:shadow-glow hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 text-lg shadow-md"
               >
                 Start Learning Free
               </a>
               <a
-                href="#roadmap"
-                className="inline-flex items-center justify-center px-8 py-4 bg-secondary text-foreground font-semibold rounded-lg hover:bg-secondary/80 transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 text-lg"
+                href="#contact"
+                className="inline-flex items-center justify-center px-8 py-4 bg-secondary text-foreground font-semibold rounded-2xl hover:bg-secondary/80 hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 text-lg shadow-sm"
               >
                 Join the Beta
               </a>
@@ -331,10 +330,10 @@ function FalkeAIPreview() {
       className="relative"
     >
       {/* Glass Card */}
-      <div className="relative bg-card/50 backdrop-blur-xl border border-border rounded-2xl shadow-card p-6 lg:p-8">
+      <div className="relative bg-card/50 backdrop-blur-xl border border-border rounded-2xl shadow-card p-6 lg:p-8 hover:shadow-lg transition-shadow duration-300">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6 pb-4 border-b border-border">
-          <div className="w-10 h-10 bg-gradient-primary rounded-lg flex items-center justify-center">
+          <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center">
             <Brain className="w-6 h-6 text-white" aria-hidden="true" />
           </div>
           <div>
@@ -360,7 +359,7 @@ function FalkeAIPreview() {
               className={`flex ${msg.type === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[80%] p-4 rounded-2xl ${
+                className={`max-w-[80%] p-4 rounded-2xl shadow-sm ${
                   msg.type === "user"
                     ? "bg-gradient-primary text-white"
                     : "bg-secondary text-foreground"
@@ -373,7 +372,7 @@ function FalkeAIPreview() {
         </div>
 
         {/* Input Mock */}
-        <div className="flex items-center gap-2 p-3 bg-secondary rounded-lg border border-border">
+        <div className="flex items-center gap-2 p-3 bg-secondary rounded-xl border border-border">
           <input
             type="text"
             placeholder="Ask me anything..."
@@ -383,7 +382,7 @@ function FalkeAIPreview() {
           />
           <button
             disabled
-            className="p-2 bg-gradient-primary text-white rounded-lg cursor-not-allowed opacity-50"
+            className="p-2 bg-gradient-primary text-white rounded-xl cursor-not-allowed opacity-50 hover:opacity-60 transition-opacity"
             aria-label="Send message (disabled)"
           >
             <Zap className="w-4 h-4" aria-hidden="true" />
@@ -414,6 +413,21 @@ function FalkeAIPreview() {
 // TRUSTED BY / NUMBERS STRIP
 // ============================================================
 
+function StatItem({ label, end, suffix }: { label: string; end: number; suffix: string }) {
+  const { count, ref } = useCountUp(end);
+  return (
+    <div className="text-center">
+      <div className="text-3xl lg:text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
+        <span ref={ref}>
+          {count}
+          {suffix}
+        </span>
+      </div>
+      <p className="text-sm lg:text-base text-muted-foreground">{label}</p>
+    </div>
+  );
+}
+
 function TrustedBy() {
   const stats = [
     { label: "Beta Users", end: 5000, suffix: "+" },
@@ -426,20 +440,9 @@ function TrustedBy() {
     <section className="py-12 border-y border-border bg-secondary/30">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
-          {stats.map((stat, index) => {
-            const { count, ref } = useCountUp(stat.end);
-            return (
-              <div key={index} className="text-center">
-                <div className="text-3xl lg:text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
-                  <span ref={ref}>
-                    {count}
-                    {stat.suffix}
-                  </span>
-                </div>
-                <p className="text-sm lg:text-base text-muted-foreground">{stat.label}</p>
-              </div>
-            );
-          })}
+          {stats.map((stat, index) => (
+            <StatItem key={index} label={stat.label} end={stat.end} suffix={stat.suffix} />
+          ))}
         </div>
       </div>
     </section>
@@ -475,9 +478,9 @@ function About() {
             initial={{ opacity: 0, x: -20 }}
             animate={isInView ? { opacity: 1, x: 0 } : {}}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="bg-card border border-border rounded-2xl p-8 hover:shadow-card transition-all group"
+            className="bg-card border border-border rounded-2xl p-8 hover:shadow-card hover:scale-105 transition-all duration-300 group"
           >
-            <div className="w-12 h-12 bg-gradient-primary rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+            <div className="w-12 h-12 bg-gradient-primary rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
               <GraduationCap className="w-7 h-7 text-white" aria-hidden="true" />
             </div>
             <h3 className="text-xl font-semibold mb-3">For Students</h3>
@@ -491,9 +494,9 @@ function About() {
             initial={{ opacity: 0, x: 20 }}
             animate={isInView ? { opacity: 1, x: 0 } : {}}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="bg-card border border-border rounded-2xl p-8 hover:shadow-card transition-all group"
+            className="bg-card border border-border rounded-2xl p-8 hover:shadow-card hover:scale-105 transition-all duration-300 group"
           >
-            <div className="w-12 h-12 bg-gradient-primary rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+            <div className="w-12 h-12 bg-gradient-primary rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
               <Users className="w-7 h-7 text-white" aria-hidden="true" />
             </div>
             <h3 className="text-xl font-semibold mb-3">For Teachers</h3>
@@ -609,10 +612,10 @@ function FalkeAIHighlight() {
             initial={{ opacity: 0, x: 20 }}
             animate={isInView ? { opacity: 1, x: 0 } : {}}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="bg-card border border-border rounded-2xl p-8 shadow-card"
+            className="bg-card border border-border rounded-2xl p-8 shadow-card hover:shadow-lg transition-shadow duration-300"
           >
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 bg-gradient-primary rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center">
                 <Brain className="w-6 h-6 text-white" aria-hidden="true" />
               </div>
               <div>
@@ -628,7 +631,7 @@ function FalkeAIHighlight() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.3 }}
-                className="bg-secondary rounded-lg p-6"
+                className="bg-secondary rounded-xl p-6 shadow-sm"
               >
                 <p className="text-foreground leading-relaxed">
                   {features.find((f) => f.id === activeFeature)?.response}
@@ -709,9 +712,9 @@ function FeaturesGrid() {
               initial={{ opacity: 0, y: 20 }}
               animate={isInView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.6, delay: index * 0.1 }}
-              className="bg-card border border-border rounded-2xl p-8 hover:shadow-card hover:scale-105 transition-all group"
+              className="bg-card border border-border rounded-2xl p-8 hover:shadow-card hover:scale-105 transition-all duration-300 group cursor-pointer"
             >
-              <div className="w-12 h-12 bg-gradient-primary rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <div className="w-12 h-12 bg-gradient-primary rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <feature.icon className="w-6 h-6 text-white" aria-hidden="true" />
               </div>
               <h3 className="text-xl font-semibold mb-3">{feature.title}</h3>
@@ -1007,11 +1010,11 @@ function Testimonials() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.5 }}
-              className="bg-card border border-border rounded-2xl p-8 lg:p-12 shadow-card"
+              className="bg-card border border-border rounded-2xl p-8 lg:p-12 shadow-card hover:shadow-lg transition-shadow duration-300"
             >
               {/* Avatar & Info */}
               <div className="flex items-center gap-4 mb-6">
-                <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center text-white font-bold text-xl">
+                <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center text-white font-bold text-xl shadow-md">
                   {testimonials[currentIndex].avatar}
                 </div>
                 <div>
@@ -1031,7 +1034,7 @@ function Testimonials() {
           <div className="flex items-center justify-center gap-4 mt-8">
             <button
               onClick={goToPrevious}
-              className="p-3 bg-secondary hover:bg-secondary/80 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
+              className="p-3 bg-secondary hover:bg-secondary/80 rounded-2xl transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm"
               aria-label="Previous testimonial"
             >
               <ChevronLeft className="w-5 h-5" aria-hidden="true" />
@@ -1043,8 +1046,8 @@ function Testimonials() {
                 <button
                   key={index}
                   onClick={() => setCurrentIndex(index)}
-                  className={`w-2 h-2 rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-primary ${
-                    index === currentIndex ? "bg-primary w-8" : "bg-border"
+                  className={`h-2 rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-primary ${
+                    index === currentIndex ? "bg-primary w-8" : "bg-border w-2 hover:bg-primary/50"
                   }`}
                   aria-label={`Go to testimonial ${index + 1}`}
                   aria-current={index === currentIndex}
@@ -1054,7 +1057,7 @@ function Testimonials() {
 
             <button
               onClick={goToNext}
-              className="p-3 bg-secondary hover:bg-secondary/80 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
+              className="p-3 bg-secondary hover:bg-secondary/80 rounded-2xl transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm"
               aria-label="Next testimonial"
             >
               <ChevronRight className="w-5 h-5" aria-hidden="true" />
@@ -1131,7 +1134,7 @@ function Newsletter() {
                 placeholder="Your name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-6 py-4 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 placeholder:text-white/60 text-white focus:outline-none focus:ring-2 focus:ring-white focus:bg-white/30 transition-all"
+                className="w-full px-6 py-4 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/30 placeholder:text-white/60 text-white focus:outline-none focus:ring-2 focus:ring-white focus:bg-white/30 transition-all"
                 aria-label="Your name"
               />
 
@@ -1140,13 +1143,13 @@ function Newsletter() {
                 placeholder="you@example.com"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-6 py-4 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 placeholder:text-white/60 text-white focus:outline-none focus:ring-2 focus:ring-white focus:bg-white/30 transition-all"
+                className="w-full px-6 py-4 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/30 placeholder:text-white/60 text-white focus:outline-none focus:ring-2 focus:ring-white focus:bg-white/30 transition-all"
                 aria-label="Your email address"
               />
 
               <button
                 type="submit"
-                className="w-full px-8 py-4 bg-white text-primary font-semibold rounded-lg hover:bg-white/90 transition-all focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-primary"
+                className="w-full px-8 py-4 bg-white text-primary font-semibold rounded-2xl hover:bg-white/90 hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-primary shadow-md"
               >
                 Join the Newsletter
               </button>
@@ -1189,7 +1192,6 @@ function Footer() {
     About: [
       { label: "About", href: "#about" },
       { label: "Blog", href: "#blog" },
-      { label: "Roadmap", href: "#roadmap" },
       { label: "Careers", href: "#careers" },
     ],
     Product: [
@@ -1227,10 +1229,10 @@ function Footer() {
           <div className="col-span-2">
             <a
               href="#home"
-              className="flex items-center gap-2 mb-4 group focus:outline-none focus:ring-2 focus:ring-primary rounded-lg"
+              className="flex items-center gap-2 mb-4 group focus:outline-none focus:ring-2 focus:ring-primary rounded-xl"
               aria-label="Aurikrex Academy Home"
             >
-              <div className="w-10 h-10 bg-gradient-primary rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+              <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
                 <Sparkles className="w-6 h-6 text-white" aria-hidden="true" />
               </div>
               <span className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
@@ -1249,7 +1251,7 @@ function Footer() {
                   href={social.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-10 h-10 bg-secondary hover:bg-gradient-primary hover:text-white rounded-lg flex items-center justify-center transition-all focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-10 h-10 bg-secondary hover:bg-gradient-primary hover:text-white rounded-xl flex items-center justify-center transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm"
                   aria-label={social.label}
                 >
                   <social.icon className="w-5 h-5" aria-hidden="true" />
@@ -1303,7 +1305,6 @@ export default function Home(): JSX.Element {
         <About />
         <FalkeAIHighlight />
         <FeaturesGrid />
-        <Roadmap />
         <Testimonials />
         <Newsletter />
       </main>
