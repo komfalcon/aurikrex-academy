@@ -36,3 +36,6 @@ Thumbs.db
 package-lock.json
 yarn.lock
 pnpm-lock.yaml
+
+# Firebase credentials
+aurikrex-backend/src/config/*.json
