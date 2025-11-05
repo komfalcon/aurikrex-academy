@@ -72,6 +72,25 @@ function useCountUp(end: number) {
 }
 
 // ============================================================
+// STAT ITEM COMPONENT (used by TrustedBy section)
+// ============================================================
+
+function StatItem({ label, end, suffix }: { label: string; end: number; suffix: string }) {
+  const { count, ref } = useCountUp(end);
+  return (
+    <div className="text-center">
+      <div className="text-3xl lg:text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
+        <span ref={ref}>
+          {count}
+          {suffix}
+        </span>
+      </div>
+      <p className="text-sm lg:text-base text-muted-foreground">{label}</p>
+    </div>
+  );
+}
+
+// ============================================================
 // NAVBAR COMPONENT
 // ============================================================
 
@@ -291,10 +310,10 @@ function Hero() {
                 Start Learning Free
               </a>
               <a
-                href="#contact"
+                href="#features"
                 className="inline-flex items-center justify-center px-8 py-4 bg-secondary text-foreground font-semibold rounded-2xl hover:bg-secondary/80 hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 text-lg shadow-sm"
               >
-                Join the Beta
+                Explore Features
               </a>
             </motion.div>
           </motion.div>
@@ -412,21 +431,6 @@ function FalkeAIPreview() {
 // ============================================================
 // TRUSTED BY / NUMBERS STRIP
 // ============================================================
-
-function StatItem({ label, end, suffix }: { label: string; end: number; suffix: string }) {
-  const { count, ref } = useCountUp(end);
-  return (
-    <div className="text-center">
-      <div className="text-3xl lg:text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
-        <span ref={ref}>
-          {count}
-          {suffix}
-        </span>
-      </div>
-      <p className="text-sm lg:text-base text-muted-foreground">{label}</p>
-    </div>
-  );
-}
 
 function TrustedBy() {
   const stats = [
