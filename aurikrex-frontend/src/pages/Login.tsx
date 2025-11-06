@@ -38,9 +38,17 @@ export default function Login() {
     try {
       await signInWithGoogle();
       navigate('/dashboard');
-    } catch (err) {
-      setError('Failed to sign in with Google');
+    } catch (err: any) {
       console.error(err);
+      if (err.code === 'auth/popup-closed-by-user') {
+        setError('Sign-in cancelled');
+      } else if (err.code === 'auth/popup-blocked') {
+        setError('Pop-up blocked. Please enable pop-ups for this site');
+      } else if (err.message?.includes('No email')) {
+        setError('No email associated with this Google account');
+      } else {
+        setError('Failed to sign in with Google. Please try again');
+      }
     } finally {
       setIsLoading(false);
     }
