@@ -68,10 +68,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const result = await signInWithPopup(auth, googleProvider);
       const firebaseUser: FirebaseUser = result.user;
       
+      if (!firebaseUser.email) {
+        throw new Error('No email associated with this Google account');
+      }
+      
       const user: User = {
         id: firebaseUser.uid,
-        email: firebaseUser.email || '',
-        name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+        email: firebaseUser.email,
+        name: firebaseUser.displayName || firebaseUser.email.split('@')[0] || 'User',
         photoURL: firebaseUser.photoURL || undefined,
       };
       
