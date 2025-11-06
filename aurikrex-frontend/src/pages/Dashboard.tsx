@@ -134,9 +134,10 @@ interface SidebarProps {
   setIsCollapsed: (collapsed: boolean) => void;
   isMobileOpen: boolean;
   setIsMobileOpen: (open: boolean) => void;
+  onOpenFalkeAI: () => void;
 }
 
-function Sidebar({ activePanel, setActivePanel, isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }: SidebarProps) {
+function Sidebar({ activePanel, setActivePanel, isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen, onOpenFalkeAI }: SidebarProps) {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const isMobile = useIsMobile();
@@ -286,7 +287,10 @@ function Sidebar({ activePanel, setActivePanel, isCollapsed, setIsCollapsed, isM
             {!isCollapsed && (
               <p className="text-xs text-muted-foreground mb-3">Get instant help from AI</p>
             )}
-            <button className="w-full px-3 py-2 bg-gradient-primary text-white rounded-2xl text-sm font-medium hover:shadow-glow hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm">
+            <button 
+              onClick={onOpenFalkeAI}
+              className="w-full px-3 py-2 bg-gradient-primary text-white rounded-2xl text-sm font-medium hover:shadow-glow hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm"
+            >
               {isCollapsed ? <Sparkles className="w-4 h-4 mx-auto" /> : "Ask FalkeAI"}
             </button>
           </motion.div>
@@ -458,7 +462,12 @@ function Header({ onToggleSidebar, isSidebarCollapsed, onToggleMobileSidebar }: 
 // DASHBOARD CONTENT PANELS
 // ============================================================================
 
-function DashboardPanel() {
+interface DashboardPanelProps {
+  showFalkeAI: boolean;
+  setShowFalkeAI: (show: boolean) => void;
+}
+
+function DashboardPanel({ showFalkeAI, setShowFalkeAI }: DashboardPanelProps) {
   const shouldReduceMotion = useReducedMotion();
 
   return (
@@ -660,7 +669,7 @@ function DashboardPanel() {
       </div>
 
       {/* FalkeAI Tutor Preview */}
-      <FalkeAITutorCard />
+      <FalkeAITutorCard showFalkeAI={showFalkeAI} setShowFalkeAI={setShowFalkeAI} />
     </div>
   );
 }
@@ -678,94 +687,242 @@ function CircleIcon(props: React.SVGProps<SVGSVGElement>) {
 // FALKEAI TUTOR CARD (Main Dashboard Feature)
 // ============================================================================
 
-function FalkeAITutorCard() {
+interface FalkeAITutorCardProps {
+  showFalkeAI: boolean;
+  setShowFalkeAI: (show: boolean) => void;
+}
+
+function FalkeAITutorCard({ showFalkeAI, setShowFalkeAI }: FalkeAITutorCardProps) {
   const shouldReduceMotion = useReducedMotion();
+  const [selectedQuestion, setSelectedQuestion] = useState<number | null>(null);
+  
+  // FalkeAI Mock Questions and Responses for Beta Testing
+  const falkeAIMocks = [
+    {
+      question: "How do I solve quadratic equations?",
+      response: "Great question! A quadratic equation has the form ax² + bx + c = 0. You can solve it using:\n\n1. **Factoring** (if possible)\n2. **Quadratic Formula**: x = [-b ± √(b² - 4ac)] / 2a\n3. **Completing the Square**\n\nWould you like me to walk through an example?"
+    },
+    {
+      question: "What's the difference between mitosis and meiosis?",
+      response: "Excellent biology question! Here are the key differences:\n\n**Mitosis:**\n• Creates 2 identical daughter cells\n• Used for growth and repair\n• Produces diploid cells (2n)\n\n**Meiosis:**\n• Creates 4 unique daughter cells\n• Used for sexual reproduction\n• Produces haploid cells (n)\n\nThink of mitosis as 'copy' and meiosis as 'shuffle and divide'!"
+    },
+    {
+      question: "Can you explain photosynthesis?",
+      response: "Absolutely! Photosynthesis is how plants make food using sunlight:\n\n**Simple Formula:**\n6CO₂ + 6H₂O + Light Energy → C₆H₁₂O₆ + 6O₂\n\n**In Words:**\nPlants take in carbon dioxide and water, use sunlight energy, and produce glucose (sugar) plus oxygen.\n\n**Two Stages:**\n1. Light-dependent reactions (in thylakoids)\n2. Calvin cycle (in stroma)\n\nWant me to dive deeper into either stage?"
+    },
+    {
+      question: "How do I improve my essay writing?",
+      response: "Great goal! Here are proven strategies:\n\n**Structure:**\n1. Strong thesis statement\n2. Clear topic sentences\n3. Evidence and examples\n4. Smooth transitions\n5. Powerful conclusion\n\n**Tips:**\n• Write multiple drafts\n• Read your work aloud\n• Get peer feedback\n• Vary sentence structure\n• Use active voice\n\nWould you like me to review a specific essay?"
+    },
+    {
+      question: "What study techniques work best?",
+      response: "Excellent question! Here are evidence-based study techniques:\n\n**Most Effective:**\n1. **Spaced Repetition** - Review material over increasing intervals\n2. **Active Recall** - Test yourself without looking at notes\n3. **Feynman Technique** - Explain concepts in simple terms\n4. **Interleaving** - Mix different subjects/topics\n\n**Pro Tips:**\n• Take breaks (Pomodoro: 25 min work, 5 min break)\n• Teach others\n• Create mind maps\n• Practice with past papers\n\nWhich technique would you like to try first?"
+    }
+  ];
   
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: 1.2 }}
-    >
-      <Card className="border-primary/30 bg-gradient-to-br from-primary/10 via-accent/5 to-background backdrop-blur-sm overflow-hidden relative">
-        {/* Animated Background */}
-        {!shouldReduceMotion && (
-          <>
-            <motion.div
-              className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl"
-              animate={{ x: [0, 30, 0], y: [0, -20, 0] }}
-              transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-            />
-            <motion.div
-              className="absolute bottom-0 left-0 w-48 h-48 bg-accent/10 rounded-full blur-3xl"
-              animate={{ x: [0, -20, 0], y: [0, 20, 0] }}
-              transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-            />
-          </>
-        )}
-
-        <CardHeader className="relative z-10">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-2xl font-bold flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-gradient-primary shadow-md">
-                <Brain className="w-6 h-6 text-white" aria-hidden="true" />
-              </div>
-              FalkeAI Tutor — Your Learning Companion
-            </CardTitle>
-            <Badge className="bg-accent text-accent-foreground shadow-sm">
-              <span className="w-2 h-2 bg-white rounded-full animate-pulse mr-2" />
-              Online
-            </Badge>
-          </div>
-        </CardHeader>
-
-        <CardContent className="relative z-10 space-y-4">
-          <p className="text-muted-foreground">
-            Ask questions, get instant explanations, generate smart lessons, and receive AI-powered assignment reviews.
-          </p>
-
-          {/* Feature Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-            {[
-              { icon: MessageSquare, title: "Instant Answers", desc: "Get explanations in seconds" },
-              { icon: Lightbulb, title: "Smart Lessons", desc: "AI-generated study materials" },
-              { icon: CheckCircle, title: "Assignment Review", desc: "Detailed feedback & tips" },
-            ].map((feature, index) => (
+    <>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 1.2 }}
+      >
+        <Card className="border-primary/30 bg-gradient-to-br from-primary/10 via-accent/5 to-background backdrop-blur-sm overflow-hidden relative">
+          {/* Animated Background */}
+          {!shouldReduceMotion && (
+            <>
               <motion.div
-                key={feature.title}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 1.3 + index * 0.1 }}
-                whileHover={!shouldReduceMotion ? { y: -4, scale: 1.02 } : {}}
-                className="p-4 rounded-2xl bg-card/50 backdrop-blur-sm border border-border hover:border-primary/50 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md"
-              >
-                <feature.icon className="w-8 h-8 text-primary mb-2" aria-hidden="true" />
-                <h4 className="font-semibold mb-1">{feature.title}</h4>
-                <p className="text-xs text-muted-foreground">{feature.desc}</p>
-              </motion.div>
-            ))}
-          </div>
+                className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl"
+                animate={{ x: [0, 30, 0], y: [0, -20, 0] }}
+                transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+              />
+              <motion.div
+                className="absolute bottom-0 left-0 w-48 h-48 bg-accent/10 rounded-full blur-3xl"
+                animate={{ x: [0, -20, 0], y: [0, 20, 0] }}
+                transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+              />
+            </>
+          )}
 
-          {/* CTA */}
-          <div className="flex items-center gap-3 mt-6">
-            <button className="flex-1 px-6 py-3 bg-gradient-primary text-white font-semibold rounded-2xl hover:shadow-glow hover:scale-105 transition-all duration-200 flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-primary shadow-md">
-              <Sparkles className="w-5 h-5" aria-hidden="true" />
-              Launch FalkeAI Tutor
-            </button>
-            <button className="px-6 py-3 bg-secondary text-foreground font-semibold rounded-2xl hover:bg-secondary/80 hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm">
-              Learn More
-            </button>
-          </div>
+          <CardHeader className="relative z-10">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-2xl font-bold flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-gradient-primary shadow-md">
+                  <Brain className="w-6 h-6 text-white" aria-hidden="true" />
+                </div>
+                FalkeAI Tutor — Your Learning Companion
+              </CardTitle>
+              <Badge className="bg-accent text-accent-foreground shadow-sm">
+                <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse mr-2" />
+                Beta Testing
+              </Badge>
+            </div>
+          </CardHeader>
 
-          {/* TODO Note */}
-          <div className="mt-4 p-3 rounded-xl bg-accent/10 border border-accent/20">
-            <p className="text-xs text-center text-muted-foreground">
-              💡 <strong>Coming Soon:</strong> Full FalkeAI integration with real-time tutoring, lesson generation, and assignment analysis
+          <CardContent className="relative z-10 space-y-4">
+            <p className="text-muted-foreground">
+              Ask questions, get instant explanations, generate smart lessons, and receive AI-powered assignment reviews.
             </p>
+
+            {/* Feature Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+              {[
+                { icon: MessageSquare, title: "Instant Answers", desc: "Get explanations in seconds" },
+                { icon: Lightbulb, title: "Smart Lessons", desc: "AI-generated study materials" },
+                { icon: CheckCircle, title: "Assignment Review", desc: "Detailed feedback & tips" },
+              ].map((feature, index) => (
+                <motion.div
+                  key={feature.title}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: 1.3 + index * 0.1 }}
+                  whileHover={!shouldReduceMotion ? { y: -4, scale: 1.02 } : {}}
+                  className="p-4 rounded-2xl bg-card/50 backdrop-blur-sm border border-border hover:border-primary/50 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md"
+                >
+                  <feature.icon className="w-8 h-8 text-primary mb-2" aria-hidden="true" />
+                  <h4 className="font-semibold mb-1">{feature.title}</h4>
+                  <p className="text-xs text-muted-foreground">{feature.desc}</p>
+                </motion.div>
+              ))}
+            </div>
+
+            {/* CTA */}
+            <div className="flex items-center gap-3 mt-6">
+              <button 
+                onClick={() => setShowFalkeAI(true)}
+                className="flex-1 px-6 py-3 bg-gradient-primary text-white font-semibold rounded-2xl hover:shadow-glow hover:scale-105 transition-all duration-200 flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-primary shadow-md"
+              >
+                <Sparkles className="w-5 h-5" aria-hidden="true" />
+                Launch FalkeAI Tutor (Beta)
+              </button>
+              <button className="px-6 py-3 bg-secondary text-foreground font-semibold rounded-2xl hover:bg-secondary/80 hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm">
+                Learn More
+              </button>
+            </div>
+
+            {/* Beta Note */}
+            <div className="mt-4 p-3 rounded-xl bg-accent/10 border border-accent/20">
+              <p className="text-xs text-center text-muted-foreground">
+                🧪 <strong>Beta Testing Mode:</strong> Try our sample questions to experience FalkeAI's capabilities
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* FalkeAI Modal */}
+      <AnimatePresence>
+        {showFalkeAI && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden"
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-6 border-b border-border bg-gradient-to-r from-primary/10 to-accent/10">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-gradient-primary shadow-md">
+                    <Brain className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold">FalkeAI Tutor</h2>
+                    <p className="text-sm text-muted-foreground">Beta Testing Mode</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowFalkeAI(false);
+                    setSelectedQuestion(null);
+                  }}
+                  className="p-2 hover:bg-secondary rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6 overflow-y-auto max-h-[calc(80vh-100px)]">
+                {selectedQuestion === null ? (
+                  <>
+                    <p className="text-muted-foreground mb-4">
+                      Welcome to FalkeAI! Select a sample question below to see how I can help you learn:
+                    </p>
+                    <div className="space-y-3">
+                      {falkeAIMocks.map((mock, index) => (
+                        <motion.button
+                          key={index}
+                          onClick={() => setSelectedQuestion(index)}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.1 }}
+                          whileHover={{ scale: 1.02, x: 4 }}
+                          className="w-full text-left p-4 bg-gradient-to-r from-primary/5 to-accent/5 hover:from-primary/10 hover:to-accent/10 rounded-xl border border-border hover:border-primary/30 transition-all duration-200"
+                        >
+                          <div className="flex items-start gap-3">
+                            <MessageSquare className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                            <p className="font-medium">{mock.question}</p>
+                          </div>
+                        </motion.button>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="space-y-4"
+                  >
+                    {/* User Question */}
+                    <div className="bg-primary/10 p-4 rounded-xl border border-primary/20">
+                      <div className="flex items-center gap-2 mb-2">
+                        <User className="w-4 h-4 text-primary" />
+                        <span className="text-sm font-medium text-muted-foreground">You asked:</span>
+                      </div>
+                      <p className="font-medium text-lg">{falkeAIMocks[selectedQuestion].question}</p>
+                    </div>
+
+                    {/* AI Response */}
+                    <div className="bg-gradient-to-br from-accent/10 to-primary/5 p-5 rounded-xl border border-accent/20">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Brain className="w-5 h-5 text-accent" />
+                        <span className="text-sm font-medium text-muted-foreground">FalkeAI Response:</span>
+                      </div>
+                      <div className="prose prose-sm max-w-none">
+                        <p className="whitespace-pre-line text-foreground leading-relaxed">
+                          {falkeAIMocks[selectedQuestion].response}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-3 pt-4">
+                      <button
+                        onClick={() => setSelectedQuestion(null)}
+                        className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium"
+                      >
+                        Ask Another Question
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowFalkeAI(false);
+                          setSelectedQuestion(null);
+                        }}
+                        className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors font-medium"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </div>
+            </motion.div>
           </div>
-        </CardContent>
-      </Card>
-    </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 
@@ -877,12 +1034,13 @@ export default function Dashboard() {
   const [activePanel, setActivePanel] = useState("dashboard");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [showFalkeAI, setShowFalkeAI] = useState(false);
   const shouldReduceMotion = useReducedMotion();
 
   const renderPanel = () => {
     switch (activePanel) {
       case "dashboard":
-        return <DashboardPanel />;
+        return <DashboardPanel showFalkeAI={showFalkeAI} setShowFalkeAI={setShowFalkeAI} />;
       case "lessons":
         return <LessonsPanel />;
       case "assignments":
@@ -892,7 +1050,7 @@ export default function Dashboard() {
       case "settings":
         return <SettingsPanel />;
       default:
-        return <DashboardPanel />;
+        return <DashboardPanel showFalkeAI={showFalkeAI} setShowFalkeAI={setShowFalkeAI} />;
     }
   };
 
@@ -905,6 +1063,7 @@ export default function Dashboard() {
         setIsCollapsed={setIsSidebarCollapsed}
         isMobileOpen={isMobileSidebarOpen}
         setIsMobileOpen={setIsMobileSidebarOpen}
+        onOpenFalkeAI={() => setShowFalkeAI(true)}
       />
       
       <div className="flex-1 flex flex-col min-w-0">
