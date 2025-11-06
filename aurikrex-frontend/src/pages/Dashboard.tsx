@@ -753,7 +753,7 @@ function FalkeAITutorCard({ showFalkeAI, setShowFalkeAI }: FalkeAITutorCardProps
                 FalkeAI Tutor — Your Learning Companion
               </CardTitle>
               <Badge className="bg-accent text-accent-foreground shadow-sm">
-                <span className="w-2 h-2 bg-white rounded-full animate-pulse mr-2" />
+                <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse mr-2" />
                 Beta Testing
               </Badge>
             </div>

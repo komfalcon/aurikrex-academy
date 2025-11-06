@@ -337,7 +337,7 @@ export default function Signup() {
                   </div>
                   <div className={`flex items-center gap-2 transition-colors ${passwordValidation.hasSpecialChar ? 'text-green-400' : 'text-red-400'}`}>
                     {passwordValidation.hasSpecialChar ? <Check className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                    <span>One special character (!@#$%^&*...)</span>
+                    <span>One special character (!@#$%^&*,.?":&#123;&#125;|&lt;&gt;)</span>
                   </div>
                 </div>
               </motion.div>

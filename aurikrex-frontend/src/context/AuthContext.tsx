@@ -113,7 +113,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       localStorage.removeItem('aurikrex-user');
     } catch (error) {
       console.error('Logout error:', error);
-      throw error;
+      // Even if Firebase logout fails, clear local state
+      setUser(null);
+      localStorage.removeItem('aurikrex-user');
     }
   };
 
