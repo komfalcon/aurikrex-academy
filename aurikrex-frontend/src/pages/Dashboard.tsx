@@ -206,7 +206,7 @@ function Sidebar({ activePanel, setActivePanel, isCollapsed, setIsCollapsed, isM
         <div className="p-6 border-b border-border">
           <div className="flex items-center gap-3">
             <motion.div 
-              className="p-2 rounded-lg bg-gradient-primary"
+              className="p-2 rounded-xl bg-gradient-primary shadow-md"
               whileHover={!shouldReduceMotion ? { scale: 1.05 } : {}}
               whileTap={!shouldReduceMotion ? { scale: 0.95 } : {}}
             >
@@ -244,7 +244,7 @@ function Sidebar({ activePanel, setActivePanel, isCollapsed, setIsCollapsed, isM
                 whileHover={!shouldReduceMotion ? { scale: 1.02, x: 4 } : {}}
                 whileTap={!shouldReduceMotion ? { scale: 0.98 } : {}}
                 className={`
-                  w-full flex items-center gap-3 px-4 py-3 rounded-lg
+                  w-full flex items-center gap-3 px-4 py-3 rounded-2xl
                   transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary
                   ${isActive
                     ? "bg-primary text-primary-foreground shadow-md"
@@ -277,7 +277,7 @@ function Sidebar({ activePanel, setActivePanel, isCollapsed, setIsCollapsed, isM
         <div className="p-4 border-t border-border">
           <motion.div
             whileHover={!shouldReduceMotion ? { scale: 1.02 } : {}}
-            className="p-4 rounded-lg bg-gradient-primary/10 border border-primary/20"
+            className="p-4 rounded-2xl bg-gradient-primary/10 border border-primary/20 hover:border-primary/40 transition-colors duration-200"
           >
             <div className="flex items-center gap-2 mb-2">
               <Brain className="w-5 h-5 text-primary" aria-hidden="true" />
@@ -286,7 +286,7 @@ function Sidebar({ activePanel, setActivePanel, isCollapsed, setIsCollapsed, isM
             {!isCollapsed && (
               <p className="text-xs text-muted-foreground mb-3">Get instant help from AI</p>
             )}
-            <button className="w-full px-3 py-2 bg-gradient-primary text-white rounded-lg text-sm font-medium hover:shadow-glow transition-all focus:outline-none focus:ring-2 focus:ring-primary">
+            <button className="w-full px-3 py-2 bg-gradient-primary text-white rounded-2xl text-sm font-medium hover:shadow-glow hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm">
               {isCollapsed ? <Sparkles className="w-4 h-4 mx-auto" /> : "Ask FalkeAI"}
             </button>
           </motion.div>
@@ -298,7 +298,7 @@ function Sidebar({ activePanel, setActivePanel, isCollapsed, setIsCollapsed, isM
             onClick={handleLogout}
             whileHover={!shouldReduceMotion ? { scale: 1.02, x: 4 } : {}}
             whileTap={!shouldReduceMotion ? { scale: 0.98 } : {}}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-destructive hover:bg-destructive/10 transition-colors focus:outline-none focus:ring-2 focus:ring-destructive"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-destructive hover:bg-destructive/10 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-destructive"
           >
             <LogOut className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
             {!isCollapsed && <span className="font-medium whitespace-nowrap">Logout</span>}
@@ -352,7 +352,7 @@ function Header({ onToggleSidebar, isSidebarCollapsed, onToggleMobileSidebar }: 
             onClick={isMobile ? onToggleMobileSidebar : onToggleSidebar}
             whileHover={!shouldReduceMotion ? { scale: 1.05 } : {}}
             whileTap={!shouldReduceMotion ? { scale: 0.95 } : {}}
-            className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
+            className="p-2 rounded-xl bg-secondary hover:bg-secondary/80 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm"
             aria-label="Toggle sidebar"
           >
             <Menu className="w-5 h-5" aria-hidden="true" />
@@ -364,7 +364,7 @@ function Header({ onToggleSidebar, isSidebarCollapsed, onToggleMobileSidebar }: 
             <input
               type="search"
               placeholder="Search lessons, assignments..."
-              className="w-full pl-10 pr-4 py-2 rounded-lg bg-secondary/50 border border-border focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+              className="w-full pl-10 pr-4 py-2 rounded-2xl bg-secondary/50 border border-border focus:outline-none focus:ring-2 focus:ring-primary focus:bg-secondary transition-all duration-200"
               aria-label="Search"
             />
           </div>
@@ -383,7 +383,7 @@ function Header({ onToggleSidebar, isSidebarCollapsed, onToggleMobileSidebar }: 
             onClick={toggleTheme}
             whileHover={!shouldReduceMotion ? { scale: 1.05, rotate: 15 } : {}}
             whileTap={!shouldReduceMotion ? { scale: 0.95 } : {}}
-            className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
+            className="p-2 rounded-xl bg-secondary hover:bg-secondary/80 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm"
             aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
           >
             {theme === "light" ? <Moon className="w-5 h-5" aria-hidden="true" /> : <Sun className="w-5 h-5" aria-hidden="true" />}
@@ -395,7 +395,7 @@ function Header({ onToggleSidebar, isSidebarCollapsed, onToggleMobileSidebar }: 
               onClick={() => setShowNotifications(!showNotifications)}
               whileHover={!shouldReduceMotion ? { scale: 1.05 } : {}}
               whileTap={!shouldReduceMotion ? { scale: 0.95 } : {}}
-              className="relative p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
+              className="relative p-2 rounded-xl bg-secondary hover:bg-secondary/80 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm"
               aria-label="Notifications"
               aria-expanded={showNotifications}
             >
@@ -404,7 +404,7 @@ function Header({ onToggleSidebar, isSidebarCollapsed, onToggleMobileSidebar }: 
                 <motion.span
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
-                  className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground text-xs font-bold rounded-full flex items-center justify-center"
+                  className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground text-xs font-bold rounded-full flex items-center justify-center shadow-md"
                 >
                   {unreadCount}
                 </motion.span>
@@ -418,7 +418,7 @@ function Header({ onToggleSidebar, isSidebarCollapsed, onToggleMobileSidebar }: 
                   initial={{ opacity: 0, y: -10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                  className="absolute right-0 mt-2 w-80 bg-card border border-border rounded-lg shadow-xl overflow-hidden"
+                  className="absolute right-0 mt-2 w-80 bg-card border border-border rounded-2xl shadow-xl overflow-hidden"
                 >
                   <div className="p-4 border-b border-border">
                     <h3 className="font-semibold">Notifications</h3>
@@ -427,7 +427,7 @@ function Header({ onToggleSidebar, isSidebarCollapsed, onToggleMobileSidebar }: 
                     {mockData.notifications.map(notif => (
                       <div
                         key={notif.id}
-                        className={`p-4 border-b border-border hover:bg-secondary/50 transition-colors ${
+                        className={`p-4 border-b border-border hover:bg-secondary/50 transition-colors cursor-pointer ${
                           notif.unread ? "bg-primary/5" : ""
                         }`}
                       >
@@ -498,7 +498,7 @@ function DashboardPanel() {
                         {!stat.suffix && <span className="text-sm text-muted-foreground">/ {stat.total}</span>}
                       </div>
                     </div>
-                    <div className={`p-3 rounded-lg ${stat.bgColor}`}>
+                    <div className={`p-3 rounded-xl ${stat.bgColor} shadow-sm`}>
                       <Icon className={`w-6 h-6 ${stat.color}`} aria-hidden="true" />
                     </div>
                   </div>
@@ -585,14 +585,14 @@ function DashboardPanel() {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.3, delay: 1 + index * 0.1 }}
                     whileHover={!shouldReduceMotion ? { x: 4, scale: 1.01 } : {}}
-                    className="p-4 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors cursor-pointer"
+                    className="p-4 rounded-2xl bg-secondary/50 hover:bg-secondary transition-all duration-200 cursor-pointer shadow-sm"
                   >
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1">
                         <h4 className="font-semibold mb-1">{assignment.title}</h4>
                         <p className="text-sm text-muted-foreground">{assignment.subject}</p>
                       </div>
-                      <div className={`p-2 rounded-lg ${config.bg}`}>
+                      <div className={`p-2 rounded-xl ${config.bg}`}>
                         <StatusIcon className={`w-4 h-4 ${config.color}`} aria-hidden="true" />
                       </div>
                     </div>
@@ -638,9 +638,9 @@ function DashboardPanel() {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.3, delay: 1.1 + index * 0.1 }}
                     whileHover={!shouldReduceMotion ? { x: -4, scale: 1.01 } : {}}
-                    className="flex items-start gap-3 p-4 rounded-lg bg-background/50 hover:bg-background/80 transition-colors cursor-pointer"
+                    className="flex items-start gap-3 p-4 rounded-2xl bg-background/50 hover:bg-background/80 transition-all duration-200 cursor-pointer shadow-sm"
                   >
-                    <div className={`p-2 rounded-lg ${color.bg} flex-shrink-0`}>
+                    <div className={`p-2 rounded-xl ${color.bg} flex-shrink-0 shadow-sm`}>
                       <InsightIcon className={`w-4 h-4 ${color.icon}`} aria-hidden="true" />
                     </div>
                     <p className="text-sm flex-1">{insight.text}</p>
@@ -707,12 +707,12 @@ function FalkeAITutorCard() {
         <CardHeader className="relative z-10">
           <div className="flex items-center justify-between">
             <CardTitle className="text-2xl font-bold flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-gradient-primary">
+              <div className="p-2 rounded-xl bg-gradient-primary shadow-md">
                 <Brain className="w-6 h-6 text-white" aria-hidden="true" />
               </div>
               FalkeAI Tutor — Your Learning Companion
             </CardTitle>
-            <Badge className="bg-accent text-accent-foreground">
+            <Badge className="bg-accent text-accent-foreground shadow-sm">
               <span className="w-2 h-2 bg-white rounded-full animate-pulse mr-2" />
               Online
             </Badge>
@@ -737,7 +737,7 @@ function FalkeAITutorCard() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: 1.3 + index * 0.1 }}
                 whileHover={!shouldReduceMotion ? { y: -4, scale: 1.02 } : {}}
-                className="p-4 rounded-lg bg-card/50 backdrop-blur-sm border border-border hover:border-primary/50 transition-all cursor-pointer"
+                className="p-4 rounded-2xl bg-card/50 backdrop-blur-sm border border-border hover:border-primary/50 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md"
               >
                 <feature.icon className="w-8 h-8 text-primary mb-2" aria-hidden="true" />
                 <h4 className="font-semibold mb-1">{feature.title}</h4>
@@ -748,17 +748,17 @@ function FalkeAITutorCard() {
 
           {/* CTA */}
           <div className="flex items-center gap-3 mt-6">
-            <button className="flex-1 px-6 py-3 bg-gradient-primary text-white font-semibold rounded-lg hover:shadow-glow transition-all flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-primary">
+            <button className="flex-1 px-6 py-3 bg-gradient-primary text-white font-semibold rounded-2xl hover:shadow-glow hover:scale-105 transition-all duration-200 flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-primary shadow-md">
               <Sparkles className="w-5 h-5" aria-hidden="true" />
               Launch FalkeAI Tutor
             </button>
-            <button className="px-6 py-3 bg-secondary text-foreground font-semibold rounded-lg hover:bg-secondary/80 transition-all focus:outline-none focus:ring-2 focus:ring-primary">
+            <button className="px-6 py-3 bg-secondary text-foreground font-semibold rounded-2xl hover:bg-secondary/80 hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm">
               Learn More
             </button>
           </div>
 
           {/* TODO Note */}
-          <div className="mt-4 p-3 rounded-lg bg-accent/10 border border-accent/20">
+          <div className="mt-4 p-3 rounded-xl bg-accent/10 border border-accent/20">
             <p className="text-xs text-center text-muted-foreground">
               💡 <strong>Coming Soon:</strong> Full FalkeAI integration with real-time tutoring, lesson generation, and assignment analysis
             </p>
@@ -785,7 +785,7 @@ function LessonsPanel() {
         <p className="text-muted-foreground">AI-generated lessons tailored to your learning style</p>
       </div>
 
-      <Card className="border-dashed border-2 border-primary/30 bg-primary/5 p-12 text-center">
+      <Card className="border-dashed border-2 border-primary/30 bg-primary/5 p-12 text-center rounded-2xl">
         <Rocket className="w-16 h-16 text-primary mx-auto mb-4" aria-hidden="true" />
         <h3 className="text-xl font-bold mb-2">FalkeAI Lesson Generator</h3>
         <p className="text-muted-foreground mb-6">
@@ -809,7 +809,7 @@ function AssignmentsPanel() {
         <p className="text-muted-foreground">Upload assignments for AI-powered feedback</p>
       </div>
 
-      <Card className="border-dashed border-2 border-primary/30 bg-primary/5 p-12 text-center">
+      <Card className="border-dashed border-2 border-primary/30 bg-primary/5 p-12 text-center rounded-2xl">
         <ClipboardCheck className="w-16 h-16 text-primary mx-auto mb-4" aria-hidden="true" />
         <h3 className="text-xl font-bold mb-2">FalkeAI Assignment Reviewer</h3>
         <p className="text-muted-foreground mb-6">
@@ -833,7 +833,7 @@ function AnalyticsPanel() {
         <p className="text-muted-foreground">Deep insights into your learning patterns</p>
       </div>
 
-      <Card className="border-dashed border-2 border-primary/30 bg-primary/5 p-12 text-center">
+      <Card className="border-dashed border-2 border-primary/30 bg-primary/5 p-12 text-center rounded-2xl">
         <BarChart3 className="w-16 h-16 text-primary mx-auto mb-4" aria-hidden="true" />
         <h3 className="text-xl font-bold mb-2">FalkeAI Analytics Dashboard</h3>
         <p className="text-muted-foreground mb-6">
