@@ -42,7 +42,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           phone: firebaseUser.phoneNumber || undefined,
         };
         setUser(userData);
-        localStorage.setItem('aurikrex-user', JSON.stringify(userData));
+        // Store user data without sensitive phone number in localStorage
+        const { phone, ...userDataForStorage } = userData;
+        localStorage.setItem('aurikrex-user', JSON.stringify(userDataForStorage));
       } else {
         setUser(null);
         localStorage.removeItem('aurikrex-user');
@@ -81,7 +83,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         phone,
       };
       setUser(userData);
-      localStorage.setItem('aurikrex-user', JSON.stringify(userData));
+      // Store user data without sensitive phone number in localStorage
+      const { phone: userPhone, ...userDataForStorage } = userData;
+      localStorage.setItem('aurikrex-user', JSON.stringify(userDataForStorage));
     } catch (error) {
       console.error('Signup error:', error);
       throw error;
@@ -99,7 +103,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         phone: firebaseUser.phoneNumber || undefined,
       };
       setUser(userData);
-      localStorage.setItem('aurikrex-user', JSON.stringify(userData));
+      // Store user data without sensitive phone number in localStorage
+      const { phone, ...userDataForStorage } = userData;
+      localStorage.setItem('aurikrex-user', JSON.stringify(userDataForStorage));
     } catch (error) {
       console.error('Google login error:', error);
       throw error;
