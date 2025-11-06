@@ -1,6 +1,38 @@
-# React + TypeScript + Vite
+# Aurikrex Academy Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + TypeScript + Vite application with Firebase Authentication.
+
+## Setup
+
+1. Install dependencies:
+```bash
+npm install
+```
+
+2. Configure Firebase:
+   - Copy `.env.example` to `.env.local`
+   - Update the Firebase configuration values with your Firebase project credentials from [Firebase Console](https://console.firebase.google.com/)
+
+3. Run the development server:
+```bash
+npm run dev
+```
+
+## Features
+
+- Firebase Authentication (Email/Password & Google Sign-In)
+- User data storage in Firestore
+- Live password validation with visual feedback
+- Responsive design with Tailwind CSS
+- ShadCN UI components
+
+## Authentication
+
+The app uses Firebase Authentication with the following providers:
+- **Email/Password**: Traditional signup with validated passwords
+- **Google Sign-In**: One-click authentication with Google accounts
+
+User data is stored in Firestore under the `users` collection.
 
 Currently, two official plugins are available:
 
