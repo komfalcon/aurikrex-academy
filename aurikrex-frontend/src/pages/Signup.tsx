@@ -122,7 +122,7 @@ export default function Signup() {
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-            className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full mb-4"
+            className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-400 to-purple-500 rounded-2xl mb-4 shadow-lg"
           >
             <Sparkles className="w-8 h-8 text-white" />
           </motion.div>
@@ -135,7 +135,7 @@ export default function Signup() {
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-red-500/20 border border-red-500/50 text-red-100 px-4 py-3 rounded-lg mb-6 text-sm"
+            className="bg-red-500/20 border border-red-500/50 text-red-100 px-4 py-3 rounded-2xl mb-6 text-sm shadow-sm"
           >
             {error}
           </motion.div>
@@ -178,7 +178,7 @@ export default function Signup() {
                     setEmail(e.target.value);
                     setEmailVerified(false);
                   }}
-                  className="w-full bg-white/10 border border-white/20 rounded-lg px-10 py-3 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
+                  className="w-full bg-white/10 border border-white/20 rounded-2xl px-10 py-3 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent focus:bg-white/15 transition-all"
                   placeholder="your.email@example.com"
                   required
                 />
@@ -187,10 +187,10 @@ export default function Signup() {
                 type="button"
                 onClick={handleVerifyEmail}
                 disabled={emailVerified}
-                className={`px-4 py-3 rounded-lg font-medium transition-all focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+                className={`px-4 py-3 rounded-2xl font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 shadow-sm ${
                   emailVerified
                     ? 'bg-green-500 text-white cursor-not-allowed'
-                    : 'bg-blue-500 hover:bg-blue-600 text-white'
+                    : 'bg-blue-500 hover:bg-blue-600 hover:scale-105 text-white'
                 }`}
               >
                 {emailVerified ? <CheckCircle className="w-5 h-5" /> : 'Verify'}
@@ -219,7 +219,7 @@ export default function Signup() {
                     setPhone(e.target.value);
                     setPhoneVerified(false);
                   }}
-                  className="w-full bg-white/10 border border-white/20 rounded-lg px-10 py-3 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
+                  className="w-full bg-white/10 border border-white/20 rounded-2xl px-10 py-3 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent focus:bg-white/15 transition-all"
                   placeholder="+1234567890"
                   required
                 />
@@ -228,10 +228,10 @@ export default function Signup() {
                 type="button"
                 onClick={handleVerifyPhone}
                 disabled={phoneVerified}
-                className={`px-4 py-3 rounded-lg font-medium transition-all focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+                className={`px-4 py-3 rounded-2xl font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 shadow-sm ${
                   phoneVerified
                     ? 'bg-green-500 text-white cursor-not-allowed'
-                    : 'bg-blue-500 hover:bg-blue-600 text-white'
+                    : 'bg-blue-500 hover:bg-blue-600 hover:scale-105 text-white'
                 }`}
               >
                 {phoneVerified ? <CheckCircle className="w-5 h-5" /> : 'Verify'}
@@ -256,7 +256,7 @@ export default function Signup() {
                 id="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-white/10 border border-white/20 rounded-lg px-10 py-3 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
+                className="w-full bg-white/10 border border-white/20 rounded-2xl px-10 py-3 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent focus:bg-white/15 transition-all"
                 placeholder="••••••••"
                 required
               />
@@ -275,7 +275,7 @@ export default function Signup() {
                 id="confirmPassword"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full bg-white/10 border border-white/20 rounded-lg px-10 py-3 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
+                className="w-full bg-white/10 border border-white/20 rounded-2xl px-10 py-3 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent focus:bg-white/15 transition-all"
                 placeholder="••••••••"
                 required
               />
@@ -286,7 +286,7 @@ export default function Signup() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold py-3 rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold py-3 rounded-2xl hover:shadow-lg hover:shadow-blue-500/50 hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-transparent disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
           >
             {isLoading ? 'Creating Account...' : 'Sign Up'}
           </button>
