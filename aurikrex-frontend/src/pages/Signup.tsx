@@ -2,26 +2,44 @@ import { useState, FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
-import { User, Mail, Phone, Lock, ArrowLeft, Sparkles } from 'lucide-react';
+import { User, Mail, Lock, ArrowLeft, Sparkles } from 'lucide-react';
 
 export default function Signup() {
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const navigate = useNavigate();
   const { signup, signInWithGoogle } = useAuth();
+
+  // Password validation rules
+  const passwordRules = {
+    minLength: password.length >= 10,
+    hasUppercase: /[A-Z]/.test(password),
+    hasLowercase: /[a-z]/.test(password),
+    hasDigit: /\d/.test(password),
+    hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(password),
+  };
+
+  const allRulesMet = Object.values(passwordRules).every(Boolean);
+  const passwordsMatch = password && confirmPassword && password === confirmPassword;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
 
     // Validation
-    if (!name || !email || !password || !confirmPassword) {
-      setError('Please fill in all required fields');
+    if (!firstName || !lastName || !email || !password || !confirmPassword) {
+      setError('Please fill in all fields');
+      return;
+    }
+
+    if (!allRulesMet) {
+      setError('Password does not meet all requirements');
       return;
     }
 
@@ -30,18 +48,14 @@ export default function Signup() {
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
-      return;
-    }
-
     setIsLoading(true);
     try {
-      await signup(name, email, phone || '', password);
-      console.log('Registration successful:', { name, email, phone });
+      const name = `${firstName} ${lastName}`;
+      await signup(name, email, '', password);
+      console.log('Registration successful:', { firstName, lastName, email });
       navigate('/dashboard');
-    } catch (err) {
-      setError('Registration failed. Please try again.');
+    } catch (err: any) {
+      setError(err.message || 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -49,7 +63,7 @@ export default function Signup() {
 
   const handleGoogleSignIn = async () => {
     setError('');
-    setIsLoading(true);
+    setIsGoogleLoading(true);
     try {
       await signInWithGoogle();
       navigate('/dashboard');
@@ -62,10 +76,10 @@ export default function Signup() {
       } else if (err.message?.includes('No email')) {
         setError('No email associated with this Google account');
       } else {
-        setError('Failed to sign in with Google. Please try again');
+        setError(err.message || 'Failed to sign in with Google. Please try again');
       }
     } finally {
-      setIsLoading(false);
+      setIsGoogleLoading(false);
     }
   };
 
@@ -131,20 +145,39 @@ export default function Signup() {
 
         {/* Signup Form */}
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Full Name */}
+          {/* First Name */}
           <div>
-            <label htmlFor="name" className="block text-sm font-medium mb-2">
-              Full Name
+            <label htmlFor="firstName" className="block text-sm font-medium mb-2">
+              First Name
             </label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/50" />
               <input
                 type="text"
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                id="firstName"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
                 className="w-full bg-white/10 border border-white/20 rounded-lg px-10 py-3 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
-                placeholder="John Doe"
+                placeholder="John"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Last Name */}
+          <div>
+            <label htmlFor="lastName" className="block text-sm font-medium mb-2">
+              Last Name
+            </label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/50" />
+              <input
+                type="text"
+                id="lastName"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                className="w-full bg-white/10 border border-white/20 rounded-lg px-10 py-3 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
+                placeholder="Doe"
                 required
               />
             </div>
@@ -169,24 +202,6 @@ export default function Signup() {
             </div>
           </div>
 
-          {/* Phone (Optional) */}
-          <div>
-            <label htmlFor="phone" className="block text-sm font-medium mb-2">
-              Phone Number <span className="text-white/50 text-xs">(Optional)</span>
-            </label>
-            <div className="relative">
-              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/50" />
-              <input
-                type="tel"
-                id="phone"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full bg-white/10 border border-white/20 rounded-2xl px-10 py-3 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent focus:bg-white/15 transition-all"
-                placeholder="+1234567890"
-              />
-            </div>
-          </div>
-
           {/* Password */}
           <div>
             <label htmlFor="password" className="block text-sm font-medium mb-2">
@@ -204,6 +219,31 @@ export default function Signup() {
                 required
               />
             </div>
+            {/* Password Rules */}
+            {password && (
+              <div className="mt-2 space-y-1 text-xs">
+                <div className={`flex items-center gap-2 ${passwordRules.minLength ? 'text-green-400' : 'text-white/50'}`}>
+                  <span>{passwordRules.minLength ? '✓' : '○'}</span>
+                  <span>At least 10 characters</span>
+                </div>
+                <div className={`flex items-center gap-2 ${passwordRules.hasUppercase ? 'text-green-400' : 'text-white/50'}`}>
+                  <span>{passwordRules.hasUppercase ? '✓' : '○'}</span>
+                  <span>One uppercase letter</span>
+                </div>
+                <div className={`flex items-center gap-2 ${passwordRules.hasLowercase ? 'text-green-400' : 'text-white/50'}`}>
+                  <span>{passwordRules.hasLowercase ? '✓' : '○'}</span>
+                  <span>One lowercase letter</span>
+                </div>
+                <div className={`flex items-center gap-2 ${passwordRules.hasDigit ? 'text-green-400' : 'text-white/50'}`}>
+                  <span>{passwordRules.hasDigit ? '✓' : '○'}</span>
+                  <span>One number</span>
+                </div>
+                <div className={`flex items-center gap-2 ${passwordRules.hasSpecialChar ? 'text-green-400' : 'text-white/50'}`}>
+                  <span>{passwordRules.hasSpecialChar ? '✓' : '○'}</span>
+                  <span>One special character</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Confirm Password */}
@@ -249,7 +289,7 @@ export default function Signup() {
         <button
           type="button"
           onClick={handleGoogleSignIn}
-          disabled={isLoading}
+          disabled={isGoogleLoading || isLoading}
           className="w-full bg-white/10 border border-white/20 text-white font-semibold py-3 rounded-2xl hover:bg-white/15 hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-transparent disabled:opacity-50 disabled:cursor-not-allowed shadow-md flex items-center justify-center gap-3"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -258,7 +298,7 @@ export default function Signup() {
             <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
             <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
           </svg>
-          Sign in with Google
+          {isGoogleLoading ? 'Signing in...' : 'Sign in with Google'}
         </button>
 
         {/* Privacy Notice */}
