@@ -3,9 +3,13 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
 import { User, Mail, Phone, Lock, ArrowLeft, Sparkles, Check, X } from 'lucide-react';
+import { toast } from 'sonner';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export default function Signup() {
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -14,7 +18,7 @@ export default function Signup() {
   const [isLoading, setIsLoading] = useState(false);
 
   const navigate = useNavigate();
-  const { signup, signInWithGoogle } = useAuth();
+  const { signInWithGoogle } = useAuth();
 
   // Password validation rules
   const passwordRules = {
@@ -26,30 +30,53 @@ export default function Signup() {
   };
   const allRulesMet = Object.values(passwordRules).every(Boolean);
   const passwordsMatch = password && confirmPassword && password === confirmPassword;
+  const formValid = firstName && lastName && email && allRulesMet && passwordsMatch;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (!name || !email || !password || !confirmPassword) {
+    if (!firstName || !lastName || !email || !password || !confirmPassword) {
       setError('Please fill in all required fields');
+      toast.error('Please fill in all required fields');
       return;
     }
     if (!allRulesMet) {
       setError('Password does not meet all requirements');
+      toast.error('Password does not meet all requirements');
       return;
     }
     if (password !== confirmPassword) {
       setError('Passwords do not match');
+      toast.error('Passwords do not match');
       return;
     }
 
     setIsLoading(true);
     try {
-      await signup(name, email, phone, password);
-      navigate('/dashboard');
+      const response = await fetch(`${API_URL}/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firstName, lastName, email, password, phone }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        toast.success('Account created! Check your email for verification code.');
+        // Store email and firstName temporarily for verification page
+        localStorage.setItem('pending-verification-email', email);
+        localStorage.setItem('pending-verification-firstName', firstName);
+        // Navigate to verification page
+        navigate('/verify-email', { state: { email, firstName } });
+      } else {
+        setError(data.message || 'Registration failed. Please try again.');
+        toast.error(data.message || 'Registration failed. Please try again.');
+      }
     } catch (err: any) {
-      setError(err.message || 'Registration failed. Please try again.');
+      console.error('Signup error:', err);
+      setError('Network error. Please check your connection and try again.');
+      toast.error('Network error. Please check your connection and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -60,17 +87,44 @@ export default function Signup() {
     setIsLoading(true);
     try {
       await signInWithGoogle();
+      toast.success('Signed in with Google successfully! 🎉');
       navigate('/dashboard');
     } catch (err: any) {
       console.error(err);
-      if (err.code === 'auth/popup-closed-by-user') setError('Sign-in cancelled');
-      else if (err.code === 'auth/popup-blocked') setError('Pop-up blocked. Please enable pop-ups');
-      else if (err.message?.includes('No email')) setError('No email associated with this Google account');
-      else setError('Failed to sign in with Google. Please try again');
+      if (err.code === 'auth/popup-closed-by-user') {
+        setError('Sign-in cancelled');
+        toast.error('Sign-in cancelled');
+      } else if (err.code === 'auth/popup-blocked') {
+        setError('Pop-up blocked. Please enable pop-ups');
+        toast.error('Pop-up blocked. Please enable pop-ups for this site');
+      } else if (err.message?.includes('No email')) {
+        setError('No email associated with this Google account');
+        toast.error('No email associated with this Google account');
+      } else {
+        setError('Failed to sign in with Google. Please try again');
+        toast.error('Failed to sign in with Google. Please try again');
+      }
     } finally {
       setIsLoading(false);
     }
   };
+
+  const PasswordRuleItem = ({ met, text }: { met: boolean; text: string }) => (
+    <motion.div
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      className="flex items-center gap-2"
+    >
+      {met ? (
+        <Check className="w-4 h-4 text-green-400" />
+      ) : (
+        <X className="w-4 h-4 text-red-400" />
+      )}
+      <span className={`text-xs ${met ? 'text-green-400' : 'text-red-400'}`}>
+        {text}
+      </span>
+    </motion.div>
+  );
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-900 via-blue-900 to-purple-800 px-4 py-8 font-poppins">
@@ -105,25 +159,25 @@ export default function Signup() {
         {/* Signup Form */}
         <form onSubmit={handleSubmit} className="space-y-5">
 
-          {/* Name */}
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium mb-2">Full Name</label>
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/50" />
-              <input type="text" id="name" value={name} onChange={(e) => setName(e.target.value)}
-                className="w-full bg-white/10 border border-white/20 rounded-2xl px-10 py-3 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent focus:bg-white/15 transition-all"
-                placeholder="John Doe" required/>
+          {/* First Name & Last Name (Side by Side) */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="firstName" className="block text-sm font-medium mb-2">First Name</label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/50" />
+                <input type="text" id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)}
+                  className="w-full bg-white/10 border border-white/20 rounded-2xl px-10 py-3 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent focus:bg-white/15 transition-all"
+                  placeholder="John" required/>
+              </div>
             </div>
-          </div>
-
-          {/* Phone */}
-          <div>
-            <label htmlFor="phone" className="block text-sm font-medium mb-2">Phone Number <span className="text-white/50 text-xs">(Optional)</span></label>
-            <div className="relative">
-              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/50" />
-              <input type="tel" id="phone" value={phone} onChange={(e) => setPhone(e.target.value)}
-                className="w-full bg-white/10 border border-white/20 rounded-2xl px-10 py-3 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent focus:bg-white/15 transition-all"
-                placeholder="+1234567890"/>
+            <div>
+              <label htmlFor="lastName" className="block text-sm font-medium mb-2">Last Name</label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/50" />
+                <input type="text" id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)}
+                  className="w-full bg-white/10 border border-white/20 rounded-2xl px-10 py-3 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent focus:bg-white/15 transition-all"
+                  placeholder="Doe" required/>
+              </div>
             </div>
           </div>
 
@@ -138,15 +192,42 @@ export default function Signup() {
             </div>
           </div>
 
+          {/* Phone */}
+          <div>
+            <label htmlFor="phone" className="block text-sm font-medium mb-2">Phone Number <span className="text-white/50 text-xs">(Optional)</span></label>
+            <div className="relative">
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/50" />
+              <input type="tel" id="phone" value={phone} onChange={(e) => setPhone(e.target.value)}
+                className="w-full bg-white/10 border border-white/20 rounded-2xl px-10 py-3 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent focus:bg-white/15 transition-all"
+                placeholder="+1234567890"/>
+            </div>
+          </div>
+
           {/* Password */}
           <div>
             <label htmlFor="password" className="block text-sm font-medium mb-2">Password</label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/50" />
               <input type="password" id="password" value={password} onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-white/10 border border-white/20 rounded-2xl px-10 py-3 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent focus:bg-white/15 transition-all"
+                className={`w-full bg-white/10 border rounded-2xl px-10 py-3 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:border-transparent focus:bg-white/15 transition-all ${
+                  password && allRulesMet ? 'border-green-400 focus:ring-green-400' : 'border-white/20 focus:ring-blue-400'
+                }`}
                 placeholder="••••••••" required/>
             </div>
+            {/* Password Rules */}
+            {password && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="mt-3 p-3 bg-white/5 rounded-xl space-y-1"
+              >
+                <PasswordRuleItem met={passwordRules.minLength} text="At least 10 characters" />
+                <PasswordRuleItem met={passwordRules.hasUppercase} text="One uppercase letter" />
+                <PasswordRuleItem met={passwordRules.hasLowercase} text="One lowercase letter" />
+                <PasswordRuleItem met={passwordRules.hasDigit} text="One digit" />
+                <PasswordRuleItem met={passwordRules.hasSpecialChar} text="One special character (!@#$%^&*)" />
+              </motion.div>
+            )}
           </div>
 
           {/* Confirm Password */}
@@ -155,13 +236,35 @@ export default function Signup() {
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/50" />
               <input type="password" id="confirmPassword" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full bg-white/10 border border-white/20 rounded-2xl px-10 py-3 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent focus:bg-white/15 transition-all"
+                className={`w-full bg-white/10 border rounded-2xl px-10 py-3 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:border-transparent focus:bg-white/15 transition-all ${
+                  confirmPassword && passwordsMatch ? 'border-green-400 focus:ring-green-400' : 'border-white/20 focus:ring-blue-400'
+                }`}
                 placeholder="••••••••" required/>
             </div>
+            {confirmPassword && !passwordsMatch && (
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-xs text-red-400 mt-2 flex items-center gap-1"
+              >
+                <X className="w-3 h-3" />
+                Passwords do not match
+              </motion.p>
+            )}
+            {confirmPassword && passwordsMatch && (
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-xs text-green-400 mt-2 flex items-center gap-1"
+              >
+                <Check className="w-3 h-3" />
+                Passwords match
+              </motion.p>
+            )}
           </div>
 
           {/* Submit */}
-          <button type="submit" disabled={isLoading}
+          <button type="submit" disabled={isLoading || !formValid}
             className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold py-3 rounded-2xl hover:shadow-lg hover:shadow-blue-500/50 hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-transparent disabled:opacity-50 disabled:cursor-not-allowed shadow-md">
             {isLoading ? 'Creating Account...' : 'Sign Up'}
           </button>

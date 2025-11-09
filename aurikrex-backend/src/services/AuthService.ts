@@ -1,7 +1,7 @@
-import { auth } from '../config/firebase.js';
-import { AuthUser, RegisterRequest } from '../types/auth.types.js';
+import { auth } from '../config/firebase';
+import { AuthUser, RegisterRequest } from '../types/auth.types';
 import { UserRecord } from 'firebase-admin/auth';
-import { getErrorMessage } from '../utils/errors.js';
+import { getErrorMessage } from '../utils/errors';
 
 export class AuthService {
   /**
