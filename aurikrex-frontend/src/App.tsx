@@ -1,12 +1,15 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { Toaster } from 'sonner';
 import type { ReactNode } from 'react';
 
 // Pages
-import Home from './pages/Home';  // ← Changed from Landing
+import Home from './pages/Home';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import VerifyEmail from './pages/VerifyEmail';
 import Dashboard from './pages/Dashboard';
+
 // Protected Route Component
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -30,9 +33,10 @@ function AppRoutes() {
   return (
     <Routes>
       {/* Public Routes */}
-      <Route path="/" element={<Home />} />  {/* ← Changed from Landing */}
+      <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
       
       {/* Protected Routes */}
       <Route
@@ -54,6 +58,7 @@ function App() {
   return (
     <AuthProvider>
       <Router>
+        <Toaster position="top-right" richColors closeButton />
         <AppRoutes />
       </Router>
     </AuthProvider>
