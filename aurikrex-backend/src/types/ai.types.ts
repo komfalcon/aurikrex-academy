@@ -1,4 +1,4 @@
-import { Lesson, LessonInput } from './lesson.types.js';
+import { Lesson, LessonInput } from './lesson.types';
 
 export type AIModel = 'gpt-4' | 'gpt-3.5-turbo' | 'gemini-pro' | 'claude-3';
 

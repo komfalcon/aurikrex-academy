@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { validationResult, matchedData } from 'express-validator';
-import { log } from '../utils/logger.js';
+import { log } from '../utils/logger';
 
 export const sanitizeAndValidate = (req: Request, res: Response, next: NextFunction): void => {
   const errors = validationResult(req);

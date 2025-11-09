@@ -1,6 +1,6 @@
 import { Redis } from 'ioredis';
-import { log } from './logger.js';
-import type { Lesson } from '../types/lesson.types.js';
+import { log } from './logger';
+import type { Lesson } from '../types/lesson.types';
 
 const CACHE_TTL = 30 * 60; // 30 minutes in seconds
 
@@ -11,7 +11,7 @@ class CacheManager {
   private constructor() {
     this.redis = new Redis({
       host: process.env.REDIS_HOST || 'localhost',
-      port: parseInt(process.env.REDIS_PORT || '6379'),
+      port: parseInt(process.env.REDIS_PORT || '6379', 10),
       password: process.env.REDIS_PASSWORD,
       retryStrategy: (times) => {
         const delay = Math.min(times * 50, 2000);
