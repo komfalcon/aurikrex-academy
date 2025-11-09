@@ -11,7 +11,7 @@ import { requestLogger } from "./middleware/request-logger.middleware";
 const env = validateEnv();
 
 const app = express();
-const PORT = parseInt(env.PORT);
+const PORT = parseInt(env.PORT, 10);
 const NODE_ENV = env.NODE_ENV;
 const ALLOWED_ORIGINS = env.ALLOWED_ORIGINS.split(",");
 

@@ -8,6 +8,7 @@ import {
   googleSignIn,
   getCurrentUser,
 } from '../controllers/authController';
+import { validateRequest } from '../middleware/validation.middleware';
 
 const router = Router();
 
@@ -35,6 +36,7 @@ router.post(
       .withMessage('Password must contain at least one special character'),
     body('phone').optional().trim(),
   ],
+  validateRequest,
   signup
 );
 
@@ -49,6 +51,7 @@ router.post(
     body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
     body('otp').isLength({ min: 6, max: 6 }).withMessage('OTP must be 6 digits'),
   ],
+  validateRequest,
   verifyOTP
 );
 
@@ -60,6 +63,7 @@ router.post(
 router.post(
   '/resend-otp',
   [body('email').isEmail().normalizeEmail().withMessage('Valid email is required')],
+  validateRequest,
   resendOTP
 );
 
@@ -74,6 +78,7 @@ router.post(
     body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
     body('password').notEmpty().withMessage('Password is required'),
   ],
+  validateRequest,
   login
 );
 
@@ -85,6 +90,7 @@ router.post(
 router.post(
   '/google',
   [body('idToken').notEmpty().withMessage('ID token is required')],
+  validateRequest,
   googleSignIn
 );
 
@@ -96,6 +102,7 @@ router.post(
 router.post(
   '/me',
   [body('uid').notEmpty().withMessage('User ID is required')],
+  validateRequest,
   getCurrentUser
 );
 
