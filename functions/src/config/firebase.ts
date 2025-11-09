@@ -28,7 +28,7 @@ const requiredEnvVars = {
     message: "Database URL must be a valid HTTPS URL"
   },
   FIREBASE_STORAGE_BUCKET: {
-    validate: (value: string) => value.includes(".appspot.com"),
+    validate: (value: string) => value.endsWith(".appspot.com") && !value.includes("@"),
     message: "Storage bucket must be a valid Firebase storage bucket"
   }
 } as const;
