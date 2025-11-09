@@ -3,6 +3,11 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
 import { Mail, Lock, ArrowLeft, Sparkles } from 'lucide-react';
+import { toast } from 'sonner';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth as firebaseAuth } from '../config/firebase';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -10,7 +15,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { login, signInWithGoogle } = useAuth();
+  const { signInWithGoogle } = useAuth();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -18,15 +23,75 @@ export default function Login() {
 
     if (!email || !password) {
       setError('Please fill in all fields');
+      toast.error('Please fill in all fields');
       return;
     }
 
     setIsLoading(true);
     try {
-      await login(email, password);
-      navigate('/dashboard');
+      // First, sign in with Firebase Auth to validate credentials
+      const userCredential = await signInWithEmailAndPassword(firebaseAuth, email, password);
+      const idToken = await userCredential.user.getIdToken();
+
+      // Then check verification status with backend
+      const response = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // Store user data
+        const userData = {
+          uid: data.data.uid,
+          email: data.data.email,
+          firstName: data.data.firstName,
+          lastName: data.data.lastName,
+          displayName: data.data.displayName,
+          emailVerified: data.data.emailVerified,
+          photoURL: data.data.photoURL || null,
+        };
+        localStorage.setItem('aurikrex-user', JSON.stringify(userData));
+        if (data.data.token) {
+          localStorage.setItem('aurikrex-token', data.data.token);
+        }
+        
+        toast.success(`Welcome back, ${data.data.firstName}! 👋`);
+        navigate('/dashboard');
+      } else if (response.status === 403 && data.emailVerified === false) {
+        // Email not verified
+        toast.error('Account not verified. Please complete email verification to proceed.');
+        setError('Account not verified. Please complete email verification to proceed.');
+        
+        // Sign out from Firebase
+        await firebaseAuth.signOut();
+        
+        // Optionally redirect to verify email page
+        setTimeout(() => {
+          navigate('/verify-email', { state: { email, firstName: data.data?.firstName || '' } });
+        }, 2000);
+      } else {
+        setError(data.message || 'Invalid email or password');
+        toast.error(data.message || 'Invalid email or password');
+        await firebaseAuth.signOut();
+      }
     } catch (err: any) {
-      setError(err.message || 'Invalid email or password');
+      console.error('Login error:', err);
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
+        setError('Invalid email or password');
+        toast.error('Invalid email or password');
+      } else if (err.code === 'auth/too-many-requests') {
+        setError('Too many failed attempts. Please try again later.');
+        toast.error('Too many failed attempts. Please try again later.');
+      } else {
+        setError('Login failed. Please try again.');
+        toast.error('Login failed. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -37,17 +102,23 @@ export default function Login() {
     setIsLoading(true);
     try {
       await signInWithGoogle();
+      const user = JSON.parse(localStorage.getItem('aurikrex-user') || '{}');
+      toast.success(`Welcome back, ${user.firstName || user.name}! 🎉`);
       navigate('/dashboard');
     } catch (err: any) {
       console.error(err);
       if (err.code === 'auth/popup-closed-by-user') {
         setError('Sign-in cancelled');
+        toast.error('Sign-in cancelled');
       } else if (err.code === 'auth/popup-blocked') {
         setError('Pop-up blocked. Please enable pop-ups for this site');
+        toast.error('Pop-up blocked. Please enable pop-ups for this site');
       } else if (err.message?.includes('No email')) {
         setError('No email associated with this Google account');
+        toast.error('No email associated with this Google account');
       } else {
         setError('Failed to sign in with Google. Please try again');
+        toast.error('Failed to sign in with Google. Please try again');
       }
     } finally {
       setIsLoading(false);
