@@ -39,3 +39,11 @@ pnpm-lock.yaml
 
 # Firebase credentials
 aurikrex-backend/src/config/*.json
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+functions/lib/
+functions/.runtimeconfig.json
