@@ -1,8 +1,8 @@
-import { GPTProvider } from '../services/GPTProvider.js';
-import { GeminiProvider } from '../services/GeminiProvider.js';
-import { defaultConfig } from '../services/BaseAIService.js';
-import { log } from '../utils/logger.js';
-import validateEnv from '../utils/env.js';
+import { GPTProvider } from '../services/GPTProvider';
+import { GeminiProvider } from '../services/GeminiProvider';
+import { defaultConfig } from '../services/BaseAIService';
+import { log } from '../utils/logger';
+import validateEnv from '../utils/env';
 
 async function testAIProviders() {
   // Validate environment variables

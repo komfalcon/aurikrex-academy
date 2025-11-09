@@ -1,6 +1,6 @@
 import { Redis } from 'ioredis';
-import { log } from './logger.js';
-import type { Lesson } from '../types/lesson.types.js';
+import { log } from './logger';
+import type { Lesson } from '../types/lesson.types';
 
 const CACHE_TTL = 30 * 60; // 30 minutes in seconds
 

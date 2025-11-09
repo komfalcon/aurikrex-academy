@@ -1,11 +1,11 @@
 import express, { NextFunction, Request, Response } from "express";
 import cors from "cors";
 import compression from "compression";
-import { db, auth, storage } from "./config/firebase.js";
-import { log } from "./utils/logger.js";
-import validateEnv from "./utils/env.js";
-import { apiLimiter } from "./middleware/rate-limit.middleware.js";
-import { requestLogger } from "./middleware/request-logger.middleware.js";
+import { db, auth, storage } from "./config/firebase";
+import { log } from "./utils/logger";
+import validateEnv from "./utils/env";
+import { apiLimiter } from "./middleware/rate-limit.middleware";
+import { requestLogger } from "./middleware/request-logger.middleware";
 
 // Validate environment variables
 const env = validateEnv();
@@ -33,7 +33,7 @@ app.use(requestLogger);  // Enhanced request logging
 app.use(apiLimiter);    // Global rate limiting
 
 // Import routes
-import routes from "./routes/index.js";
+import routes from "./routes/index";
 
 // Use routes
 app.use("/api", routes);
