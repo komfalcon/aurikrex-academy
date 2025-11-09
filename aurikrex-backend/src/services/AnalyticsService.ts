@@ -1,6 +1,6 @@
-import { db } from '../config/firebase.js';
+import { db } from '../config/firebase';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
-import { log } from '../utils/logger.js';
+import { log } from '../utils/logger';
 
 interface LessonAnalytics {
   lessonId: string;

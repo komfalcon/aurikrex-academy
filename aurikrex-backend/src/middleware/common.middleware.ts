@@ -2,8 +2,8 @@ import rateLimit from 'express-rate-limit';
 import compression from 'compression';
 import { randomUUID } from 'crypto';
 import { Request, Response, NextFunction } from 'express';
-import { ExtendedRequest } from '../types/api.types.js';
-import { log } from '../utils/logger.js';
+import { ExtendedRequest } from '../types/api.types';
+import { log } from '../utils/logger';
 
 // Separate rate limits for different endpoints
 export const createRateLimiter = (options: {

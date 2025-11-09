@@ -1,4 +1,4 @@
-import { GeneratedLesson } from '../types/lesson.types.js';
+import { GeneratedLesson } from '../types/lesson.types';
 
 /**
  * Content enhancement service to improve lesson quality

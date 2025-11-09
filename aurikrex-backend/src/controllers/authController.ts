@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
-import { authService } from '../services/AuthService.js';
-import { emailService } from '../services/EmailService.js';
-import { db, auth as firebaseAuth } from '../config/firebase.js';
-import { getErrorMessage } from '../utils/errors.js';
+import { authService } from '../services/AuthService';
+import { emailService } from '../services/EmailService';
+import { db, auth as firebaseAuth } from '../config/firebase';
+import { getErrorMessage } from '../utils/errors';
 
 interface SignupRequest {
   firstName: string;
