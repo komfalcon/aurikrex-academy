@@ -1,12 +1,12 @@
 import OpenAI from 'openai';
-import { BaseAIProvider } from './BaseAIService.js';
+import { BaseAIProvider } from './BaseAIService';
 import { 
   AIResponse, 
   AIServiceConfig,
   ContentValidation,
   ImageAnalysis
-} from '../types/ai.types.js';
-import { LessonInput, Lesson } from '../types/lesson.types.js';
+} from '../types/ai.types';
+import { LessonInput, Lesson } from '../types/lesson.types';
 
 export class GPTProvider extends BaseAIProvider {
   private openai: OpenAI;

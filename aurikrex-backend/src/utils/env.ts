@@ -1,5 +1,5 @@
 import { config } from 'dotenv';
-import { log } from './logger.js';
+import { log } from './logger';
 
 // Define environment variables with their validation rules
 const envVars = {

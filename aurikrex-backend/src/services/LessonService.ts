@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
-import { db } from '../config/firebase.js';
-import { getErrorMessage } from '../utils/errors.js';
+import { db } from '../config/firebase';
+import { getErrorMessage } from '../utils/errors';
 import {
   Lesson,
   LessonInput,
@@ -8,7 +8,7 @@ import {
   LessonProgress,
   PaginationParams,
   PaginatedResponse
-} from '../types/lesson.types.js';
+} from '../types/lesson.types';
 import { Timestamp, QueryDocumentSnapshot } from 'firebase-admin/firestore';
 
 class LessonService {

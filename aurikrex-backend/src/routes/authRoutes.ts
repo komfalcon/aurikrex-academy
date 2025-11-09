@@ -7,7 +7,7 @@ import {
   resendOTP,
   googleSignIn,
   getCurrentUser,
-} from '../controllers/authController.js';
+} from '../controllers/authController';
 
 const router = Router();
 
