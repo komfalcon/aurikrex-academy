@@ -1,10 +1,14 @@
 import { Router } from "express";
-import testRoutes from "./testRoutes.js";
-import lessonRoutes from "./lessonRoutes.js";
-import healthRoutes from "./healthRoutes.js";
-import analyticsRoutes from "./analyticsRoutes.js";
+import testRoutes from "./testRoutes";
+import lessonRoutes from "./lessonRoutes";
+import healthRoutes from "./healthRoutes";
+import analyticsRoutes from "./analyticsRoutes";
+import authRoutes from "./authRoutes";
 
 const router = Router();
+
+// Auth routes
+router.use("/auth", authRoutes);
 
 // Test routes
 router.use("/test", testRoutes);

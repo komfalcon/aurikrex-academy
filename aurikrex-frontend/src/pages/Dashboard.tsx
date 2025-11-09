@@ -459,7 +459,11 @@ function Header({ onToggleSidebar, isSidebarCollapsed, onToggleMobileSidebar }: 
 // ============================================================================
 
 function DashboardPanel() {
+  const { user } = useAuth();
   const shouldReduceMotion = useReducedMotion();
+  
+  // Get firstName from authenticated user or fallback to mock data
+  const displayName = user?.firstName || user?.displayName || mockData.user.name.split(' ')[0];
 
   return (
     <div className="space-y-6">
@@ -470,7 +474,7 @@ function DashboardPanel() {
         transition={{ duration: 0.4 }}
       >
         <h1 className="text-3xl md:text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
-          Welcome Back, {mockData.user.name}! 🎓
+          Welcome back, {displayName}! 👋
         </h1>
         <p className="text-muted-foreground">Here's your learning progress overview</p>
       </motion.div>
