@@ -138,7 +138,7 @@ class LessonService {
 
       return doc.data()!;
     } catch (error) {
-      console.error(`Error getting lesson ${lessonId}:`, getErrorMessage(error));
+      console.error('Error getting lesson:', { lessonId, error: getErrorMessage(error) });
       throw error;
     }
   }
@@ -253,7 +253,7 @@ class LessonService {
       await progressRef.set(progress, { merge: true });
       return progress;
     } catch (error) {
-      console.error(`Error updating progress for user ${userId} lesson ${lessonId}:`, getErrorMessage(error));
+      console.error('Error updating lesson progress:', { userId, lessonId, error: getErrorMessage(error) });
       throw error;
     }
   }
@@ -267,7 +267,7 @@ class LessonService {
 
       return doc.exists ? doc.data()! : null;
     } catch (error) {
-      console.error(`Error getting progress for user ${userId} lesson ${lessonId}:`, getErrorMessage(error));
+      console.error('Error getting lesson progress:', { userId, lessonId, error: getErrorMessage(error) });
       throw error;
     }
   }
