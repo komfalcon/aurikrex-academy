@@ -337,12 +337,14 @@ class LessonService {
 class LessonGenerationError extends Error {
   code: string;
   details?: unknown;
+  cause?: unknown;
 
   constructor(message: string, options?: { cause?: unknown; code?: string; details?: unknown }) {
-    super(message, { cause: options?.cause });
+    super(message);
     this.name = 'LessonGenerationError';
     this.code = options?.code || 'UNKNOWN_ERROR';
     this.details = options?.details;
+    this.cause = options?.cause;
   }
 }
 
