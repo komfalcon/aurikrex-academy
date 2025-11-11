@@ -1,9 +1,9 @@
 import { Router, Request, Response } from "express";
-import { db } from "../config/firebase";
+import { getDB } from "../config/mongodb.js";
 
 const router = Router();
 
-interface FirebaseTestDocument {
+interface MongoTestDocument {
   message: string;
   timestamp: number;
   environment: string;
@@ -11,32 +11,33 @@ interface FirebaseTestDocument {
 
 router.get("/", async (_req: Request, res: Response) => {
   try {
-    const testRef = db.collection("test");
+    const db = getDB();
+    const testCollection = db.collection("test");
     
     // Add a test document
-    const testDoc: FirebaseTestDocument = {
-      message: "Firebase connection works!",
+    const testDoc: MongoTestDocument = {
+      message: "MongoDB connection works!",
       timestamp: Date.now(),
       environment: process.env.NODE_ENV || "development"
     };
     
-    const docRef = await testRef.add(testDoc);
+    const result = await testCollection.insertOne(testDoc);
     
     // Clean up the test document to avoid cluttering the database
-    await docRef.delete();
+    await testCollection.deleteOne({ _id: result.insertedId });
     
     res.status(200).json({
       success: true,
-      message: "✅ Firebase connected successfully!",
-      documentId: docRef.id,
+      message: "✅ MongoDB connected successfully!",
+      documentId: result.insertedId.toString(),
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error("Firebase test route error:", error);
+    console.error("MongoDB test route error:", error);
     
     res.status(500).json({
       success: false,
-      message: "Firebase connection failed",
+      message: "MongoDB connection failed",
       error: error instanceof Error ? error.message : "Unknown error occurred",
       timestamp: new Date().toISOString()
     });

@@ -1,11 +1,11 @@
-import { rules, ValidationSchema } from './validation';
-import type { LoginRequest, RegisterRequest } from '../types/auth.types';
+import { rules, ValidationSchema } from './validation.js';
+import type { LoginRequest, RegisterRequest } from '../types/auth.types.js';
 import type { 
   LessonInput,
   Exercise,
   LessonResource,
   LessonProgress
-} from '../types/lesson.types';
+} from '../types/lesson.types.js';
 
 // Auth validation schemas
 export const loginSchema: ValidationSchema<LoginRequest> = {

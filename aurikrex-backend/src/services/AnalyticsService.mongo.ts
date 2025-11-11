@@ -1,6 +1,6 @@
-import { AnalyticsModel } from '../models/Analytics.model';
-import { log } from '../utils/logger';
-import { getErrorMessage } from '../utils/errors';
+import { AnalyticsModel } from '../models/Analytics.model.js';
+import { log } from '../utils/logger.js';
+import { getErrorMessage } from '../utils/errors.js';
 
 /**
  * Analytics service for tracking lesson usage and engagement
