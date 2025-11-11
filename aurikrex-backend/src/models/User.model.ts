@@ -1,4 +1,4 @@
-import { Collection, ObjectId, Filter, UpdateFilter, FindOptions } from 'mongodb';
+import { Collection, ObjectId, Filter, UpdateFilter } from 'mongodb';
 import { getDB } from '../config/mongodb';
 import { log } from '../utils/logger';
 import bcrypt from 'bcryptjs';
@@ -286,7 +286,7 @@ export class UserModel {
         { _id },
         {
           $set: {
-            'progress': progressData,
+            ...Object.keys(progressData).length > 0 && { progress: progressData },
             updatedAt: new Date()
           }
         },

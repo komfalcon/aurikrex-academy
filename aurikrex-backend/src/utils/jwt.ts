@@ -13,19 +13,21 @@ export interface TokenPair {
 }
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production';
-const ACCESS_TOKEN_EXPIRY = process.env.ACCESS_TOKEN_EXPIRY || '1h';
-const REFRESH_TOKEN_EXPIRY = process.env.REFRESH_TOKEN_EXPIRY || '7d';
+const ACCESS_TOKEN_EXPIRY = (process.env.ACCESS_TOKEN_EXPIRY || '1h') as string;
+const REFRESH_TOKEN_EXPIRY = (process.env.REFRESH_TOKEN_EXPIRY || '7d') as string;
 
 /**
  * Generate JWT access token
  */
 export function generateAccessToken(payload: TokenPayload): string {
   try {
-    const token = jwt.sign(payload, JWT_SECRET, {
+    const options: jwt.SignOptions = {
       expiresIn: ACCESS_TOKEN_EXPIRY,
       issuer: 'aurikrex-academy',
       audience: 'aurikrex-api'
-    });
+    };
+    
+    const token = jwt.sign(payload, JWT_SECRET, options);
 
     log.info('✅ Access token generated', { userId: payload.userId });
     return token;
@@ -43,11 +45,13 @@ export function generateAccessToken(payload: TokenPayload): string {
  */
 export function generateRefreshToken(payload: TokenPayload): string {
   try {
-    const token = jwt.sign(payload, JWT_SECRET, {
+    const options: jwt.SignOptions = {
       expiresIn: REFRESH_TOKEN_EXPIRY,
       issuer: 'aurikrex-academy',
       audience: 'aurikrex-api'
-    });
+    };
+    
+    const token = jwt.sign(payload, JWT_SECRET, options);
 
     log.info('✅ Refresh token generated', { userId: payload.userId });
     return token;

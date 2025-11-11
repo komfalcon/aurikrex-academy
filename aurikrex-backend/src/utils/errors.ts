@@ -10,6 +10,7 @@ export class AppError extends Error {
   public readonly code: string;
   public readonly status: number;
   public readonly details?: unknown;
+  public readonly cause?: unknown;
 
   constructor(message: string, options: AppErrorOptions = {}) {
     super(message);
@@ -17,15 +18,7 @@ export class AppError extends Error {
     this.code = options.code || 'UNKNOWN_ERROR';
     this.status = options.status || 500;
     this.details = options.details;
-    
-    if (options.cause) {
-      Object.defineProperty(this, 'cause', {
-        value: options.cause,
-        enumerable: false,
-        writable: true,
-        configurable: true
-      });
-    }
+    this.cause = options.cause;
     
     Error.captureStackTrace(this, this.constructor);
   }
