@@ -1,25 +1,25 @@
 import { Router } from "express";
+import authRoutes from "./authRoutes.mongo.js";
+import lessonRoutes from "./lessonRoutes.mongo.js";
+import analyticsRoutes from "./analyticsRoutes.mongo.js";
 import testRoutes from "./testRoutes.js";
-import lessonRoutes from "./lessonRoutes.js";
 import healthRoutes from "./healthRoutes.js";
-import analyticsRoutes from "./analyticsRoutes.js";
-import authRoutes from "./authRoutes.js";
 
 const router = Router();
 
-// Auth routes
+// Auth routes (MongoDB-based)
 router.use("/auth", authRoutes);
+
+// Lesson routes (MongoDB-based)
+router.use("/lessons", lessonRoutes);
+
+// Analytics routes (MongoDB-based)
+router.use("/analytics", analyticsRoutes);
 
 // Test routes
 router.use("/test", testRoutes);
 
-// Lesson routes
-router.use("/lessons", lessonRoutes);
-
 // Health routes
 router.use("/health", healthRoutes);
-
-// Analytics routes
-router.use("/analytics", analyticsRoutes);
 
 export default router;

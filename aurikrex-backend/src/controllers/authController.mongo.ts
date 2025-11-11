@@ -53,7 +53,7 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
       email,
       password,
       displayName,
-      role: (role && ['student', 'instructor'].includes(role)) ? role : 'student',
+      role: (role && ['student', 'instructor', 'admin'].includes(role)) ? role as 'student' | 'instructor' : 'student',
     });
 
     console.log('✅ User registered successfully:', result.user.email);
