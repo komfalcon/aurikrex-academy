@@ -52,7 +52,7 @@ class MongoDB {
     const options: MongoClientOptions = {
       maxPoolSize: 10,
       minPoolSize: 2,
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 30000,  // Increased to 30s for MongoDB Atlas reliability
       socketTimeoutMS: 45000,
       retryWrites: true,
       retryReads: true,
