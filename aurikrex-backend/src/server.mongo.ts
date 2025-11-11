@@ -1,14 +1,14 @@
 import express, { NextFunction, Request, Response } from "express";
 import cors from "cors";
 import compression from "compression";
-import { connectDB, checkMongoHealth } from "./config/mongodb";
-import { UserModel } from "./models/User.model";
-import { LessonModel, LessonProgressModel } from "./models/Lesson.model";
-import { AnalyticsModel } from "./models/Analytics.model";
-import { log } from "./utils/logger";
-import validateEnv from "./utils/env.mongo";
-import { apiLimiter } from "./middleware/rate-limit.middleware";
-import { requestLogger } from "./middleware/request-logger.middleware";
+import { connectDB, checkMongoHealth } from "./config/mongodb.js";
+import { UserModel } from "./models/User.model.js";
+import { LessonModel, LessonProgressModel } from "./models/Lesson.model.js";
+import { AnalyticsModel } from "./models/Analytics.model.js";
+import { log } from "./utils/logger.js";
+import validateEnv from "./utils/env.mongo.js";
+import { apiLimiter } from "./middleware/rate-limit.middleware.js";
+import { requestLogger } from "./middleware/request-logger.middleware.js";
 
 // Validate environment variables
 const env = validateEnv();
@@ -36,7 +36,7 @@ app.use(requestLogger);  // Enhanced request logging
 app.use(apiLimiter);    // Global rate limiting
 
 // Import routes
-import routes from "./routes/index.mongo";
+import routes from "./routes/index.mongo.js";
 
 // Use routes
 app.use("/api", routes);

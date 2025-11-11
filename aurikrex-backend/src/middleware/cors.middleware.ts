@@ -1,6 +1,6 @@
 import cors from 'cors';
 import { Request, Response } from 'express';
-import { log } from '../utils/logger';
+import { log } from '../utils/logger.js';
 
 // CORS configuration
 const corsOptions: cors.CorsOptions = {

@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { log } from './logger';
+import { log } from './logger.js';
 
 export interface TokenPayload {
   userId: string;

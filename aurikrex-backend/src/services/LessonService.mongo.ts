@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
-import { LessonModel, LessonDocument, LessonProgressModel } from '../models/Lesson.model';
-import { getErrorMessage } from '../utils/errors';
+import { LessonModel, LessonDocument, LessonProgressModel } from '../models/Lesson.model.js';
+import { getErrorMessage } from '../utils/errors.js';
 import {
   Lesson,
   LessonInput,
@@ -8,7 +8,7 @@ import {
   LessonProgress,
   PaginationParams,
   PaginatedResponse
-} from '../types/lesson.types';
+} from '../types/lesson.types.js';
 
 class LessonService {
   private openai: OpenAI;

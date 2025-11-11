@@ -1,6 +1,6 @@
 import { Collection, ObjectId, Filter, UpdateFilter } from 'mongodb';
-import { getDB } from '../config/mongodb';
-import { log } from '../utils/logger';
+import { getDB } from '../config/mongodb.js';
+import { log } from '../utils/logger.js';
 import bcrypt from 'bcryptjs';
 
 export interface UserDocument {
