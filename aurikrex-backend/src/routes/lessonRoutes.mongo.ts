@@ -9,9 +9,9 @@ import {
   updateProgress,
   getProgress,
   getUserProgress
-} from '../controllers/lessonController.mongo';
-import { validateRequest } from '../middleware/validation.middleware';
-import { authenticate, authorize, optionalAuth } from '../middleware/auth.middleware';
+} from '../controllers/lessonController.mongo.js';
+import { validateRequest } from '../middleware/validation.middleware.js';
+import { authenticate, authorize, optionalAuth } from '../middleware/auth.middleware.js';
 import rateLimit from 'express-rate-limit';
 
 const router = Router();

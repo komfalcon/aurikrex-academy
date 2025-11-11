@@ -1,5 +1,5 @@
 import rateLimit from 'express-rate-limit';
-import { log } from '../utils/logger';
+import { log } from '../utils/logger.js';
 
 // General API rate limit
 export const apiLimiter = rateLimit({

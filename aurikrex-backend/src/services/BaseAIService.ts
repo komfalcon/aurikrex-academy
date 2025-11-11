@@ -1,5 +1,5 @@
 import { Redis } from 'ioredis';
-import { log } from '../utils/logger';
+import { log } from '../utils/logger.js';
 import { 
   AIProvider, 
   AIServiceConfig,
@@ -11,8 +11,8 @@ import {
   ContentValidation,
   ImageAnalysis,
   AIModel
-} from '../types/ai.types';
-import { LessonInput, Lesson } from '../types/lesson.types';
+} from '../types/ai.types.js';
+import { LessonInput, Lesson } from '../types/lesson.types.js';
 
 // Forward declarations are not needed since we're using TypeScript imports
 

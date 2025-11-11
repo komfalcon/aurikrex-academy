@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { log } from './logger';
+import { log } from './logger.js';
 
 export class AppError extends Error {
   constructor(

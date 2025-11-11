@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
 import { config } from 'dotenv';
-import { getErrorMessage } from '../utils/errors';
-import { db } from '../config/firebase';
+import { getErrorMessage } from '../utils/errors.js';
+import { db } from '../config/firebase.js';
 
 config();
 

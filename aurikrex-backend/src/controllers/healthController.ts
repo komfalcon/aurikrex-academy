@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import os from 'os';
-import { log } from '../utils/logger';
+import { log } from '../utils/logger.js';
 
 export const systemInfo = async (_req: Request, res: Response): Promise<void> => {
   try {

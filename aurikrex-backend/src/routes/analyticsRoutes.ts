@@ -1,9 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { body, param } from 'express-validator';
-import { sanitizeAndValidate } from '../middleware/sanitization.middleware';
-import { AnalyticsService } from '../services/AnalyticsService';
-import { log } from '../utils/logger';
-import { analyticsLimiter } from '../middleware/rate-limit.middleware';
+import { sanitizeAndValidate } from '../middleware/sanitization.middleware.js';
+import { AnalyticsService } from '../services/AnalyticsService.js';
+import { log } from '../utils/logger.js';
+import { analyticsLimiter } from '../middleware/rate-limit.middleware.js';
 
 
 const router = Router();

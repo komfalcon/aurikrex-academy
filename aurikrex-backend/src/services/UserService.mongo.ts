@@ -1,10 +1,10 @@
-import { UserModel, UserDocument } from '../models/User.model';
-import { AuthUser, RegisterRequest } from '../types/auth.types';
-import { validateSchema } from '../utils/validation';
-import { registerSchema } from '../utils/schemas';
-import { withErrorHandling, AuthError } from '../utils/errors';
-import { getErrorMessage } from '../utils/errors';
-import { generateTokenPair, TokenPayload } from '../utils/jwt';
+import { UserModel, UserDocument } from '../models/User.model.js';
+import { AuthUser, RegisterRequest } from '../types/auth.types.js';
+import { validateSchema } from '../utils/validation.js';
+import { registerSchema } from '../utils/schemas.js';
+import { withErrorHandling, AuthError } from '../utils/errors.js';
+import { getErrorMessage } from '../utils/errors.js';
+import { generateTokenPair, TokenPayload } from '../utils/jwt.js';
 
 export class UserService {
   /**

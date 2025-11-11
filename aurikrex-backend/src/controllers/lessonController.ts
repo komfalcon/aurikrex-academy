@@ -1,14 +1,14 @@
 import { Request, Response } from 'express';
-import { LessonInput, Lesson, PaginationParams } from '../types/lesson.types';
-import { defaultConfig } from '../services/BaseAIService';
-import { GPTProvider } from '../services/GPTProvider';
-import { GeminiProvider } from '../services/GeminiProvider';
-import LessonService from '../services/LessonService';
-import { validateSchema } from '../utils/validation';
-import { ValidationError } from '../utils/errors';
-import { lessonInputSchema } from '../utils/schemas';
-import { log } from '../utils/logger';
-import { cacheManager } from '../utils/cacheManager';
+import { LessonInput, Lesson, PaginationParams } from '../types/lesson.types.js';
+import { defaultConfig } from '../services/BaseAIService.js';
+import { GPTProvider } from '../services/GPTProvider.js';
+import { GeminiProvider } from '../services/GeminiProvider.js';
+import LessonService from '../services/LessonService.js';
+import { validateSchema } from '../utils/validation.js';
+import { ValidationError } from '../utils/errors.js';
+import { lessonInputSchema } from '../utils/schemas.js';
+import { log } from '../utils/logger.js';
+import { cacheManager } from '../utils/cacheManager.js';
 
 import rateLimit from 'express-rate-limit';
 

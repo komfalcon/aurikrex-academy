@@ -1,6 +1,6 @@
 import { Collection, ObjectId } from 'mongodb';
-import { getDB } from '../config/mongodb';
-import { log } from '../utils/logger';
+import { getDB } from '../config/mongodb.js';
+import { log } from '../utils/logger.js';
 
 export interface LessonAnalyticsDocument {
   _id?: ObjectId;
