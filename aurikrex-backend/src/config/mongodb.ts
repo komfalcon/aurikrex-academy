@@ -32,7 +32,18 @@ class MongoDB {
     const uri = process.env.MONGO_URI;
     
     if (!uri) {
-      throw new Error('MONGO_URI environment variable is not set');
+      const errorMsg = 'MONGO_URI environment variable is not set. Please check your .env file.';
+      console.error('❌ Configuration Error:', errorMsg);
+      console.error('💡 Hint: Copy .env.example to .env and update the MONGO_URI value');
+      throw new Error(errorMsg);
+    }
+
+    // Validate URI format
+    if (!uri.startsWith('mongodb://') && !uri.startsWith('mongodb+srv://')) {
+      const errorMsg = 'MONGO_URI must start with mongodb:// or mongodb+srv://';
+      console.error('❌ Configuration Error:', errorMsg);
+      console.error('💡 Current URI format:', uri.substring(0, 20) + '...');
+      throw new Error(errorMsg);
     }
 
     // Extract database name from URI or use default
@@ -65,11 +76,27 @@ class MongoDB {
       this.connectionStatus = 'connecting';
       const config = this.getConfig();
 
+      // Extract host information for better diagnostics (without exposing credentials)
+      let hostInfo = 'MongoDB';
+      try {
+        const url = new URL(config.uri.replace('mongodb+srv://', 'https://').replace('mongodb://', 'http://'));
+        hostInfo = url.hostname;
+      } catch (e) {
+        // Ignore URL parsing errors
+      }
+
       log.info('🔌 Connecting to MongoDB Atlas...', {
         dbName: config.dbName,
-        // Don't log the full URI for security
-        uriPrefix: config.uri.substring(0, 20) + '...'
+        host: hostInfo,
+        attempt: this.reconnectAttempts + 1,
+        maxAttempts: this.maxReconnectAttempts,
+        timeout: `${config.options.serverSelectionTimeoutMS}ms`
       });
+
+      console.log(`🔌 Attempting MongoDB connection (${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})...`);
+      console.log(`  Database: ${config.dbName}`);
+      console.log(`  Host: ${hostInfo}`);
+      console.log(`  Timeout: ${config.options.serverSelectionTimeoutMS}ms`);
 
       this.client = new MongoClient(config.uri, config.options);
       await this.client.connect();
@@ -92,11 +119,37 @@ class MongoDB {
       this.connectionStatus = 'error';
       this.reconnectAttempts++;
       
-      log.error('❌ MongoDB connection failed', {
-        error: error instanceof Error ? error.message : String(error),
-        attempt: this.reconnectAttempts
-      });
+      // Enhanced error logging with more details
+      const errorDetails: any = {
+        message: error instanceof Error ? error.message : String(error),
+        attempt: this.reconnectAttempts,
+        maxAttempts: this.maxReconnectAttempts
+      };
 
+      // Add MongoDB-specific error details if available
+      if (error && typeof error === 'object') {
+        const mongoError = error as any;
+        if (mongoError.code) errorDetails.code = mongoError.code;
+        if (mongoError.codeName) errorDetails.codeName = mongoError.codeName;
+        if (mongoError.cause) errorDetails.cause = mongoError.cause;
+        if (mongoError.name) errorDetails.name = mongoError.name;
+      }
+
+      // Include stack trace for debugging
+      if (error instanceof Error && error.stack) {
+        errorDetails.stack = error.stack;
+      }
+
+      log.error('❌ MongoDB connection failed', errorDetails);
+
+      // Also log to console for immediate visibility during development
+      console.error('❌ MongoDB Connection Error Details:');
+      console.error('  Message:', errorDetails.message);
+      console.error('  Attempt:', `${errorDetails.attempt}/${errorDetails.maxAttempts}`);
+      if (errorDetails.code) console.error('  Error Code:', errorDetails.code);
+      if (errorDetails.codeName) console.error('  Error Name:', errorDetails.codeName);
+      if (errorDetails.cause) console.error('  Root Cause:', errorDetails.cause);
+      
       if (this.reconnectAttempts < this.maxReconnectAttempts) {
         const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
         log.info(`🔄 Retrying connection in ${delay}ms...`);
@@ -105,7 +158,28 @@ class MongoDB {
         return this.connect();
       }
 
-      throw new Error(`Failed to connect to MongoDB after ${this.maxReconnectAttempts} attempts`);
+      // All retries exhausted - provide troubleshooting guidance
+      console.error('\n' + '='.repeat(70));
+      console.error('❌ MONGODB CONNECTION FAILED - All retry attempts exhausted');
+      console.error('='.repeat(70));
+      console.error('\n💡 Troubleshooting steps:');
+      console.error('  1. Verify your .env file exists and contains MONGO_URI');
+      console.error('  2. Check if MongoDB Atlas IP whitelist includes your current IP');
+      console.error('  3. Verify MongoDB credentials are correct');
+      console.error('  4. Ensure your network allows connections to MongoDB Atlas');
+      console.error('  5. Check if MongoDB Atlas cluster is running');
+      console.error('\n📝 Common error codes:');
+      console.error('  - ENOTFOUND: DNS lookup failed (check connection string)');
+      console.error('  - ETIMEDOUT: Connection timeout (check firewall/IP whitelist)');
+      console.error('  - Authentication failed: Wrong username/password');
+      console.error('='.repeat(70) + '\n');
+
+      // Create a more informative final error message
+      const finalErrorMsg = error instanceof Error 
+        ? `Failed to connect to MongoDB after ${this.maxReconnectAttempts} attempts: ${error.message}`
+        : `Failed to connect to MongoDB after ${this.maxReconnectAttempts} attempts`;
+      
+      throw new Error(finalErrorMsg);
     }
   }
 
