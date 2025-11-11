@@ -1,4 +1,4 @@
-import { Collection, ObjectId, Filter } from 'mongodb';
+import { Collection, ObjectId } from 'mongodb';
 import { getDB } from '../config/mongodb';
 import { log } from '../utils/logger';
 

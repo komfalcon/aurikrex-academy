@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import { userService } from '../services/UserService.mongo';
 import { emailService } from '../services/EmailService';
 import { getErrorMessage } from '../utils/errors';
-import { log } from '../utils/logger';
 
 interface SignupRequest {
   firstName: string;
@@ -33,7 +32,7 @@ interface ResendOTPRequest {
  */
 export const signup = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { firstName, lastName, email, password, phone, role }: SignupRequest = req.body;
+    const { firstName, lastName, email, password, role }: SignupRequest = req.body;
 
     console.log('🔐 Signup request received for:', email);
 
@@ -54,7 +53,7 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
       email,
       password,
       displayName,
-      role: role || 'student',
+      role: (role && ['student', 'instructor'].includes(role)) ? role : 'student',
     });
 
     console.log('✅ User registered successfully:', result.user.email);
