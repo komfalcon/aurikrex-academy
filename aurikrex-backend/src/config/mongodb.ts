@@ -1,4 +1,4 @@
-import { MongoClient, Db, MongoClientOptions } from 'mongodb';
+import { MongoClient, Db, MongoClientOptions, ServerApiVersion } from 'mongodb';
 import { config } from 'dotenv';
 import { log } from '../utils/logger.js';
 
@@ -50,6 +50,11 @@ class MongoDB {
     const dbName = process.env.MONGO_DB_NAME || 'aurikrex-academy';
 
     const options: MongoClientOptions = {
+      serverApi: {
+        version: ServerApiVersion.v1,
+        strict: true,
+        deprecationErrors: true,
+      },
       maxPoolSize: 10,
       minPoolSize: 2,
       serverSelectionTimeoutMS: 30000,  // Increased to 30s for MongoDB Atlas reliability
