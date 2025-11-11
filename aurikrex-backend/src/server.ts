@@ -125,7 +125,10 @@ async function initializeDatabase() {
 
   } catch (error) {
     console.error('❌ Database initialization failed:', error);
-    throw error;
+    console.warn('⚠️  Server will start without database connection');
+    console.warn('⚠️  Database-dependent features will be unavailable');
+    console.warn('⚠️  Check /health endpoint for connection status');
+    // Don't throw - allow server to start without database
   }
 }
 
@@ -156,7 +159,7 @@ let server: any;
 
 async function startServer() {
   try {
-    // Initialize database first
+    // Initialize database (non-blocking - server will start even if this fails)
     await initializeDatabase();
 
     // Start HTTP server
