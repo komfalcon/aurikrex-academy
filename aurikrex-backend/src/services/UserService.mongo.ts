@@ -5,7 +5,6 @@ import { registerSchema } from '../utils/schemas';
 import { withErrorHandling, AuthError } from '../utils/errors';
 import { getErrorMessage } from '../utils/errors';
 import { generateTokenPair, TokenPayload } from '../utils/jwt';
-import { log } from '../utils/logger';
 
 export class UserService {
   /**
@@ -272,7 +271,12 @@ export class UserService {
       },
       metadata: {
         creationTime: doc.createdAt.toISOString(),
-        lastSignInTime: doc.lastLogin?.toISOString() || doc.createdAt.toISOString()
+        lastSignInTime: doc.lastLogin?.toISOString() || doc.createdAt.toISOString(),
+        toJSON: () => ({
+          creationTime: doc.createdAt.toISOString(),
+          lastSignInTime: doc.lastLogin?.toISOString() || doc.createdAt.toISOString(),
+          lastRefreshTime: null
+        })
       },
       providerData: [],
       tokensValidAfterTime: doc.createdAt.toISOString()

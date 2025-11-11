@@ -6,7 +6,7 @@ import { UserModel } from "./models/User.model";
 import { LessonModel, LessonProgressModel } from "./models/Lesson.model";
 import { AnalyticsModel } from "./models/Analytics.model";
 import { log } from "./utils/logger";
-import validateEnv from "./utils/env";
+import validateEnv from "./utils/env.mongo";
 import { apiLimiter } from "./middleware/rate-limit.middleware";
 import { requestLogger } from "./middleware/request-logger.middleware";
 
@@ -36,7 +36,7 @@ app.use(requestLogger);  // Enhanced request logging
 app.use(apiLimiter);    // Global rate limiting
 
 // Import routes
-import routes from "./routes/index";
+import routes from "./routes/index.mongo";
 
 // Use routes
 app.use("/api", routes);

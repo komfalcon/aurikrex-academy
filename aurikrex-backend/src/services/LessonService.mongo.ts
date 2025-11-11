@@ -1,7 +1,6 @@
 import OpenAI from 'openai';
 import { LessonModel, LessonDocument, LessonProgressModel } from '../models/Lesson.model';
 import { getErrorMessage } from '../utils/errors';
-import { log } from '../utils/logger';
 import {
   Lesson,
   LessonInput,
