@@ -1,9 +1,9 @@
 import { Router } from "express";
-import authRoutes from "./authRoutes.mongo";
-import lessonRoutes from "./lessonRoutes.mongo";
-import analyticsRoutes from "./analyticsRoutes.mongo";
-import testRoutes from "./testRoutes";
-import healthRoutes from "./healthRoutes";
+import authRoutes from "./authRoutes.mongo.js";
+import lessonRoutes from "./lessonRoutes.mongo.js";
+import analyticsRoutes from "./analyticsRoutes.mongo.js";
+import testRoutes from "./testRoutes.js";
+import healthRoutes from "./healthRoutes.js";
 
 const router = Router();
 

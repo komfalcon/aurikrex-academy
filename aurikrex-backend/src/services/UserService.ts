@@ -1,11 +1,11 @@
-import { auth, db } from '../config/firebase';
-import { AuthUser, RegisterRequest } from '../types/auth.types';
-import { validateSchema } from '../utils/validation';
-import { registerSchema } from '../utils/schemas';
-import { withErrorHandling } from '../utils/errors';
-import { getErrorMessage } from '../utils/errors';
+import { auth, db } from '../config/firebase.js';
+import { AuthUser, RegisterRequest } from '../types/auth.types.js';
+import { validateSchema } from '../utils/validation.js';
+import { registerSchema } from '../utils/schemas.js';
+import { withErrorHandling } from '../utils/errors.js';
+import { getErrorMessage } from '../utils/errors.js';
 import { UserRecord, UpdateRequest } from 'firebase-admin/auth';
-import { AuthError } from '../utils/errors';
+import { AuthError } from '../utils/errors.js';
 import { FieldPath } from 'firebase-admin/firestore';
 
 export class UserService {

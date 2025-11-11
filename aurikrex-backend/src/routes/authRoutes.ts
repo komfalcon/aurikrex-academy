@@ -7,8 +7,8 @@ import {
   resendOTP,
   googleSignIn,
   getCurrentUser,
-} from '../controllers/authController';
-import { validateRequest } from '../middleware/validation.middleware';
+} from '../controllers/authController.js';
+import { validateRequest } from '../middleware/validation.middleware.js';
 
 const router = Router();
 

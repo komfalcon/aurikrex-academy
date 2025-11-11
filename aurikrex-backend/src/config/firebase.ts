@@ -1,6 +1,6 @@
 import admin from "firebase-admin";
 import { config } from "dotenv";
-import { getErrorMessage } from "../utils/errors";
+import { getErrorMessage } from "../utils/errors.js";
 
 // Load environment variables from .env file
 config();
