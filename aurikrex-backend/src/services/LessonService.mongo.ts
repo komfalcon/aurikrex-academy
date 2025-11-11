@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
-import { LessonModel, LessonDocument, LessonProgressModel } from '../models/Lesson.model';
-import { getErrorMessage } from '../utils/errors';
+import { LessonModel, LessonDocument, LessonProgressModel } from '../models/Lesson.model.js';
+import { getErrorMessage } from '../utils/errors.js';
 import {
   Lesson,
   LessonInput,
@@ -8,7 +8,7 @@ import {
   LessonProgress,
   PaginationParams,
   PaginatedResponse
-} from '../types/lesson.types';
+} from '../types/lesson.types.js';
 
 class LessonService {
   private openai: OpenAI;
@@ -337,12 +337,14 @@ class LessonService {
 class LessonGenerationError extends Error {
   code: string;
   details?: unknown;
+  cause?: unknown;
 
   constructor(message: string, options?: { cause?: unknown; code?: string; details?: unknown }) {
-    super(message, { cause: options?.cause });
+    super(message);
     this.name = 'LessonGenerationError';
     this.code = options?.code || 'UNKNOWN_ERROR';
     this.details = options?.details;
+    this.cause = options?.cause;
   }
 }
 

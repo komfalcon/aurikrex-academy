@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { log } from './logger';
+import { log } from './logger.js';
 
 export interface TokenPayload {
   userId: string;
@@ -22,7 +22,7 @@ const REFRESH_TOKEN_EXPIRY = (process.env.REFRESH_TOKEN_EXPIRY || '7d') as strin
 export function generateAccessToken(payload: TokenPayload): string {
   try {
     const options: jwt.SignOptions = {
-      expiresIn: ACCESS_TOKEN_EXPIRY,
+      expiresIn: ACCESS_TOKEN_EXPIRY as any,
       issuer: 'aurikrex-academy',
       audience: 'aurikrex-api'
     };
@@ -46,7 +46,7 @@ export function generateAccessToken(payload: TokenPayload): string {
 export function generateRefreshToken(payload: TokenPayload): string {
   try {
     const options: jwt.SignOptions = {
-      expiresIn: REFRESH_TOKEN_EXPIRY,
+      expiresIn: REFRESH_TOKEN_EXPIRY as any,
       issuer: 'aurikrex-academy',
       audience: 'aurikrex-api'
     };

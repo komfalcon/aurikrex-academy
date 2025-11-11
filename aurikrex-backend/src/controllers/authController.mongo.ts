@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
-import { userService } from '../services/UserService.mongo';
-import { emailService } from '../services/EmailService';
-import { getErrorMessage } from '../utils/errors';
+import { userService } from '../services/UserService.mongo.js';
+import { emailService } from '../services/EmailService.js';
+import { getErrorMessage } from '../utils/errors.js';
 
 interface SignupRequest {
   firstName: string;
@@ -53,7 +53,7 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
       email,
       password,
       displayName,
-      role: (role && ['student', 'instructor'].includes(role)) ? role : 'student',
+      role: (role && ['student', 'instructor', 'admin'].includes(role)) ? role as 'student' | 'instructor' : 'student',
     });
 
     console.log('✅ User registered successfully:', result.user.email);

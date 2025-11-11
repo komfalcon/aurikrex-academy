@@ -1,11 +1,11 @@
 import { Request, Response } from 'express';
-import { LessonInput } from '../types/lesson.types';
-import LessonService from '../services/LessonService.mongo';
-import { validateSchema } from '../utils/validation';
-import { ValidationError } from '../utils/errors';
-import { lessonInputSchema } from '../utils/schemas';
-import { log } from '../utils/logger';
-import { AnalyticsService } from '../services/AnalyticsService.mongo';
+import { LessonInput } from '../types/lesson.types.js';
+import LessonService from '../services/LessonService.mongo.js';
+import { validateSchema } from '../utils/validation.js';
+import { ValidationError } from '../utils/errors.js';
+import { lessonInputSchema } from '../utils/schemas.js';
+import { log } from '../utils/logger.js';
+import { AnalyticsService } from '../services/AnalyticsService.mongo.js';
 
 /**
  * Generate a new lesson
