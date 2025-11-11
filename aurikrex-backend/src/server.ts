@@ -1,9 +1,12 @@
 import express, { NextFunction, Request, Response } from "express";
 import cors from "cors";
 import compression from "compression";
-import { db, auth, storage } from "./config/firebase.js";
+import { connectDB, checkMongoHealth } from "./config/mongodb.js";
+import { UserModel } from "./models/User.model.js";
+import { LessonModel, LessonProgressModel } from "./models/Lesson.model.js";
+import { AnalyticsModel } from "./models/Analytics.model.js";
 import { log } from "./utils/logger.js";
-import validateEnv from "./utils/env.js";
+import validateEnv from "./utils/env.mongo.js";
 import { apiLimiter } from "./middleware/rate-limit.middleware.js";
 import { requestLogger } from "./middleware/request-logger.middleware.js";
 
@@ -41,33 +44,31 @@ app.use("/api", routes);
 // Health check route
 app.get("/health", async (_req: Request, res: Response) => {
   try {
-    const [dbCheck, authCheck, storageCheck] = await Promise.all([
-      db.collection("healthCheck").doc("test").get(),
-      auth.listUsers(1),
-      storage.bucket()
-    ]);
+    console.log('🏥 Health check requested');
+    
+    const mongoHealth = await checkMongoHealth();
 
     res.status(200).json({
       status: "ok",
       timestamp: new Date().toISOString(),
       environment: NODE_ENV,
       services: {
-        database: dbCheck.exists ? "connected" : "no-data",
-        auth: authCheck ? "connected" : "error",
-        storage: storageCheck ? "connected" : "error"
+        database: mongoHealth.status,
+        databaseLatency: `${mongoHealth.latency}ms`,
+        collections: mongoHealth.collections
       },
       message: "Aurikrex Backend is healthy!"
     });
   } catch (error) {
     const apiError = error as ApiError;
+    console.error('❌ Health check failed:', apiError.message);
+    
     res.status(500).json({
       status: "error",
       timestamp: new Date().toISOString(),
       environment: NODE_ENV,
       services: {
-        database: "disconnected",
-        auth: "disconnected",
-        storage: "disconnected"
+        database: "disconnected"
       },
       error: {
         message: apiError.message,
@@ -103,14 +104,43 @@ app.use((err: ApiError, req: Request, res: Response, _next: NextFunction) => {
   });
 });
 
+// Initialize MongoDB connection and indexes
+async function initializeDatabase() {
+  try {
+    console.log('🔌 Initializing MongoDB connection...');
+    
+    // Connect to MongoDB
+    await connectDB();
+    console.log('✅ MongoDB connected successfully');
+
+    // Create indexes for optimal performance
+    console.log('📊 Creating database indexes...');
+    await Promise.all([
+      UserModel.createIndexes(),
+      LessonModel.createIndexes(),
+      LessonProgressModel.createIndexes(),
+      AnalyticsModel.createIndexes()
+    ]);
+    console.log('✅ Database indexes created successfully');
+
+  } catch (error) {
+    console.error('❌ Database initialization failed:', error);
+    throw error;
+  }
+}
+
 // Graceful shutdown
 const gracefulShutdown = (signal: string) => {
   log.info(`Starting graceful shutdown`, { signal });
   
-  server.close(() => {
-    log.info("HTTP server closed");
+  if (server) {
+    server.close(() => {
+      log.info("HTTP server closed");
+      process.exit(0);
+    });
+  } else {
     process.exit(0);
-  });
+  }
 };
 
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
@@ -122,11 +152,36 @@ process.on("unhandledRejection", (reason: unknown) => {
 });
 
 // Start server
-const server = app.listen(PORT, () => {
-  log.info(`Server started`, {
-    environment: NODE_ENV,
-    port: PORT,
-    allowedOrigins: ALLOWED_ORIGINS,
-    startTime: new Date().toISOString()
-  });
-});
+let server: any;
+
+async function startServer() {
+  try {
+    // Initialize database first
+    await initializeDatabase();
+
+    // Start HTTP server
+    server = app.listen(PORT, () => {
+      log.info(`Server started`, {
+        environment: NODE_ENV,
+        port: PORT,
+        allowedOrigins: ALLOWED_ORIGINS,
+        startTime: new Date().toISOString()
+      });
+      
+      console.log(`\n${'='.repeat(60)}`);
+      console.log(`🚀 Aurikrex Academy Backend Server`);
+      console.log(`${'='.repeat(60)}`);
+      console.log(`📍 Environment: ${NODE_ENV}`);
+      console.log(`🌐 Port: ${PORT}`);
+      console.log(`🔗 API URL: http://localhost:${PORT}/api`);
+      console.log(`🏥 Health Check: http://localhost:${PORT}/health`);
+      console.log(`${'='.repeat(60)}\n`);
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+// Start the server
+startServer();

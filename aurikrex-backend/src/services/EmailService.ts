@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
 import { config } from 'dotenv';
 import { getErrorMessage } from '../utils/errors.js';
-import { db } from '../config/firebase.js';
+import { getDB } from '../config/mongodb.js';
 
 config();
 
@@ -37,10 +37,11 @@ export class EmailService {
   }
 
   /**
-   * Store OTP in Firestore with 10-minute expiry
+   * Store OTP in MongoDB with 10-minute expiry
    */
   async storeOTP(email: string, otp: string, firstName: string): Promise<void> {
     try {
+      const db = getDB();
       const createdAt = new Date();
       const expiresAt = new Date(createdAt.getTime() + 10 * 60 * 1000); // 10 minutes
 
@@ -52,7 +53,11 @@ export class EmailService {
         expiresAt,
       };
 
-      await db.collection('otpVerifications').doc(email).set(otpData);
+      await db.collection('otpVerifications').updateOne(
+        { email },
+        { $set: otpData },
+        { upsert: true }
+      );
       console.log(`OTP stored for ${email}, expires at ${expiresAt.toISOString()}`);
     } catch (error) {
       console.error('Error storing OTP:', getErrorMessage(error));
@@ -61,28 +66,28 @@ export class EmailService {
   }
 
   /**
-   * Verify OTP from Firestore
+   * Verify OTP from MongoDB
    */
   async verifyOTP(email: string, otp: string): Promise<boolean> {
     try {
-      const doc = await db.collection('otpVerifications').doc(email).get();
+      const db = getDB();
+      const doc = await db.collection('otpVerifications').findOne({ email });
 
-      if (!doc.exists) {
+      if (!doc) {
         return false;
       }
 
-      const data = doc.data() as OTPData;
+      const data = doc as unknown as OTPData;
       const now = new Date();
 
       // Check if OTP has expired
-      // Handle both Firestore Timestamp and Date objects
       const expiresAt = data.expiresAt instanceof Date 
         ? data.expiresAt 
-        : new Date((data.expiresAt as any).toDate());
+        : new Date(data.expiresAt);
       
       if (now > expiresAt) {
         // Delete expired OTP
-        await db.collection('otpVerifications').doc(email).delete();
+        await db.collection('otpVerifications').deleteOne({ email });
         return false;
       }
 
@@ -92,7 +97,7 @@ export class EmailService {
       }
 
       // OTP is valid, delete it (one-time use)
-      await db.collection('otpVerifications').doc(email).delete();
+      await db.collection('otpVerifications').deleteOne({ email });
       return true;
     } catch (error) {
       console.error('Error verifying OTP:', getErrorMessage(error));

@@ -282,14 +282,17 @@ export class UserModel {
       const collection = this.getCollection();
       const _id = typeof userId === 'string' ? new ObjectId(userId) : userId;
 
+      const updateFields: any = {
+        updatedAt: new Date()
+      };
+      
+      if (Object.keys(progressData).length > 0) {
+        updateFields.progress = progressData;
+      }
+
       const result = await collection.findOneAndUpdate(
         { _id },
-        {
-          $set: {
-            ...Object.keys(progressData).length > 0 && { progress: progressData },
-            updatedAt: new Date()
-          }
-        },
+        { $set: updateFields },
         { returnDocument: 'after' }
       );
 
