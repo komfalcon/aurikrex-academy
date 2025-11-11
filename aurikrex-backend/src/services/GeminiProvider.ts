@@ -1,12 +1,12 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { BaseAIProvider } from './BaseAIService';
+import { BaseAIProvider } from './BaseAIService.js';
 import { 
   AIResponse, 
   AIServiceConfig,
   ContentValidation,
   ImageAnalysis
-} from '../types/ai.types';
-import { LessonInput, Lesson } from '../types/lesson.types';
+} from '../types/ai.types.js';
+import { LessonInput, Lesson } from '../types/lesson.types.js';
 
 export class GeminiProvider extends BaseAIProvider {
   private genAI: GoogleGenerativeAI;

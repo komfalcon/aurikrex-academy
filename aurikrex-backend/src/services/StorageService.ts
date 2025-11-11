@@ -1,7 +1,7 @@
-import { storage } from '../config/firebase';
-import { getErrorMessage } from '../utils/errors';
-import { log } from '../utils/logger';
-import { AppError } from '../utils/errors';
+import { storage } from '../config/firebase.js';
+import { getErrorMessage } from '../utils/errors.js';
+import { log } from '../utils/logger.js';
+import { AppError } from '../utils/errors.js';
 
 class StorageError extends AppError {
   constructor(

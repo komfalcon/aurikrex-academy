@@ -7,9 +7,9 @@ import {
   resendOTP,
   getCurrentUser,
   refreshToken
-} from '../controllers/authController.mongo';
-import { validateRequest } from '../middleware/validation.middleware';
-import { authenticate } from '../middleware/auth.middleware';
+} from '../controllers/authController.mongo.js';
+import { validateRequest } from '../middleware/validation.middleware.js';
+import { authenticate } from '../middleware/auth.middleware.js';
 
 const router = Router();
 

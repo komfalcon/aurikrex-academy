@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
-import { userService } from '../services/UserService.mongo';
-import { emailService } from '../services/EmailService';
-import { getErrorMessage } from '../utils/errors';
+import { userService } from '../services/UserService.mongo.js';
+import { emailService } from '../services/EmailService.js';
+import { getErrorMessage } from '../utils/errors.js';
 
 interface SignupRequest {
   firstName: string;

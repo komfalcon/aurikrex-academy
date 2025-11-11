@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { AnalyticsService } from '../services/AnalyticsService.mongo';
-import { log } from '../utils/logger';
+import { AnalyticsService } from '../services/AnalyticsService.mongo.js';
+import { log } from '../utils/logger.js';
 
 /**
  * Track lesson completion

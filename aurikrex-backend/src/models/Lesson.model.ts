@@ -1,7 +1,7 @@
 import { Collection, ObjectId, Filter, UpdateFilter } from 'mongodb';
-import { getDB } from '../config/mongodb';
-import { log } from '../utils/logger';
-import { Lesson, LessonProgress } from '../types/lesson.types';
+import { getDB } from '../config/mongodb.js';
+import { log } from '../utils/logger.js';
+import { Lesson, LessonProgress } from '../types/lesson.types.js';
 
 export interface LessonDocument extends Omit<Lesson, 'id' | 'createdAt' | 'updatedAt'> {
   _id?: ObjectId;

@@ -6,9 +6,9 @@ import {
   getLessonAnalytics,
   getUserEngagement,
   getAllUserEngagement
-} from '../controllers/analyticsController.mongo';
-import { validateRequest } from '../middleware/validation.middleware';
-import { authenticate, authorize } from '../middleware/auth.middleware';
+} from '../controllers/analyticsController.mongo.js';
+import { validateRequest } from '../middleware/validation.middleware.js';
+import { authenticate, authorize } from '../middleware/auth.middleware.js';
 
 const router = Router();
 

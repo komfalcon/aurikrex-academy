@@ -5,9 +5,9 @@ import {
   listLessons,
   getLessonProgress,
   updateLessonProgress 
-} from '../controllers/lessonController';
-import { apiLimiter, lessonGenerationLimiter } from '../middleware/rate-limit.middleware';
-import { sanitizeAndValidate } from '../middleware/sanitization.middleware';
+} from '../controllers/lessonController.js';
+import { apiLimiter, lessonGenerationLimiter } from '../middleware/rate-limit.middleware.js';
+import { sanitizeAndValidate } from '../middleware/sanitization.middleware.js';
 import { body, query, param } from 'express-validator';
 
 const router = Router();
