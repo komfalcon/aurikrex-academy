@@ -172,6 +172,9 @@ class MongoDB {
       console.error('  - ENOTFOUND: DNS lookup failed (check connection string)');
       console.error('  - ETIMEDOUT: Connection timeout (check firewall/IP whitelist)');
       console.error('  - Authentication failed: Wrong username/password');
+      console.error('\n🔑 Forgot your password?');
+      console.error('  See MONGODB_TROUBLESHOOTING.md for detailed password recovery steps');
+      console.error('  Quick: Login to https://cloud.mongodb.com/ → Database Access → Edit User');
       console.error('='.repeat(70) + '\n');
 
       // Create a more informative final error message

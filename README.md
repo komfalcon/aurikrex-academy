@@ -67,6 +67,7 @@ aurikrex-academy/
 ## 📚 Documentation
 
 - **[Firebase Deployment Guide](./FIREBASE_DEPLOYMENT.md)** - Complete deployment instructions
+- **[MongoDB Troubleshooting Guide](./MONGODB_TROUBLESHOOTING.md)** - Password recovery and connection issues
 - **[Frontend Integration Guide](./FRONTEND_INTEGRATION.md)** - Frontend setup and API integration
 - **[Functions README](./functions/README.md)** - Backend Cloud Functions documentation
 - **[Authentication Documentation](./AUTH_DOCUMENTATION.md)** - Authentication flow and implementation
@@ -292,6 +293,11 @@ firebase functions:log --since 1h
 ## 🐛 Troubleshooting
 
 ### Common Issues
+
+**MongoDB Connection Failed**
+- See [MONGODB_TROUBLESHOOTING.md](./MONGODB_TROUBLESHOOTING.md) for comprehensive guide
+- Quick fix: Check IP whitelist in MongoDB Atlas Network Access
+- Reset password: MongoDB Atlas → Database Access → Edit User
 
 **Functions won't deploy**
 ```bash
