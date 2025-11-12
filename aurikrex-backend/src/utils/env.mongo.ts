@@ -61,7 +61,7 @@ const envVars = {
   // Security settings
   ALLOWED_ORIGINS: {
     required: false,
-    default: 'http://localhost:3000',
+    default: 'https://aurikrex-backend.onrender.com',
     validate: (value: string) => value.split(',').every(origin => 
       origin === '*' || origin.startsWith('http://') || origin.startsWith('https://')
     ),

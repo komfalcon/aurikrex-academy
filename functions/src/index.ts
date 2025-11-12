@@ -24,7 +24,7 @@ const app = express();
 // For production, use: firebase functions:config:set app.allowed_origins="https://yourdomain.com"
 const isDevelopment = process.env.NODE_ENV !== 'production';
 const ALLOWED_ORIGINS = isDevelopment 
-  ? ["http://localhost:3000", "http://localhost:5173", "http://localhost:5000"]
+  ? ["http://localhost:3000", "http://localhost:5173", "https://aurikrex-backend.onrender.com"]
   : (functions.config().app?.allowed_origins || "").split(",");
 
 // Middleware
