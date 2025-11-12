@@ -52,7 +52,7 @@ class MongoDB {
     const options: MongoClientOptions = {
       serverApi: {
         version: ServerApiVersion.v1,
-        strict: true,
+        strict: false,  // Allow text indexes to be created
         deprecationErrors: true,
       },
       maxPoolSize: 10,
