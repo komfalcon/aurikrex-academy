@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, ArrowLeft, Sparkles } from 'lucide-react';
@@ -34,8 +34,8 @@ export default function VerifyEmail() {
     }
   }, [countdown]);
 
-  const handleVerify = async () => {
-    if (otp.length !== 6) {
+  const handleVerify = useCallback(async (otpValue: string) => {
+    if (otpValue.length !== 6) {
       toast.error('Please enter the complete 6-digit code');
       return;
     }
@@ -45,7 +45,7 @@ export default function VerifyEmail() {
       const response = await fetch(`${API_URL}/auth/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, otp }),
+        body: JSON.stringify({ email, otp: otpValue }),
       });
 
       const data = await response.json();
@@ -75,7 +75,7 @@ export default function VerifyEmail() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [email, navigate]);
 
   const handleResendOTP = async () => {
     setIsResending(true);
@@ -106,9 +106,9 @@ export default function VerifyEmail() {
   // Auto-submit when all 6 digits are entered
   useEffect(() => {
     if (otp.length === 6 && !isLoading) {
-      handleVerify();
+      handleVerify(otp);
     }
-  }, [otp]);
+  }, [otp, isLoading, handleVerify]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-900 via-blue-900 to-purple-800 px-4 py-8 font-poppins">

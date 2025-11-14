@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { User, Mail, Phone, Lock, ArrowLeft, Sparkles, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL as string || 'http://localhost:5000/api';
 
 export default function Signup() {
   const [firstName, setFirstName] = useState('');
@@ -87,7 +87,7 @@ export default function Signup() {
         setError(data.message || 'Registration failed. Please try again.');
         toast.error(data.message || 'Registration failed. Please try again.');
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Signup error:', err);
       setError('Network error. Please check your connection and try again.');
       toast.error('Network error. Please check your connection and try again.');
@@ -103,15 +103,16 @@ export default function Signup() {
       await signInWithGoogle();
       toast.success('Signed in with Google successfully! 🎉');
       navigate('/dashboard');
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      if (err.code === 'auth/popup-closed-by-user') {
+      const error = err as { code?: string; message?: string };
+      if (error.code === 'auth/popup-closed-by-user') {
         setError('Sign-in cancelled');
         toast.error('Sign-in cancelled');
-      } else if (err.code === 'auth/popup-blocked') {
+      } else if (error.code === 'auth/popup-blocked') {
         setError('Pop-up blocked. Please enable pop-ups');
         toast.error('Pop-up blocked. Please enable pop-ups for this site');
-      } else if (err.message?.includes('No email')) {
+      } else if (error.message?.includes('No email')) {
         setError('No email associated with this Google account');
         toast.error('No email associated with this Google account');
       } else {

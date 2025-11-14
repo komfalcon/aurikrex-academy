@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth as firebaseAuth } from '../config/firebase';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL as string || 'http://localhost:5000/api';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -94,12 +94,13 @@ export default function Login() {
         toast.error(data.message || 'Invalid email or password');
         await firebaseAuth.signOut();
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Login error:', err);
-      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
+      const error = err as { code?: string };
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
         setError('Invalid email or password');
         toast.error('Invalid email or password');
-      } else if (err.code === 'auth/too-many-requests') {
+      } else if (error.code === 'auth/too-many-requests') {
         setError('Too many failed attempts. Please try again later.');
         toast.error('Too many failed attempts. Please try again later.');
       } else {
@@ -110,7 +111,6 @@ export default function Login() {
       setIsLoading(false);
     }
   };
-
   const handleGoogleSignIn = async () => {
     setError('');
     setIsLoading(true);
@@ -119,15 +119,16 @@ export default function Login() {
       const user = JSON.parse(localStorage.getItem('aurikrex-user') || '{}');
       toast.success(`Welcome back, ${user.firstName || user.name}! 🎉`);
       navigate('/dashboard');
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      if (err.code === 'auth/popup-closed-by-user') {
+      const error = err as { code?: string; message?: string };
+      if (error.code === 'auth/popup-closed-by-user') {
         setError('Sign-in cancelled');
         toast.error('Sign-in cancelled');
-      } else if (err.code === 'auth/popup-blocked') {
+      } else if (error.code === 'auth/popup-blocked') {
         setError('Pop-up blocked. Please enable pop-ups for this site');
         toast.error('Pop-up blocked. Please enable pop-ups for this site');
-      } else if (err.message?.includes('No email')) {
+      } else if (error.message?.includes('No email')) {
         setError('No email associated with this Google account');
         toast.error('No email associated with this Google account');
       } else {

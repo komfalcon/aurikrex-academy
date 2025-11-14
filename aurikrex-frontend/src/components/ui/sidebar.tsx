@@ -635,3 +635,6 @@ export {
   SidebarTrigger,
   useSidebar,
 };
+
+// eslint-disable-next-line react-refresh/only-export-components
+export { SIDEBAR_COOKIE_NAME, SIDEBAR_COOKIE_MAX_AGE, SIDEBAR_WIDTH, SIDEBAR_WIDTH_MOBILE, SIDEBAR_WIDTH_ICON };
