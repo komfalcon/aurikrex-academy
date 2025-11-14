@@ -87,7 +87,7 @@ https://aurikrex.tech/__/auth/handler
 cd aurikrex-frontend
 cat > .env << EOF
 VITE_FIREBASE_API_KEY=your-api-key
-VITE_FIREBASE_AUTH_DOMAIN=aurikrex-academy1.firebaseapp.com
+VITE_FIREBASE_AUTH_DOMAIN=aurikrex.tech
 VITE_FIREBASE_PROJECT_ID=aurikrex-academy1
 VITE_FIREBASE_STORAGE_BUCKET=aurikrex-academy1.appspot.com
 VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id

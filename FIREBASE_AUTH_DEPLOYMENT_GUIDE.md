@@ -82,7 +82,8 @@ The frontend needs different configurations for different environments.
 ```env
 # Firebase Configuration
 VITE_FIREBASE_API_KEY=your-api-key
-VITE_FIREBASE_AUTH_DOMAIN=aurikrex-academy1.firebaseapp.com
+# Use custom domain or Firebase default domain for authDomain
+VITE_FIREBASE_AUTH_DOMAIN=aurikrex.tech
 VITE_FIREBASE_PROJECT_ID=aurikrex-academy1
 VITE_FIREBASE_STORAGE_BUCKET=aurikrex-academy1.appspot.com
 VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
@@ -97,9 +98,12 @@ VITE_API_URL=http://localhost:5001/aurikrex-academy1/us-central1/api
 When deploying to Firebase Hosting, the API URL should point to the deployed Cloud Functions:
 
 ```env
-# Firebase Configuration (same as local)
+# Firebase Configuration
 VITE_FIREBASE_API_KEY=your-api-key
-VITE_FIREBASE_AUTH_DOMAIN=aurikrex-academy1.firebaseapp.com
+# Recommended: Use custom domain for authDomain
+VITE_FIREBASE_AUTH_DOMAIN=aurikrex.tech
+# Alternative: Use Firebase default domain
+# VITE_FIREBASE_AUTH_DOMAIN=aurikrex-academy12.web.app
 VITE_FIREBASE_PROJECT_ID=aurikrex-academy1
 VITE_FIREBASE_STORAGE_BUCKET=aurikrex-academy1.appspot.com
 VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
@@ -372,11 +376,11 @@ curl https://us-central1-aurikrex-academy1.cloudfunctions.net/api/health
 
 | Environment | Frontend URL | API URL | authDomain |
 |-------------|-------------|---------|------------|
-| **Local** | `http://localhost:5173` | `http://localhost:5001/aurikrex-academy1/us-central1/api` or `/api` (with proxy) | `aurikrex-academy1.firebaseapp.com` |
-| **Firebase Hosting** | `https://aurikrex-academy12.web.app` | `/api` (via rewrite) | `aurikrex-academy1.firebaseapp.com` |
-| **Custom Domain** | `https://aurikrex.tech` | `/api` (via rewrite) | `aurikrex-academy1.firebaseapp.com` |
+| **Local** | `http://localhost:5173` | `http://localhost:5001/aurikrex-academy1/us-central1/api` or `/api` (with proxy) | `aurikrex.tech` (recommended) or `aurikrex-academy12.web.app` |
+| **Firebase Hosting** | `https://aurikrex-academy12.web.app` | `/api` (via rewrite) | `aurikrex.tech` (recommended) or `aurikrex-academy12.web.app` |
+| **Custom Domain** | `https://aurikrex.tech` | `/api` (via rewrite) | `aurikrex.tech` (recommended) or `aurikrex-academy12.web.app` |
 
-**Important**: The `authDomain` should remain as `aurikrex-academy1.firebaseapp.com` across all environments. Firebase handles OAuth redirects correctly as long as domains are authorized.
+**Important**: Using `aurikrex.tech` as the `authDomain` is recommended as it provides a consistent authentication experience across all deployment environments. Firebase handles OAuth redirects correctly as long as all domains are authorized in the Firebase Console.
 
 ---
 

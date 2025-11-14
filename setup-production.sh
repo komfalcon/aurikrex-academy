@@ -54,7 +54,7 @@ echo "https://console.firebase.google.com/project/${PROJECT_ID}/settings/general
 echo ""
 
 prompt_with_default "Firebase API Key" "your-api-key" FIREBASE_API_KEY
-prompt_with_default "Firebase Auth Domain" "${PROJECT_ID}.firebaseapp.com" FIREBASE_AUTH_DOMAIN
+prompt_with_default "Firebase Auth Domain" "aurikrex.tech" FIREBASE_AUTH_DOMAIN
 prompt_with_default "Firebase Project ID" "${PROJECT_ID}" FIREBASE_PROJECT_ID
 prompt_with_default "Firebase Storage Bucket" "${PROJECT_ID}.appspot.com" FIREBASE_STORAGE_BUCKET
 prompt_with_default "Firebase Messaging Sender ID" "your-sender-id" FIREBASE_MESSAGING_SENDER_ID
