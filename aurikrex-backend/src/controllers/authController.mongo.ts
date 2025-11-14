@@ -302,6 +302,122 @@ export const getCurrentUser = async (req: Request, res: Response): Promise<void>
 };
 
 /**
+ * Handle Google Sign-In
+ * Verifies Google ID token and creates/updates user in MongoDB
+ */
+export const googleSignIn = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { idToken } = req.body;
+
+    console.log('🔐 Google sign-in request received');
+
+    if (!idToken) {
+      res.status(400).json({
+        success: false,
+        message: 'ID token is required',
+      });
+      return;
+    }
+
+    // Verify the Google ID token using Firebase Admin
+    const { auth: firebaseAuth } = await import('../config/firebase.js');
+    const decodedToken = await firebaseAuth.verifyIdToken(idToken);
+    const { uid, email, name, picture } = decodedToken;
+
+    if (!email) {
+      res.status(400).json({
+        success: false,
+        message: 'No email associated with this Google account',
+      });
+      return;
+    }
+
+    console.log('✅ Google ID token verified for:', email);
+
+    // Check if user exists in MongoDB
+    let user = await userService.getUserByEmail(email);
+
+    if (!user) {
+      // Create new user for Google sign-in
+      const displayName = name || email.split('@')[0];
+      
+      console.log('📝 Creating new user via Google sign-in:', email);
+
+      const result = await userService.register({
+        email,
+        password: `google-auth-${uid}-${Date.now()}`, // Generate a secure random password
+        displayName,
+        role: 'student',
+      });
+
+      user = result.user;
+
+      // Update user with Google-specific data
+      await userService.updateUser(user.uid, {
+        emailVerified: true,
+        photoURL: picture,
+      } as any);
+
+      console.log('✅ New user created via Google sign-in:', email);
+    } else {
+      // Update existing user's last login
+      console.log('✅ Existing user signed in via Google:', email);
+      
+      // Update photo URL if provided by Google
+      if (picture && picture !== user.photoURL) {
+        await userService.updateUser(user.uid, { photoURL: picture } as any);
+      }
+      
+      // Ensure email is verified for Google sign-ins
+      if (!user.emailVerified) {
+        await userService.updateUser(user.uid, { emailVerified: true } as any);
+      }
+    }
+
+    // Generate JWT tokens
+    const { generateTokenPair } = await import('../utils/jwt.js');
+    const tokens = generateTokenPair({
+      userId: user.uid,
+      email: user.email || email,
+      role: user.role || 'student'
+    });
+
+    console.log('✅ Google sign-in successful for:', email);
+
+    res.status(200).json({
+      success: true,
+      message: 'Google sign-in successful',
+      data: {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName,
+        photoURL: user.photoURL || picture,
+        emailVerified: true,
+        role: user.role,
+        token: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Google sign-in error:', getErrorMessage(error));
+    
+    // Check for specific Firebase errors
+    const errorMessage = error instanceof Error ? error.message : 'Failed to sign in with Google';
+    let statusCode = 500;
+    
+    if (errorMessage.includes('Token') || errorMessage.includes('expired')) {
+      statusCode = 401;
+    }
+    
+    res.status(statusCode).json({
+      success: false,
+      message: 'Failed to sign in with Google. Please try again.',
+      error: getErrorMessage(error),
+    });
+  }
+};
+
+/**
  * Refresh access token
  */
 export const refreshToken = async (req: Request, res: Response): Promise<void> => {

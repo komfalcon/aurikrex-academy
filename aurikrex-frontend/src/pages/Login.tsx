@@ -4,8 +4,6 @@ import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
 import { Mail, Lock, ArrowLeft, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth as firebaseAuth } from '../config/firebase';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -43,16 +41,11 @@ export default function Login() {
 
     setIsLoading(true);
     try {
-      // First, sign in with Firebase Auth to validate credentials
-      const userCredential = await signInWithEmailAndPassword(firebaseAuth, email, password);
-      const idToken = await userCredential.user.getIdToken();
-
-      // Then check verification status with backend
+      // Call MongoDB backend directly for login
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`
         },
         body: JSON.stringify({ email, password }),
       });
@@ -64,9 +57,8 @@ export default function Login() {
         const userData = {
           uid: data.data.uid,
           email: data.data.email,
-          firstName: data.data.firstName,
-          lastName: data.data.lastName,
           displayName: data.data.displayName,
+          role: data.data.role,
           emailVerified: data.data.emailVerified,
           photoURL: data.data.photoURL || null,
         };
@@ -74,38 +66,34 @@ export default function Login() {
         if (data.data.token) {
           localStorage.setItem('aurikrex-token', data.data.token);
         }
+        if (data.data.refreshToken) {
+          localStorage.setItem('aurikrex-refresh-token', data.data.refreshToken);
+        }
         
-        toast.success(`Welcome back, ${data.data.firstName}! 👋`);
+        // Extract first name from displayName for personalized greeting
+        const firstName = data.data.displayName?.split(' ')[0] || 'User';
+        toast.success(`Welcome back, ${firstName}! 👋`);
         navigate('/dashboard');
-      } else if (response.status === 403 && data.emailVerified === false) {
-        // Email not verified
-        toast.error('Account not verified. Please complete email verification to proceed.');
+      } else if (response.status === 403) {
+        // Account not verified
         setError('Account not verified. Please complete email verification to proceed.');
+        toast.error('Account not verified. Please complete email verification to proceed.');
         
-        // Sign out from Firebase
-        await firebaseAuth.signOut();
-        
-        // Optionally redirect to verify email page
+        // Redirect to verify email page
         setTimeout(() => {
           navigate('/verify-email', { state: { email, firstName: data.data?.firstName || '' } });
         }, 2000);
+      } else if (response.status === 401) {
+        setError('Invalid email or password');
+        toast.error('Invalid email or password');
       } else {
-        setError(data.message || 'Invalid email or password');
-        toast.error(data.message || 'Invalid email or password');
-        await firebaseAuth.signOut();
+        setError(data.message || 'Login failed. Please try again.');
+        toast.error(data.message || 'Login failed. Please try again.');
       }
     } catch (err: any) {
       console.error('Login error:', err);
-      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
-        setError('Invalid email or password');
-        toast.error('Invalid email or password');
-      } else if (err.code === 'auth/too-many-requests') {
-        setError('Too many failed attempts. Please try again later.');
-        toast.error('Too many failed attempts. Please try again later.');
-      } else {
-        setError('Login failed. Please try again.');
-        toast.error('Login failed. Please try again.');
-      }
+      setError('Network error. Please check your connection and try again.');
+      toast.error('Network error. Please check your connection and try again.');
     } finally {
       setIsLoading(false);
     }
