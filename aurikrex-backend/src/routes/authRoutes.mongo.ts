@@ -5,6 +5,7 @@ import {
   login,
   verifyOTP,
   resendOTP,
+  googleSignIn,
   getCurrentUser,
   refreshToken
 } from '../controllers/authController.mongo.js';
@@ -82,6 +83,18 @@ router.post(
   ],
   validateRequest,
   login
+);
+
+/**
+ * @route   POST /api/auth/google
+ * @desc    Sign in with Google
+ * @access  Public
+ */
+router.post(
+  '/google',
+  [body('idToken').notEmpty().withMessage('ID token is required')],
+  validateRequest,
+  googleSignIn
 );
 
 /**
