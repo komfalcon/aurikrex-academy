@@ -67,6 +67,9 @@ aurikrex-academy/
 ## 📚 Documentation
 
 - **[Firebase Deployment Guide](./FIREBASE_DEPLOYMENT.md)** - Complete deployment instructions
+- **[Firebase Auth Deployment Guide](./FIREBASE_AUTH_DEPLOYMENT_GUIDE.md)** - Fix authentication issues on deployed environments ⭐ NEW
+- **[Firebase Console Configuration](./FIREBASE_CONSOLE_CONFIG.md)** - Step-by-step Firebase Console setup ⭐ NEW
+- **[Deployment Checklist](./DEPLOYMENT_CHECKLIST.md)** - Pre and post-deployment verification ⭐ NEW
 - **[Frontend Integration Guide](./FRONTEND_INTEGRATION.md)** - Frontend setup and API integration
 - **[Functions README](./functions/README.md)** - Backend Cloud Functions documentation
 - **[Authentication Documentation](./AUTH_DOCUMENTATION.md)** - Authentication flow and implementation
