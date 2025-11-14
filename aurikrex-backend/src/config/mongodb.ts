@@ -83,6 +83,8 @@ class MongoDB {
 
       // Extract host information for better diagnostics (without exposing credentials)
       let hostInfo = 'MongoDB';
+      let publicIP = 'unknown';
+      
       try {
         const url = new URL(config.uri.replace('mongodb+srv://', 'https://').replace('mongodb://', 'http://'));
         hostInfo = url.hostname;
@@ -90,18 +92,30 @@ class MongoDB {
         // Ignore URL parsing errors
       }
 
+      // Try to get public IP for debugging
+      try {
+        const ipResponse = await fetch('https://api.ipify.org?format=json');
+        const ipData = (await ipResponse.json()) as { ip?: string };
+        if (ipData.ip) publicIP = ipData.ip;
+      } catch (e) {
+        // IP detection is optional, don't block connection
+      }
+
       log.info('🔌 Connecting to MongoDB Atlas...', {
         dbName: config.dbName,
         host: hostInfo,
         attempt: this.reconnectAttempts + 1,
         maxAttempts: this.maxReconnectAttempts,
-        timeout: `${config.options.serverSelectionTimeoutMS}ms`
+        timeout: `${config.options.serverSelectionTimeoutMS}ms`,
+        publicIP: publicIP
       });
 
       console.log(`🔌 Attempting MongoDB connection (${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})...`);
       console.log(`  Database: ${config.dbName}`);
       console.log(`  Host: ${hostInfo}`);
+      console.log(`  Public IP: ${publicIP}`);
       console.log(`  Timeout: ${config.options.serverSelectionTimeoutMS}ms`);
+      console.log(`  💡 If timeout occurs, whitelist IP ${publicIP} in MongoDB Atlas Network Access`);
 
       this.client = new MongoClient(config.uri, config.options);
       await this.client.connect();
@@ -169,14 +183,13 @@ class MongoDB {
       console.error('='.repeat(70));
       console.error('\n💡 Troubleshooting steps:');
       console.error('  1. Verify your .env file exists and contains MONGO_URI');
-      console.error('  2. Check if MongoDB Atlas IP whitelist includes your current IP');
-      console.error('  3. Verify MongoDB credentials are correct');
-      console.error('  4. Ensure your network allows connections to MongoDB Atlas');
-      console.error('  5. Check if MongoDB Atlas cluster is running');
-      console.error('\n📝 Common error codes:');
-      console.error('  - ENOTFOUND: DNS lookup failed (check connection string)');
-      console.error('  - ETIMEDOUT: Connection timeout (check firewall/IP whitelist)');
-      console.error('  - Authentication failed: Wrong username/password');
+      console.error('  2. Verify MongoDB credentials are correct');
+      console.error('  3. Ensure your network allows connections to MongoDB Atlas');
+      console.error('  4. Check if MongoDB Atlas cluster is running');
+      console.error('\n📝 Error details:');
+      if (error instanceof Error) {
+        console.error(`  Message: ${error.message}`);
+      }
       console.error('='.repeat(70) + '\n');
 
       // Create a more informative final error message

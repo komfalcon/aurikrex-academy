@@ -17,11 +17,11 @@ export class EmailService {
   private transporter: nodemailer.Transporter;
 
   constructor() {
-    // Configure Titan Mail SMTP
+    // Configure Gmail SMTP
     this.transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST || 'smtp.titan.email',
-      port: parseInt(process.env.EMAIL_PORT || '465', 10),
-      secure: process.env.EMAIL_SECURE === 'true', // true for 465, false for other ports
+      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.EMAIL_PORT || '587', 10),
+      secure: process.env.EMAIL_SECURE === 'true', // true for 465, false for 587
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
@@ -58,7 +58,7 @@ export class EmailService {
         { $set: otpData },
         { upsert: true }
       );
-      console.log(`OTP stored for ${email}, expires at ${expiresAt.toISOString()}`);
+      console.log(`✅ OTP stored for ${email}, expires at ${expiresAt.toISOString()}`);
     } catch (error) {
       console.error('Error storing OTP:', getErrorMessage(error));
       throw new Error('Failed to store OTP');
@@ -119,43 +119,56 @@ export class EmailService {
           <html>
           <head>
             <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <style>
-              body { 
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                line-height: 1.6;
-                color: #333;
-                max-width: 600px;
-                margin: 0 auto;
+              body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 padding: 20px;
+                margin: 0;
               }
               .container {
+                max-width: 600px;
+                margin: 0 auto;
+                background: white;
+                border-radius: 10px;
+                overflow: hidden;
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+              }
+              .header {
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                border-radius: 16px;
-                padding: 40px;
                 color: white;
+                padding: 30px;
               }
               .logo {
                 text-align: center;
-                margin-bottom: 30px;
               }
               .logo h1 {
                 margin: 0;
                 font-size: 28px;
-                font-weight: bold;
+              }
+              .logo p {
+                margin: 5px 0 0 0;
+                opacity: 0.9;
+                font-size: 14px;
               }
               .content {
-                background: white;
-                border-radius: 12px;
                 padding: 30px;
                 color: #333;
-                margin: 20px 0;
+              }
+              .content h2 {
+                color: #667eea;
+                margin-top: 0;
+              }
+              .content p {
+                line-height: 1.6;
+                color: #666;
               }
               .otp-box {
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: white;
+                background: #f0f4ff;
+                border: 2px dashed #667eea;
                 font-size: 32px;
                 font-weight: bold;
+                color: #667eea;
                 letter-spacing: 8px;
                 text-align: center;
                 padding: 20px;
@@ -166,7 +179,7 @@ export class EmailService {
               .footer {
                 text-align: center;
                 font-size: 12px;
-                color: rgba(255, 255, 255, 0.8);
+                color: rgba(0, 0, 0, 0.8);
                 margin-top: 20px;
               }
               .warning {
@@ -181,13 +194,15 @@ export class EmailService {
           </head>
           <body>
             <div class="container">
-              <div class="logo">
-                <h1>🎓 Aurikrex Academy</h1>
-                <p style="margin: 5px 0; opacity: 0.9;">The Future of Learning</p>
+              <div class="header">
+                <div class="logo">
+                  <h1>🎓 Aurikrex Academy</h1>
+                  <p>The Future of Learning</p>
+                </div>
               </div>
               
               <div class="content">
-                <h2 style="color: #667eea; margin-top: 0;">Welcome, ${firstName}! 👋</h2>
+                <h2>Welcome, ${firstName}! 👋</h2>
                 <p>Thank you for joining Aurikrex Academy. To complete your registration, please verify your email address using the code below:</p>
                 
                 <div class="otp-box">${otp}</div>
@@ -213,7 +228,7 @@ export class EmailService {
       };
 
       await this.transporter.sendMail(mailOptions);
-      console.log(`OTP email sent successfully to ${email}`);
+      console.log(`✅ OTP email sent successfully to ${email}`);
     } catch (error) {
       console.error('Error sending OTP email:', getErrorMessage(error));
       throw new Error('Failed to send verification email');
