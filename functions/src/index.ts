@@ -24,12 +24,35 @@ const app = express();
 // For production, use: firebase functions:config:set app.allowed_origins="https://yourdomain.com"
 const isDevelopment = process.env.NODE_ENV !== 'production';
 const ALLOWED_ORIGINS = isDevelopment 
-  ? ["http://localhost:3000", "http://localhost:5173", "https://aurikrex-backend.onrender.com"]
-  : (functions.config().app?.allowed_origins || "").split(",");
+  ? [
+      "http://localhost:3000", 
+      "http://localhost:5173", 
+      "https://aurikrex-backend.onrender.com"
+    ]
+  : [
+      // Firebase default domains
+      "https://aurikrex-academy12.web.app",
+      "https://aurikrex-academy12.firebaseapp.com",
+      // Custom domain
+      "https://aurikrex.tech",
+      // Additional origins from config
+      ...(functions.config().app?.allowed_origins || "").split(",").filter((origin: string) => origin.trim())
+    ];
 
 // Middleware
 app.use(cors({
-  origin: ALLOWED_ORIGINS,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, curl, postman)
+    if (!origin) return callback(null, true);
+    
+    // Check if origin is allowed
+    if (ALLOWED_ORIGINS.includes(origin)) {
+      callback(null, true);
+    } else {
+      log.warn(`Blocked CORS request from origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 app.use(express.json());
