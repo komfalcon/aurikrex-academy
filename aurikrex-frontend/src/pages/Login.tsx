@@ -4,8 +4,6 @@ import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
 import { Mail, Lock, ArrowLeft, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth as firebaseAuth } from '../config/firebase';
 
 const API_URL = import.meta.env.VITE_API_URL as string || 'http://localhost:5000/api';
 
@@ -43,16 +41,11 @@ export default function Login() {
 
     setIsLoading(true);
     try {
-      // First, sign in with Firebase Auth to validate credentials
-      const userCredential = await signInWithEmailAndPassword(firebaseAuth, email, password);
-      const idToken = await userCredential.user.getIdToken();
-
-      // Then check verification status with backend
+      // Login with backend API
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`
         },
         body: JSON.stringify({ email, password }),
       });
@@ -60,7 +53,7 @@ export default function Login() {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        // Store user data
+        // Store user data and JWT token
         const userData = {
           uid: data.data.uid,
           email: data.data.email,
@@ -82,31 +75,18 @@ export default function Login() {
         toast.error('Account not verified. Please complete email verification to proceed.');
         setError('Account not verified. Please complete email verification to proceed.');
         
-        // Sign out from Firebase
-        await firebaseAuth.signOut();
-        
-        // Optionally redirect to verify email page
+        // Redirect to verify email page
         setTimeout(() => {
           navigate('/verify-email', { state: { email, firstName: data.data?.firstName || '' } });
         }, 2000);
       } else {
         setError(data.message || 'Invalid email or password');
         toast.error(data.message || 'Invalid email or password');
-        await firebaseAuth.signOut();
       }
     } catch (err) {
       console.error('Login error:', err);
-      const error = err as { code?: string };
-      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
-        setError('Invalid email or password');
-        toast.error('Invalid email or password');
-      } else if (error.code === 'auth/too-many-requests') {
-        setError('Too many failed attempts. Please try again later.');
-        toast.error('Too many failed attempts. Please try again later.');
-      } else {
-        setError('Login failed. Please try again.');
-        toast.error('Login failed. Please try again.');
-      }
+      setError('Login failed. Please try again.');
+      toast.error('Login failed. Please try again.');
     } finally {
       setIsLoading(false);
     }

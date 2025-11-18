@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { signInWithPopup, User as FirebaseUser } from 'firebase/auth';
-import { auth, googleProvider } from '../config/firebase';
+import { validateToken } from '../utils/api';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -32,12 +31,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const storedUser = localStorage.getItem('aurikrex-user');
-    if (storedUser) {
+    const token = localStorage.getItem('aurikrex-token');
+    
+    if (storedUser && token) {
       try {
-        setUser(JSON.parse(storedUser));
+        // Validate token before setting user
+        if (validateToken()) {
+          setUser(JSON.parse(storedUser));
+        } else {
+          // Token is invalid or expired, clear storage
+          localStorage.removeItem('aurikrex-user');
+          localStorage.removeItem('aurikrex-token');
+        }
       } catch (error) {
         console.error('Error parsing stored user:', error);
         localStorage.removeItem('aurikrex-user');
+        localStorage.removeItem('aurikrex-token');
       }
     }
     setLoading(false);
@@ -57,41 +66,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signInWithGoogle = async () => {
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const firebaseUser: FirebaseUser = result.user;
-
-      if (!firebaseUser.email) {
-        throw new Error('No email associated with this Google account');
-      }
-
-      // Get ID token
-      const idToken = await firebaseUser.getIdToken();
-
-      // Send to backend for processing
-      const response = await fetch(`${API_URL}/auth/google`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken }),
+      // TODO: Implement Google OAuth flow with Render backend
+      // Step 1: Get Google OAuth URL from backend
+      const urlResponse = await fetch(`${API_URL}/auth/google/url`, {
+        method: 'GET',
       });
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        const user: User = {
-          uid: data.data.uid,
-          email: data.data.email,
-          firstName: data.data.firstName,
-          lastName: data.data.lastName,
-          displayName: data.data.displayName,
-          photoURL: data.data.photoURL || undefined,
-          emailVerified: true, // Google users are pre-verified
-        };
-
-        setUser(user);
-        localStorage.setItem('aurikrex-user', JSON.stringify(user));
-      } else {
-        throw new Error(data.message || 'Google sign-in failed');
+      if (!urlResponse.ok) {
+        throw new Error('Failed to get Google OAuth URL');
       }
+
+      const { url } = await urlResponse.json();
+
+      // Step 2: Redirect to Google OAuth
+      window.location.href = url;
+
+      // Note: After OAuth, Google will redirect back to the app with tokens
+      // The callback handler will complete the authentication
     } catch (error) {
       console.error('Error signing in with Google:', error);
       throw error;
@@ -104,7 +95,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem('aurikrex-token');
     localStorage.removeItem('pending-verification-email');
     localStorage.removeItem('pending-verification-firstName');
-    auth.signOut();
   };
 
   return (
