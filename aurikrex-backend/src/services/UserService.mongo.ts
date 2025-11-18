@@ -266,20 +266,6 @@ export class UserService {
       role: doc.role,
       createdAt: doc.createdAt,
       lastLogin: doc.lastLogin || doc.createdAt,
-      customClaims: {
-        role: doc.role
-      },
-      metadata: {
-        creationTime: doc.createdAt.toISOString(),
-        lastSignInTime: doc.lastLogin?.toISOString() || doc.createdAt.toISOString(),
-        toJSON: () => ({
-          creationTime: doc.createdAt.toISOString(),
-          lastSignInTime: doc.lastLogin?.toISOString() || doc.createdAt.toISOString(),
-          lastRefreshTime: null
-        })
-      },
-      providerData: [],
-      tokensValidAfterTime: doc.createdAt.toISOString()
     };
   }
 }
