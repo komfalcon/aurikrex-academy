@@ -36,28 +36,6 @@ const envVars = {
     message: 'MONGO_DB_NAME must be a non-empty string'
   },
 
-  // Firebase configuration (Optional - for storage only)
-  FIREBASE_PROJECT_ID: {
-    required: false,
-    validate: (value: string) => typeof value === 'string' && value.length > 0,
-    message: 'FIREBASE_PROJECT_ID must be a non-empty string'
-  },
-  FIREBASE_PRIVATE_KEY: {
-    required: false,
-    validate: (value: string) => value.includes('PRIVATE KEY'),
-    message: 'FIREBASE_PRIVATE_KEY appears to be invalid'
-  },
-  FIREBASE_CLIENT_EMAIL: {
-    required: false,
-    validate: (value: string) => value.includes('@') && value.includes('.'),
-    message: 'FIREBASE_CLIENT_EMAIL must be a valid email address'
-  },
-  FIREBASE_STORAGE_BUCKET: {
-    required: false,
-    validate: (value: string) => value.includes('.appspot.com'),
-    message: 'FIREBASE_STORAGE_BUCKET must be a valid Firebase storage bucket'
-  },
-
   // Security settings
   ALLOWED_ORIGINS: {
     required: false,
