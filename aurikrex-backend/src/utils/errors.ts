@@ -51,8 +51,8 @@ export class AppError extends Error {
 
 }
 
-// Firebase-specific errors
-export class FirebaseError extends AppError {
+// Database errors
+export class DatabaseError extends AppError {
   constructor(
     message: string,
     code: string,
@@ -60,7 +60,7 @@ export class FirebaseError extends AppError {
   ) {
     super(message, {
       ...options,
-      code: `firebase/${code}`,
+      code: `database/${code}`,
       status: options.status || 500
     });
   }
@@ -139,9 +139,9 @@ export function getErrorMessage(error: unknown): string {
 }
 
 /**
- * Maps Firebase Admin errors to our custom error types
+ * Maps database and application errors to our custom error types
  */
-export function mapFirebaseError(error: unknown): AppError {
+export function mapDatabaseError(error: unknown): AppError {
   if (!error) {
     return new AppError('Unknown error', { code: 'unknown_error' });
   }
@@ -155,17 +155,17 @@ export function mapFirebaseError(error: unknown): AppError {
 
   const errorWithCode = error as Error & { code?: string };
 
-  // Map Firebase Auth errors
+  // Map MongoDB errors
+  if (errorWithCode.code?.startsWith('mongodb/') || errorWithCode.code?.toString().match(/^[0-9]+$/)) {
+    const code = errorWithCode.code.replace('mongodb/', '');
+    return new DatabaseError(error.message, code);
+  }
+
+  // Map Auth errors
   if (errorWithCode.code?.startsWith('auth/')) {
     const code = errorWithCode.code.replace('auth/', '');
     const status = getAuthErrorStatusCode(code);
     return new AuthError(error.message, code, status);
-  }
-
-  // Map Firestore errors
-  if (errorWithCode.code?.startsWith('firestore/')) {
-    const code = errorWithCode.code.replace('firestore/', '');
-    return new FirebaseError(error.message, code);
   }
 
   // Map Storage errors
@@ -174,9 +174,9 @@ export function mapFirebaseError(error: unknown): AppError {
     return new StorageError(error.message, code);
   }
 
-  // Generic Firebase errors
-  return new FirebaseError(
-    error.message || 'Firebase operation failed',
+  // Generic database errors
+  return new DatabaseError(
+    error.message || 'Database operation failed',
     errorWithCode.code || 'unknown_error'
   );
 }
@@ -221,6 +221,6 @@ export function withErrorHandling<T>(
     if (error instanceof AppError) {
       throw error;
     }
-    throw mapFirebaseError(error);
+    throw mapDatabaseError(error);
   });
 }

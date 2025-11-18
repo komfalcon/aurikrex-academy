@@ -1,77 +1,90 @@
 # Aurikrex Academy
 
-A modern e-learning platform built with React, TypeScript, and Firebase, featuring AI-powered lesson generation.
+A modern e-learning platform built with React, TypeScript, MongoDB, and Node.js, featuring AI-powered lesson generation.
 
-## 🚀 Recent Migration to Firebase Cloud Functions
+## 🚀 Architecture
 
-The backend has been successfully migrated from a standalone Node.js/Express server to **Firebase Cloud Functions**, providing improved scalability, reliability, and cost-efficiency.
+This is a full-stack application using:
+- **Frontend**: React with Vite, deployed on Vercel
+- **Backend**: Node.js/Express API, deployed on Render
+- **Database**: MongoDB Atlas for data persistence
+- **AI Services**: OpenAI GPT and Google Gemini for lesson generation
 
 ## 📁 Project Structure
 
 ```
 aurikrex-academy/
 ├── aurikrex-frontend/       # React/TypeScript frontend (Vite)
-├── aurikrex-backend/        # Legacy backend (deprecated, kept for reference)
-├── functions/               # Firebase Cloud Functions (NEW - Active Backend)
-│   ├── src/                # TypeScript source code
-│   │   ├── config/        # Firebase and app configuration
-│   │   ├── controllers/   # Request handlers
-│   │   ├── middleware/    # Express middleware
-│   │   ├── routes/        # API route definitions
-│   │   ├── services/      # Business logic
-│   │   ├── types/         # TypeScript types
-│   │   ├── utils/         # Utility functions
-│   │   └── index.ts       # Cloud Functions entry point
-│   ├── lib/               # Compiled JavaScript (gitignored)
-│   └── package.json       # Functions dependencies
-├── firebase.json            # Firebase configuration
-├── .firebaserc             # Firebase project settings
+│   ├── src/
+│   │   ├── components/     # Reusable React components
+│   │   ├── pages/          # Page components
+│   │   ├── context/        # React context providers
+│   │   ├── hooks/          # Custom React hooks
+│   │   ├── utils/          # Utility functions
+│   │   └── types/          # TypeScript type definitions
+│   ├── public/             # Static assets
+│   ├── vite.config.ts      # Vite configuration
+│   └── vercel.json         # Vercel deployment config
+├── aurikrex-backend/        # Node.js/Express backend
+│   ├── src/
+│   │   ├── config/         # MongoDB and app configuration
+│   │   ├── controllers/    # Request handlers
+│   │   ├── middleware/     # Express middleware
+│   │   ├── models/         # MongoDB data models
+│   │   ├── routes/         # API route definitions
+│   │   ├── services/       # Business logic & AI services
+│   │   ├── types/          # TypeScript types
+│   │   └── utils/          # Utility functions
+│   ├── dist/               # Compiled JavaScript (gitignored)
+│   └── package.json        # Backend dependencies
 └── [Documentation files]
 ```
 
 ## 🎯 Features
 
-- **User Authentication**: Secure authentication with Firebase Auth
+- **User Authentication**: Secure JWT-based authentication with OTP email verification
 - **AI-Powered Lessons**: Generate educational content using OpenAI GPT and Google Gemini
 - **Interactive Learning**: Engaging UI with progress tracking
 - **Analytics**: Track user engagement and learning progress
-- **Cloud Storage**: Secure file uploads and management
-- **Email Notifications**: Automated email communication via Titan Mail
-- **Real-time Updates**: Live data synchronization with Firestore
+- **Assignment Management**: Create, submit, review, and grade assignments
+- **Email Notifications**: Automated email communication via Titan Mail SMTP
+- **Dashboard**: Comprehensive user dashboard with learning analytics
 
 ## 🛠️ Technology Stack
 
 ### Frontend
 - React 18 with TypeScript
 - Vite for fast development and building
-- Tailwind CSS for styling
-- Firebase SDK for auth and database
+- Tailwind CSS with shadcn/ui components
 - React Router for navigation
+- React Query for data fetching
+- JWT for authentication
 
-### Backend (Cloud Functions)
+### Backend
 - Node.js 20
 - Express.js
 - TypeScript
-- Firebase Admin SDK
+- MongoDB with native driver
 - OpenAI API
 - Google Gemini AI
 - Winston for logging
+- Nodemailer for email
+- JWT for authentication
+- bcryptjs for password hashing
 
 ### Infrastructure
-- Firebase Hosting (Frontend)
-- Firebase Cloud Functions (Backend API)
-- Firestore (Database)
-- Firebase Storage (File storage)
-- Firebase Authentication
+- Vercel (Frontend hosting)
+- Render (Backend API hosting)
+- MongoDB Atlas (Database)
+- Titan Mail (SMTP email service)
 
 ## 📚 Documentation
 
-- **[Firebase Deployment Guide](./FIREBASE_DEPLOYMENT.md)** - Complete deployment instructions
-- **[Frontend Integration Guide](./FRONTEND_INTEGRATION.md)** - Frontend setup and API integration
-- **[Functions README](./functions/README.md)** - Backend Cloud Functions documentation
 - **[Authentication Documentation](./AUTH_DOCUMENTATION.md)** - Authentication flow and implementation
+- **[MongoDB Migration Guide](./MONGODB_MIGRATION_SUMMARY.md)** - MongoDB setup and migration details
 - **[Implementation Summary](./IMPLEMENTATION_SUMMARY.md)** - Overall project implementation details
 - **[Security Summary](./SECURITY_SUMMARY.md)** - Security measures and best practices
+- **[Deployment Guide](./DEPLOYMENT_GUIDE.md)** - Deployment instructions for Vercel and Render
 
 ## 🚀 Quick Start
 
@@ -79,8 +92,8 @@ aurikrex-academy/
 
 - Node.js 20.x or higher
 - npm 9.x or higher
-- Firebase CLI: `npm install -g firebase-tools`
-- Firebase account with project access
+- MongoDB Atlas account (or local MongoDB instance)
+- OpenAI API key (for lesson generation)
 
 ### 1. Clone the Repository
 
@@ -89,14 +102,21 @@ git clone https://github.com/komfalcon/aurikrex-academy.git
 cd aurikrex-academy
 ```
 
-### 2. Set Up Firebase Functions
+### 2. Set Up Backend
 
 ```bash
-cd functions
+cd aurikrex-backend
 npm install
+
+# Create .env file from example
 cp .env.example .env
-# Edit .env with your configuration
-npm run build
+
+# Edit .env with your configuration:
+# - MONGO_URI: Your MongoDB connection string
+# - OPENAI_API_KEY: Your OpenAI API key
+# - GEMINI_API_KEY: Your Google Gemini API key
+# - JWT_SECRET: A secure random string (min 32 chars)
+# - EMAIL_HOST, EMAIL_USER, EMAIL_PASS: Your SMTP settings
 ```
 
 ### 3. Set Up Frontend
@@ -104,111 +124,107 @@ npm run build
 ```bash
 cd ../aurikrex-frontend
 npm install
+
+# Create .env file from example
 cp .env.example .env
-# Edit .env with your Firebase config
+
+# Edit .env with your backend URL:
+# VITE_API_URL=http://localhost:5000/api  # for local development
+# VITE_API_URL=https://your-render-backend.onrender.com/api  # for production
 ```
 
 ### 4. Run Locally
 
-#### Option A: With Firebase Emulators
-
 ```bash
-# From repository root
-firebase emulators:start
-```
-
-Then in another terminal:
-```bash
-cd aurikrex-frontend
+# Terminal 1: Start backend
+cd aurikrex-backend
 npm run dev
-```
-
-#### Option B: Direct Function Development
-
-```bash
-# Terminal 1: Start functions
-cd functions
-npm run serve
 
 # Terminal 2: Start frontend
 cd aurikrex-frontend
 npm run dev
 ```
 
-Access the app at: `http://localhost:5173`
+Access the app at: `http://localhost:8080`  
+Backend API at: `http://localhost:5000/api`
 
 ## 🌐 Deployment
 
-### Deploy Everything
+### Frontend Deployment (Vercel)
 
-```bash
-# Build frontend
-cd aurikrex-frontend
-npm run build
+1. Connect your GitHub repository to Vercel
+2. Configure build settings:
+   - **Framework Preset**: Vite
+   - **Root Directory**: `aurikrex-frontend`
+   - **Build Command**: `npm run build`
+   - **Output Directory**: `dist`
+3. Add environment variables in Vercel dashboard:
+   - `VITE_API_URL`: Your Render backend URL
 
-# Build functions
-cd ../functions
-npm run build
+### Backend Deployment (Render)
 
-# Deploy to Firebase
-cd ..
-firebase deploy
-```
+1. Connect your GitHub repository to Render
+2. Create a new Web Service
+3. Configure service:
+   - **Root Directory**: `aurikrex-backend`
+   - **Build Command**: `npm install && npm run build`
+   - **Start Command**: `npm start`
+   - **Environment**: Node 20
+4. Add environment variables in Render dashboard:
+   - `MONGO_URI`, `OPENAI_API_KEY`, `JWT_SECRET`, `ALLOWED_ORIGINS`, etc.
 
-### Deploy Only Functions
-
-```bash
-firebase deploy --only functions
-```
-
-### Deploy Only Hosting
-
-```bash
-firebase deploy --only hosting
-```
-
-See [FIREBASE_DEPLOYMENT.md](./FIREBASE_DEPLOYMENT.md) for detailed deployment instructions.
+See [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) for detailed deployment instructions.
 
 ## 🔧 Configuration
 
 ### Environment Variables
 
-#### Functions (.env)
+#### Backend (.env)
 ```env
-FIREBASE_PROJECT_ID=aurikrex-academy1
-FIREBASE_PRIVATE_KEY="..."
-FIREBASE_CLIENT_EMAIL="..."
-FIREBASE_DATABASE_URL="..."
-FIREBASE_STORAGE_BUCKET="..."
+# Server
+PORT=5000
+NODE_ENV=development
+HOST=localhost
+ALLOWED_ORIGINS=http://localhost:8080,http://localhost:3000,https://your-vercel-domain.vercel.app
+
+# MongoDB
+MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/aurikrex-academy
+MONGO_DB_NAME=aurikrex-academy
+
+# AI Services
 OPENAI_API_KEY=sk-...
 GEMINI_API_KEY=AIza...
-JWT_SECRET=your-secure-secret
+CLAUDE_API_KEY=sk-ant-...  # Optional
+
+# Security
+JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+ACCESS_TOKEN_EXPIRY=1h
+REFRESH_TOKEN_EXPIRY=7d
+
+# Email (Titan Mail SMTP)
 EMAIL_HOST=smtp.titan.email
+EMAIL_PORT=465
+EMAIL_SECURE=true
 EMAIL_USER=info@aurikrex.tech
-EMAIL_PASS=your-password
+EMAIL_PASS=your-email-password
+
+# Logging
+LOG_LEVEL=debug
+LOG_FILE_PATH=logs/server.log
+
+# Rate Limiting
+RATE_LIMIT_WINDOW=900000  # 15 minutes
+RATE_LIMIT_MAX=100
 ```
 
 #### Frontend (.env)
 ```env
-VITE_FIREBASE_API_KEY=your-api-key
-VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=your-project-id
-VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
-VITE_FIREBASE_APP_ID=your-app-id
-VITE_API_URL=http://localhost:5001/aurikrex-academy1/us-central1/api
-```
+# Backend API URL
+# For local development
+VITE_API_URL=http://localhost:5000/api
 
-### Production Environment Variables
-
-For production, use Firebase Functions config:
-
-```bash
-firebase functions:config:set \
-  openai.api_key="sk-..." \
-  gemini.api_key="AIza..." \
-  jwt.secret="your-secure-secret" \
-  app.allowed_origins="https://yourdomain.com"
+# For production (update with your Render backend URL)
+# VITE_API_URL=https://your-render-backend.onrender.com/api
 ```
 
 ## 📋 API Endpoints
@@ -216,107 +232,147 @@ firebase functions:config:set \
 All endpoints are prefixed with `/api`:
 
 ### Authentication
-- `POST /api/auth/register` - Register new user
+- `POST /api/auth/signup` - Register new user
 - `POST /api/auth/login` - User login
-- `POST /api/auth/logout` - User logout
-- `GET /api/auth/profile` - Get user profile
+- `POST /api/auth/verify-otp` - Verify email with OTP
+- `POST /api/auth/resend-otp` - Resend OTP to email
+- `POST /api/auth/refresh` - Refresh access token
+- `GET /api/auth/me` - Get current user (protected)
 
 ### Lessons
-- `GET /api/lessons` - List all lessons
-- `GET /api/lessons/:id` - Get specific lesson
-- `POST /api/lessons` - Create new lesson
-- `POST /api/lessons/generate` - Generate AI lesson
-- `PUT /api/lessons/:id` - Update lesson
-- `DELETE /api/lessons/:id` - Delete lesson
+- `GET /api/lessons` - List all lessons (protected)
+- `GET /api/lessons/:id` - Get specific lesson (protected)
+- `POST /api/lessons/generate` - Generate AI lesson (protected)
+- `PUT /api/lessons/:id/progress` - Update lesson progress (protected)
+- `DELETE /api/lessons/:id` - Delete lesson (protected)
 
-### Health & Analytics
-- `GET /api/health` - API health check
-- `GET /api/analytics/stats` - Get analytics
-- `POST /api/analytics/track` - Track event
+### Analytics
+- `GET /api/analytics/stats` - Get user analytics (protected)
+- `POST /api/analytics/track` - Track learning event (protected)
+
+### Health
+- `GET /health` - API health check
+- `GET /api/test/ping` - Simple ping test
 
 ## 🧪 Testing
 
 ### Health Check
 
 ```bash
-curl http://localhost:5001/aurikrex-academy1/us-central1/api/health
+# Local
+curl http://localhost:5000/health
+
+# Production
+curl https://your-render-backend.onrender.com/health
 ```
 
-### View Logs
+### Build Tests
 
 ```bash
-firebase functions:log
+# Test backend build
+cd aurikrex-backend
+npm run build
+
+# Test frontend build
+cd aurikrex-frontend
+npm run build
 ```
 
-### Manual Testing
+### Manual API Testing
 
 Use tools like Postman or curl to test endpoints:
 
 ```bash
-curl -X POST http://localhost:5001/aurikrex-academy1/us-central1/api/auth/login \
+# Signup
+curl -X POST http://localhost:5000/api/auth/signup \
   -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"password123"}'
+  -d '{
+    "firstName":"John",
+    "lastName":"Doe",
+    "email":"john@example.com",
+    "password":"SecurePass123!",
+    "phone":"+1234567890"
+  }'
+
+# Login
+curl -X POST http://localhost:5000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"john@example.com","password":"SecurePass123!"}'
 ```
 
 ## 🔒 Security
 
-- **Rate Limiting**: API requests are rate-limited to prevent abuse
+- **Rate Limiting**: API requests are rate-limited to prevent abuse (100 requests per 15 minutes)
 - **CORS**: Configured to allow only specified origins
-- **Authentication**: JWT-based authentication with Firebase
+- **Authentication**: JWT-based authentication with secure token generation
+- **Password Hashing**: bcryptjs with salt rounds for secure password storage
+- **OTP Verification**: Email-based OTP for account verification
 - **Input Validation**: All inputs validated with express-validator
 - **Sanitization**: XSS prevention through input sanitization
-- **Environment Variables**: Secrets stored securely, never committed
+- **Environment Variables**: Secrets stored securely, never committed to repository
+- **MongoDB Security**: Parameterized queries to prevent injection attacks
 
 See [SECURITY_SUMMARY.md](./SECURITY_SUMMARY.md) for detailed security information.
 
 ## 📊 Monitoring
 
-### Firebase Console
-- Navigate to [Firebase Console](https://console.firebase.google.com)
-- View function metrics, logs, and errors
-- Monitor database usage
-- Track authentication events
+### Render Dashboard
+- View backend logs in real-time
+- Monitor API performance and uptime
+- Track resource usage
+- Configure alerts for downtime
 
-### Command Line
-```bash
-# View function logs
-firebase functions:log --only api
+### Vercel Dashboard
+- Monitor frontend deployments
+- View build logs and analytics
+- Track page performance
+- Configure custom domains
 
-# Follow logs in real-time
-firebase functions:log --only api --follow
+### MongoDB Atlas
+- Monitor database performance
+- View connection metrics
+- Set up alerts for unusual activity
+- Manage database backups
 
-# View specific time period
-firebase functions:log --since 1h
-```
+### Local Logs
+Backend logs are stored in `aurikrex-backend/logs/server.log` during development.
 
 ## 🐛 Troubleshooting
 
 ### Common Issues
 
-**Functions won't deploy**
+**Backend won't start**
 ```bash
-cd functions
+# Check MongoDB connection string
+# Verify all required environment variables are set
+# Check logs for specific errors
+cd aurikrex-backend
 npm run build
-# Check for TypeScript errors
+# Look for TypeScript compilation errors
 ```
 
 **CORS errors**
-- Verify `ALLOWED_ORIGINS` in functions config
-- Check CORS middleware in `functions/src/index.ts`
+- Verify `ALLOWED_ORIGINS` includes your frontend URL
+- Check that frontend is using correct `VITE_API_URL`
+- Ensure origins include the protocol (http:// or https://)
 
-**Environment variables missing**
-```bash
-# For local: Check .env file exists
-# For production: Check Firebase config
-firebase functions:config:get
-```
+**MongoDB connection timeout**
+- Verify MongoDB Atlas IP whitelist includes your server IP
+- Check that MongoDB URI is correct
+- Ensure network access is configured in MongoDB Atlas
 
 **Frontend can't connect to API**
 - Verify `VITE_API_URL` in frontend `.env`
-- Check that functions are deployed
-- Test health endpoint
+- Test backend health endpoint directly
+- Check that backend is running and accessible
+- Verify CORS settings allow your frontend origin
 
-See [FIREBASE_DEPLOYMENT.md](./FIREBASE_DEPLOYMENT.md#troubleshooting) for more troubleshooting tips.
+**Email OTP not sending**
+- Check SMTP credentials in backend `.env`
+- Verify `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USER`, and `EMAIL_PASS`
+- Check email service logs for errors
+
+See [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) for deployment-specific troubleshooting.
 
 ## 🤝 Contributing
 
@@ -326,32 +382,31 @@ See [FIREBASE_DEPLOYMENT.md](./FIREBASE_DEPLOYMENT.md#troubleshooting) for more 
 4. Push to the branch: `git push origin feature/amazing-feature`
 5. Open a Pull Request
 
-## 📝 Migration Notes
+## 📝 Architecture Notes
 
-### What Changed
+### Database
 
-The backend was migrated from a standalone Express server to Firebase Cloud Functions:
+The application uses **MongoDB Atlas** as its primary database:
+- User authentication and profiles
+- Lesson content and progress tracking
+- Analytics and engagement metrics
+- Assignment submissions and grading
 
-- **Old**: `aurikrex-backend/` with PM2/Node.js deployment
-- **New**: `functions/` deployed as Cloud Functions
+### Authentication Flow
 
-### What Stayed the Same
+1. User signs up with email and password
+2. System generates and sends OTP to email
+3. User verifies OTP to activate account
+4. Upon login, JWT access and refresh tokens are issued
+5. Frontend stores tokens in localStorage
+6. Protected routes require valid JWT in Authorization header
 
-- All API endpoints and routes
-- Authentication flow
-- Database schema
-- Frontend integration
-- Environment variable structure (with adaptations)
+### AI Integration
 
-### Benefits of Migration
-
-- ✅ Automatic scaling based on demand
-- ✅ Pay only for actual usage
-- ✅ Built-in HTTPS and SSL
-- ✅ Integrated with Firebase services
-- ✅ Simplified deployment process
-- ✅ Better monitoring and logging
-- ✅ Improved reliability and uptime
+- **OpenAI GPT**: Primary AI provider for lesson generation
+- **Google Gemini**: Alternative AI provider for lesson generation
+- Content moderation and enhancement services
+- Caching layer to reduce API costs
 
 ## 📄 License
 
@@ -378,5 +433,5 @@ For questions or support:
 ---
 
 **Last Updated**: November 2024  
-**Status**: ✅ Production Ready (Firebase Functions)  
-**Version**: 2.0.0 (Cloud Functions Migration)
+**Status**: ✅ Production Ready (MongoDB + Render + Vercel)  
+**Version**: 3.0.0 (MongoDB Migration Complete)
