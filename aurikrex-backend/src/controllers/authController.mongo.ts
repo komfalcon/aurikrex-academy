@@ -172,16 +172,47 @@ export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
     // Get user and update verification status
     const user = await userService.getUserByEmail(email);
     
-    if (user) {
-      await userService.updateUser(user.uid, { emailVerified: true } as any);
-      console.log('✅ Email verified for user:', email);
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+      return;
     }
+
+    // Update email verification status
+    await userService.updateUser(user.uid, { emailVerified: true } as any);
+    console.log('✅ Email verified for user:', email);
+
+    // Generate JWT tokens for the verified user
+    const { generateAccessToken, generateRefreshToken } = await import('../utils/jwt');
+    const accessToken = generateAccessToken({
+      userId: user.uid,
+      email: user.email,
+      role: user.role,
+    });
+    const refreshToken = generateRefreshToken({
+      userId: user.uid,
+      email: user.email,
+      role: user.role,
+    });
+
+    // Get updated user data
+    const updatedUser = await userService.getUserByEmail(email);
+    const [firstName, ...lastNameParts] = (updatedUser?.displayName || '').split(' ');
 
     res.status(200).json({
       success: true,
       message: 'Email verified successfully',
       data: {
+        uid: user.uid,
+        email: user.email,
+        firstName: firstName || 'User',
+        lastName: lastNameParts.join(' ') || '',
+        displayName: updatedUser?.displayName,
         emailVerified: true,
+        token: accessToken,
+        refreshToken: refreshToken,
       },
     });
   } catch (error) {
