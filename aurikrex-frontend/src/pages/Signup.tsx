@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { User, Mail, Phone, Lock, ArrowLeft, Sparkles, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 
-const API_URL = import.meta.env.VITE_API_URL as string || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL as string || 'https://aurikrex-backend.onrender.com/api';
 
 export default function Signup() {
   const [firstName, setFirstName] = useState('');
