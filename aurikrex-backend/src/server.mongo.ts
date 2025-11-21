@@ -168,13 +168,14 @@ async function startServer() {
         startTime: new Date().toISOString()
       });
       
+      const backendURL = process.env.BACKEND_URL || `https://aurikrex-backend.onrender.com`;
       console.log(`\n${'='.repeat(60)}`);
       console.log(`🚀 Aurikrex Academy Backend Server`);
       console.log(`${'='.repeat(60)}`);
       console.log(`📍 Environment: ${NODE_ENV}`);
       console.log(`🌐 Port: ${PORT}`);
-      console.log(`🔗 API URL: http://localhost:${PORT}/api`);
-      console.log(`🏥 Health Check: http://localhost:${PORT}/health`);
+      console.log(`🔗 API URL: ${backendURL}/api`);
+      console.log(`🏥 Health Check: ${backendURL}/health`);
       console.log(`${'='.repeat(60)}\n`);
     });
   } catch (error) {

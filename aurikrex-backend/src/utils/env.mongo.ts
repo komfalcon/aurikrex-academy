@@ -18,7 +18,7 @@ const envVars = {
   },
   HOST: {
     required: false,
-    default: 'localhost',
+    default: '0.0.0.0',
     validate: (value: string) => typeof value === 'string' && value.length > 0,
     message: 'HOST must be a non-empty string'
   },
@@ -39,7 +39,7 @@ const envVars = {
   // Security settings
   ALLOWED_ORIGINS: {
     required: false,
-    default: 'https://aurikrex-academy12.web.app,http://localhost:3000,http://localhost:8080',
+    default: 'https://aurikrex.tech,https://www.aurikrex.tech,https://aurikrex-backend.onrender.com',
     validate: (value: string) => value.split(',').every(origin => 
       origin === '*' || origin.startsWith('http://') || origin.startsWith('https://')
     ),
@@ -98,9 +98,69 @@ const envVars = {
   // Optional Redis for caching
   REDIS_URL: {
     required: false,
-    default: 'redis://localhost:6379',
-    validate: (value: string) => value.startsWith('redis://'),
-    message: 'REDIS_URL must be a valid Redis URL starting with redis://'
+    default: '',
+    validate: (value: string) => !value || value.startsWith('redis://') || value.startsWith('rediss://'),
+    message: 'REDIS_URL must be a valid Redis URL starting with redis:// or rediss://'
+  },
+  
+  // Frontend URL for redirects
+  FRONTEND_URL: {
+    required: false,
+    default: 'https://aurikrex.tech',
+    validate: (value: string) => value.startsWith('http://') || value.startsWith('https://'),
+    message: 'FRONTEND_URL must be a valid URL'
+  },
+  
+  // Google OAuth
+  GOOGLE_CLIENT_ID: {
+    required: false,
+    default: '',
+    validate: (value: string) => !value || value.length > 0,
+    message: 'GOOGLE_CLIENT_ID must be a non-empty string when provided'
+  },
+  GOOGLE_CLIENT_SECRET: {
+    required: false,
+    default: '',
+    validate: (value: string) => !value || value.length > 0,
+    message: 'GOOGLE_CLIENT_SECRET must be a non-empty string when provided'
+  },
+  GOOGLE_CALLBACK_URL: {
+    required: false,
+    default: 'https://aurikrex-backend.onrender.com/api/auth/google/callback',
+    validate: (value: string) => value.startsWith('http://') || value.startsWith('https://'),
+    message: 'GOOGLE_CALLBACK_URL must be a valid URL'
+  },
+  
+  // Email configuration
+  EMAIL_HOST: {
+    required: false,
+    default: '',
+    validate: (value: string) => !value || value.length > 0,
+    message: 'EMAIL_HOST must be a non-empty string when provided'
+  },
+  EMAIL_PORT: {
+    required: false,
+    default: '465',
+    validate: (value: string) => !value || (!isNaN(Number(value)) && Number(value) > 0),
+    message: 'EMAIL_PORT must be a positive number'
+  },
+  EMAIL_SECURE: {
+    required: false,
+    default: 'true',
+    validate: (value: string) => !value || ['true', 'false'].includes(value),
+    message: 'EMAIL_SECURE must be "true" or "false"'
+  },
+  EMAIL_USER: {
+    required: false,
+    default: '',
+    validate: (value: string) => !value || value.includes('@'),
+    message: 'EMAIL_USER must be a valid email address when provided'
+  },
+  EMAIL_PASS: {
+    required: false,
+    default: '',
+    validate: (_value: string) => true,
+    message: 'EMAIL_PASS is optional'
   }
 } as const;
 

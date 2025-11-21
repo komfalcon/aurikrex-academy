@@ -386,8 +386,8 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
 export const googleAuthInit = async (_req: Request, res: Response): Promise<void> => {
   try {
     const clientID = process.env.GOOGLE_CLIENT_ID;
-    const callbackURL = process.env.GOOGLE_CALLBACK_URL;
-    const frontendURL = process.env.FRONTEND_URL || process.env.ALLOWED_ORIGINS?.split(',')[0] || 'http://localhost:8080';
+    const callbackURL = process.env.GOOGLE_CALLBACK_URL || 'https://aurikrex-backend.onrender.com/api/auth/google/callback';
+    const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
 
     if (!clientID) {
       res.status(500).json({
@@ -404,7 +404,7 @@ export const googleAuthInit = async (_req: Request, res: Response): Promise<void
     const googleAuthUrl = 
       `https://accounts.google.com/o/oauth2/v2/auth?` +
       `client_id=${encodeURIComponent(clientID)}` +
-      `&redirect_uri=${encodeURIComponent(callbackURL || '')}` +
+      `&redirect_uri=${encodeURIComponent(callbackURL)}` +
       `&response_type=code` +
       `&scope=${encodeURIComponent(scopes.join(' '))}` +
       `&state=${state}` +
@@ -470,7 +470,7 @@ export const googleAuthCallback = [
 
       // Get frontend URL from state or environment
       const state = req.query.state as string;
-      let frontendURL = process.env.FRONTEND_URL || process.env.ALLOWED_ORIGINS?.split(',')[0] || 'http://localhost:8080';
+      let frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
       
       if (state) {
         try {
@@ -494,7 +494,7 @@ export const googleAuthCallback = [
       res.redirect(redirectUrl);
     } catch (error) {
       console.error('❌ Google callback error:', getErrorMessage(error));
-      const frontendURL = process.env.FRONTEND_URL || process.env.ALLOWED_ORIGINS?.split(',')[0] || 'http://localhost:8080';
+      const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
       res.redirect(`${frontendURL}/login?error=auth_callback_failed`);
     }
   }
