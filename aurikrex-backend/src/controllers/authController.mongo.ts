@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import { userService } from '../services/UserService.mongo.js';
 import { emailService } from '../services/EmailService.js';
 import { getErrorMessage } from '../utils/errors.js';
+import passport from '../config/passport.js';
+import { generateAccessToken, generateRefreshToken } from '../utils/jwt.js';
 
 interface SignupRequest {
   firstName: string;
@@ -171,16 +173,46 @@ export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
     // Get user and update verification status
     const user = await userService.getUserByEmail(email);
     
-    if (user) {
-      await userService.updateUser(user.uid, { emailVerified: true } as any);
-      console.log('✅ Email verified for user:', email);
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+      return;
     }
+
+    // Update email verification status
+    await userService.updateUser(user.uid, { emailVerified: true } as any);
+    console.log('✅ Email verified for user:', email);
+
+    // Generate JWT tokens for the verified user
+    const accessToken = generateAccessToken({
+      userId: user.uid,
+      email: user.email,
+      role: user.role,
+    });
+    const refreshToken = generateRefreshToken({
+      userId: user.uid,
+      email: user.email,
+      role: user.role,
+    });
+
+    // Get updated user data
+    const updatedUser = await userService.getUserByEmail(email);
+    const [firstName, ...lastNameParts] = (updatedUser?.displayName || '').split(' ');
 
     res.status(200).json({
       success: true,
       message: 'Email verified successfully',
       data: {
+        uid: user.uid,
+        email: user.email,
+        firstName: firstName || 'User',
+        lastName: lastNameParts.join(' ') || '',
+        displayName: updatedUser?.displayName,
         emailVerified: true,
+        token: accessToken,
+        refreshToken: refreshToken,
       },
     });
   } catch (error) {
@@ -346,3 +378,124 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
     });
   }
 };
+
+/**
+ * Initiate Google OAuth flow
+ * Returns the Google OAuth URL for frontend to redirect to
+ */
+export const googleAuthInit = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const clientID = process.env.GOOGLE_CLIENT_ID;
+    const callbackURL = process.env.GOOGLE_CALLBACK_URL;
+    const frontendURL = process.env.FRONTEND_URL || process.env.ALLOWED_ORIGINS?.split(',')[0] || 'http://localhost:8080';
+
+    if (!clientID) {
+      res.status(500).json({
+        success: false,
+        message: 'Google OAuth is not configured',
+      });
+      return;
+    }
+
+    // Generate Google OAuth URL
+    const scopes = ['profile', 'email'];
+    const state = Buffer.from(JSON.stringify({ returnUrl: frontendURL })).toString('base64');
+    
+    const googleAuthUrl = 
+      `https://accounts.google.com/o/oauth2/v2/auth?` +
+      `client_id=${encodeURIComponent(clientID)}` +
+      `&redirect_uri=${encodeURIComponent(callbackURL || '')}` +
+      `&response_type=code` +
+      `&scope=${encodeURIComponent(scopes.join(' '))}` +
+      `&state=${state}` +
+      `&access_type=offline` +
+      `&prompt=consent`;
+
+    console.log('🔐 Google OAuth URL generated');
+
+    res.status(200).json({
+      success: true,
+      data: {
+        url: googleAuthUrl,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Google OAuth init error:', getErrorMessage(error));
+    res.status(500).json({
+      success: false,
+      message: 'Failed to initialize Google authentication',
+      error: getErrorMessage(error),
+    });
+  }
+};
+
+/**
+ * Handle Google OAuth callback
+ * This is called by Google after user authorizes
+ */
+export const googleAuthCallback = [
+  passport.authenticate('google', { session: false, failureRedirect: '/login?error=google_auth_failed' }),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      // Type assertion with better typing
+      interface OAuthUser {
+        userId: string;
+        email: string;
+        role: 'student' | 'instructor' | 'admin';
+        uid: string;
+        displayName?: string;
+      }
+      
+      const user = req.user as OAuthUser | undefined;
+
+      if (!user) {
+        console.error('❌ No user found after Google auth');
+        res.redirect('/login?error=auth_failed');
+        return;
+      }
+
+      console.log('✅ Google OAuth successful for:', user.email);
+
+      // Generate JWT tokens
+      const accessToken = generateAccessToken({
+        userId: user.uid,
+        email: user.email,
+        role: user.role || 'student',
+      });
+      const refreshToken = generateRefreshToken({
+        userId: user.uid,
+        email: user.email,
+        role: user.role || 'student',
+      });
+
+      // Get frontend URL from state or environment
+      const state = req.query.state as string;
+      let frontendURL = process.env.FRONTEND_URL || process.env.ALLOWED_ORIGINS?.split(',')[0] || 'http://localhost:8080';
+      
+      if (state) {
+        try {
+          const stateData = JSON.parse(Buffer.from(state, 'base64').toString());
+          if (stateData.returnUrl) {
+            frontendURL = stateData.returnUrl;
+          }
+        } catch (e) {
+          console.warn('Failed to parse state:', e);
+        }
+      }
+
+      // Redirect to frontend with tokens
+      const redirectUrl = `${frontendURL}/auth/callback?` +
+        `token=${encodeURIComponent(accessToken)}` +
+        `&refreshToken=${encodeURIComponent(refreshToken)}` +
+        `&email=${encodeURIComponent(user.email)}` +
+        `&displayName=${encodeURIComponent(user.displayName || '')}` +
+        `&uid=${encodeURIComponent(user.uid)}`;
+
+      res.redirect(redirectUrl);
+    } catch (error) {
+      console.error('❌ Google callback error:', getErrorMessage(error));
+      const frontendURL = process.env.FRONTEND_URL || process.env.ALLOWED_ORIGINS?.split(',')[0] || 'http://localhost:8080';
+      res.redirect(`${frontendURL}/login?error=auth_callback_failed`);
+    }
+  }
+];

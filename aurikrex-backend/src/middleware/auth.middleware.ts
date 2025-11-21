@@ -2,9 +2,12 @@ import { Request, Response, NextFunction } from 'express';
 import { verifyToken, TokenPayload } from '../utils/jwt.js';
 import { log } from '../utils/logger.js';
 
-// Extend Express Request type to include user
+// Extend Express Request type to include user (overriding passport's User type)
 declare global {
   namespace Express {
+    // Override the User type from passport to be TokenPayload
+    interface User extends TokenPayload {}
+    
     interface Request {
       user?: TokenPayload;
     }

@@ -6,7 +6,9 @@ import {
   verifyOTP,
   resendOTP,
   getCurrentUser,
-  refreshToken
+  refreshToken,
+  googleAuthInit,
+  googleAuthCallback
 } from '../controllers/authController.mongo.js';
 import { validateRequest } from '../middleware/validation.middleware.js';
 import { authenticate } from '../middleware/auth.middleware.js';
@@ -106,5 +108,19 @@ router.get(
   authenticate,
   getCurrentUser
 );
+
+/**
+ * @route   GET /api/auth/google/url
+ * @desc    Get Google OAuth URL to initiate authentication
+ * @access  Public
+ */
+router.get('/google/url', googleAuthInit);
+
+/**
+ * @route   GET /api/auth/google/callback
+ * @desc    Handle Google OAuth callback after user authorizes
+ * @access  Public
+ */
+router.get('/google/callback', googleAuthCallback as any);
 
 export default router;
