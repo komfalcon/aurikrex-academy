@@ -95,12 +95,12 @@ const envVars = {
     message: 'CLAUDE_API_KEY must be a non-empty string when provided'
   },
 
-  // Optional Redis for caching
+  // Optional Redis for caching (empty string disables Redis)
   REDIS_URL: {
     required: false,
     default: '',
     validate: (value: string) => !value || value.startsWith('redis://') || value.startsWith('rediss://'),
-    message: 'REDIS_URL must be a valid Redis URL starting with redis:// or rediss://'
+    message: 'REDIS_URL must be a valid Redis URL starting with redis:// or rediss:// (empty to disable caching)'
   },
   
   // Frontend URL for redirects
