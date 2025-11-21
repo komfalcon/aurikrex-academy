@@ -66,25 +66,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signInWithGoogle = async () => {
     try {
-      // TODO: Implement Google OAuth flow with Render backend
+      console.log('🔐 Initiating Google OAuth flow...');
+      
       // Step 1: Get Google OAuth URL from backend
       const urlResponse = await fetch(`${API_URL}/auth/google/url`, {
         method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
 
       if (!urlResponse.ok) {
-        throw new Error('Failed to get Google OAuth URL');
+        const errorData = await urlResponse.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to get Google OAuth URL');
       }
 
-      const { url } = await urlResponse.json();
+      const responseData = await urlResponse.json();
+      
+      if (!responseData.success || !responseData.data?.url) {
+        throw new Error('Invalid response from authentication server');
+      }
+
+      const googleAuthUrl = responseData.data.url;
+      console.log('✅ Got Google OAuth URL, redirecting...');
 
       // Step 2: Redirect to Google OAuth
-      window.location.href = url;
-
-      // Note: After OAuth, Google will redirect back to the app with tokens
-      // The callback handler will complete the authentication
+      // Google will redirect back to /auth/callback with tokens
+      window.location.href = googleAuthUrl;
     } catch (error) {
-      console.error('Error signing in with Google:', error);
+      console.error('❌ Error signing in with Google:', error);
       throw error;
     }
   };
