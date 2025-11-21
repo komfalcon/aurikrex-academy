@@ -1,6 +1,7 @@
 import express, { NextFunction, Request, Response } from "express";
 import cors from "cors";
 import compression from "compression";
+import passport from "./config/passport.js";
 import { connectDB, checkMongoHealth } from "./config/mongodb.js";
 import { UserModel } from "./models/User.model.js";
 import { LessonModel, LessonProgressModel } from "./models/Lesson.model.js";
@@ -34,6 +35,9 @@ app.use(express.urlencoded({ extended: true }));
 app.use(compression());  // Enable compression
 app.use(requestLogger);  // Enhanced request logging
 app.use(apiLimiter);    // Global rate limiting
+
+// Initialize passport for OAuth
+app.use(passport.initialize());
 
 // Import routes
 import routes from "./routes/index.mongo.js";
