@@ -3,6 +3,7 @@ import { userService } from '../services/UserService.mongo.js';
 import { emailService } from '../services/EmailService.js';
 import { getErrorMessage } from '../utils/errors.js';
 import passport from '../config/passport.js';
+import { generateAccessToken, generateRefreshToken } from '../utils/jwt.js';
 
 interface SignupRequest {
   firstName: string;
@@ -185,7 +186,6 @@ export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
     console.log('✅ Email verified for user:', email);
 
     // Generate JWT tokens for the verified user
-    const { generateAccessToken, generateRefreshToken } = await import('../utils/jwt');
     const accessToken = generateAccessToken({
       userId: user.uid,
       email: user.email,
@@ -437,7 +437,16 @@ export const googleAuthCallback = [
   passport.authenticate('google', { session: false, failureRedirect: '/login?error=google_auth_failed' }),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const user = req.user as any;
+      // Type assertion with better typing
+      interface OAuthUser {
+        userId: string;
+        email: string;
+        role: 'student' | 'instructor' | 'admin';
+        uid: string;
+        displayName?: string;
+      }
+      
+      const user = req.user as OAuthUser | undefined;
 
       if (!user) {
         console.error('❌ No user found after Google auth');
@@ -448,7 +457,6 @@ export const googleAuthCallback = [
       console.log('✅ Google OAuth successful for:', user.email);
 
       // Generate JWT tokens
-      const { generateAccessToken, generateRefreshToken } = await import('../utils/jwt');
       const accessToken = generateAccessToken({
         userId: user.uid,
         email: user.email,

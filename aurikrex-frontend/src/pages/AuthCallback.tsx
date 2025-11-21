@@ -44,7 +44,7 @@ export default function AuthCallback() {
         const user = {
           uid,
           email,
-          displayName: displayName || email.split('@')[0],
+          displayName: displayName || email?.split('@')?.[0] || 'User',
           emailVerified: true, // Google users are always verified
         };
 
