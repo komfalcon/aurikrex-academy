@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Mail, ArrowLeft, Sparkles } from 'lucide-react';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { toast } from 'sonner';
+import { extractPathFromUrl } from '../utils/redirect';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://aurikrex-backend.onrender.com/api';
 
@@ -62,9 +63,19 @@ export default function VerifyEmail() {
         };
         localStorage.setItem('aurikrex-user', JSON.stringify(userData));
         localStorage.setItem('aurikrex-token', data.data.token);
+        if (data.data.refreshToken) {
+          localStorage.setItem('aurikrex-refresh-token', data.data.refreshToken);
+        }
         
         toast.success('Email verified successfully! 🎉');
-        setTimeout(() => navigate('/dashboard'), 1000);
+        
+        // Use redirect URL from backend if provided
+        if (data.redirect) {
+          const redirectPath = extractPathFromUrl(data.redirect);
+          setTimeout(() => navigate(redirectPath), 1000);
+        } else {
+          setTimeout(() => navigate('/dashboard'), 1000);
+        }
       } else {
         toast.error(data.message || 'Invalid or expired verification code');
         setOtp('');
