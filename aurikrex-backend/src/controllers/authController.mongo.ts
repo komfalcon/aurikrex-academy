@@ -491,8 +491,21 @@ export const googleAuthCallback = [
             // Get allowed origins from environment or use defaults
             const allowedOriginsEnv = process.env.ALLOWED_ORIGINS || 'https://aurikrex.tech,https://www.aurikrex.tech';
             const allowedOrigins = [frontendURL, ...allowedOriginsEnv.split(',').map(o => o.trim())];
-            if (allowedOrigins.some(origin => stateData.returnUrl.startsWith(origin))) {
-              returnUrl = stateData.returnUrl;
+            
+            // Use URL parsing to validate hostname (prevents subdomain attacks)
+            try {
+              const returnUrlObj = new URL(stateData.returnUrl);
+              const isAllowed = allowedOrigins.some(origin => {
+                const allowedUrlObj = new URL(origin);
+                return returnUrlObj.hostname === allowedUrlObj.hostname;
+              });
+              if (isAllowed) {
+                returnUrl = stateData.returnUrl;
+              } else {
+                console.warn('🚫 Rejected returnUrl with invalid hostname:', returnUrlObj.hostname);
+              }
+            } catch (urlError) {
+              console.warn('Failed to parse returnUrl:', urlError);
             }
           }
         } catch (e) {
@@ -503,8 +516,13 @@ export const googleAuthCallback = [
       // Set secure httpOnly cookies for tokens
       const isProduction = process.env.NODE_ENV === 'production';
       // Extract domain from FRONTEND_URL for cookie domain setting
-      const cookieDomain = isProduction && frontendURL ? 
-        new URL(frontendURL).hostname.replace(/^www\./, '.') : undefined;
+      let cookieDomain: string | undefined = undefined;
+      if (isProduction && frontendURL) {
+        const hostname = new URL(frontendURL).hostname;
+        // Only prepend '.' if hostname starts with 'www.' to create a parent domain cookie
+        // Otherwise use the exact hostname
+        cookieDomain = hostname.startsWith('www.') ? hostname.replace(/^www/, '') : `.${hostname}`;
+      }
       
       const cookieOptions = {
         httpOnly: true,
@@ -525,9 +543,13 @@ export const googleAuthCallback = [
         `&displayName=${encodeURIComponent(user.displayName || '')}` +
         `&uid=${encodeURIComponent(user.uid)}`;
 
-      // Log redirect (sanitize URL to avoid exposing tokens)
-      const sanitizedUrl = `${returnUrl}/auth/callback`;
-      console.log('🔄 Redirecting to:', sanitizedUrl);
+      // Log redirect with sanitized information (avoid exposing tokens)
+      try {
+        const redirectUrlObj = new URL(redirectUrl);
+        console.log('🔄 Redirecting user to:', `${redirectUrlObj.origin}${redirectUrlObj.pathname}`);
+      } catch {
+        console.log('🔄 Redirecting user to frontend');
+      }
       res.redirect(redirectUrl);
     } catch (error) {
       console.error('❌ Google callback error:', getErrorMessage(error));
