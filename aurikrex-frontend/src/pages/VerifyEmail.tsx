@@ -62,9 +62,19 @@ export default function VerifyEmail() {
         };
         localStorage.setItem('aurikrex-user', JSON.stringify(userData));
         localStorage.setItem('aurikrex-token', data.data.token);
+        if (data.data.refreshToken) {
+          localStorage.setItem('aurikrex-refresh-token', data.data.refreshToken);
+        }
         
         toast.success('Email verified successfully! 🎉');
-        setTimeout(() => navigate('/dashboard'), 1000);
+        
+        // Use redirect URL from backend if provided
+        if (data.redirect) {
+          const redirectPath = data.redirect.replace(/^https?:\/\/[^/]+/, '');
+          setTimeout(() => navigate(redirectPath), 1000);
+        } else {
+          setTimeout(() => navigate('/dashboard'), 1000);
+        }
       } else {
         toast.error(data.message || 'Invalid or expired verification code');
         setOtp('');

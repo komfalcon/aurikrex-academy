@@ -69,9 +69,12 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
       // Don't fail signup if email fails
     }
 
+    const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
+    
     res.status(201).json({
       success: true,
       message: 'Account created successfully. Please check your email for verification code.',
+      redirect: `${frontendURL}/verify-email`,
       data: {
         uid: result.user.uid,
         email: result.user.email,
@@ -113,9 +116,12 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     console.log('✅ User logged in successfully:', result.user.email);
 
+    const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
+    
     res.status(200).json({
       success: true,
       message: 'Login successful',
+      redirect: `${frontendURL}/dashboard`,
       data: {
         uid: result.user.uid,
         email: result.user.email,
@@ -201,9 +207,12 @@ export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
     const updatedUser = await userService.getUserByEmail(email);
     const [firstName, ...lastNameParts] = (updatedUser?.displayName || '').split(' ');
 
+    const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
+    
     res.status(200).json({
       success: true,
       message: 'Email verified successfully',
+      redirect: `${frontendURL}/dashboard`,
       data: {
         uid: user.uid,
         email: user.email,
@@ -434,7 +443,7 @@ export const googleAuthInit = async (_req: Request, res: Response): Promise<void
  * This is called by Google after user authorizes
  */
 export const googleAuthCallback = [
-  passport.authenticate('google', { session: false, failureRedirect: '/login?error=google_auth_failed' }),
+  passport.authenticate('google', { session: false }),
   async (req: Request, res: Response): Promise<void> => {
     try {
       // Type assertion with better typing
@@ -450,7 +459,8 @@ export const googleAuthCallback = [
 
       if (!user) {
         console.error('❌ No user found after Google auth');
-        res.redirect('/login?error=auth_failed');
+        const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
+        res.redirect(`${frontendURL}/login?error=auth_failed`);
         return;
       }
 
@@ -471,26 +481,45 @@ export const googleAuthCallback = [
       // Get frontend URL from state or environment
       const state = req.query.state as string;
       let frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
+      let returnUrl = frontendURL;
       
       if (state) {
         try {
           const stateData = JSON.parse(Buffer.from(state, 'base64').toString());
           if (stateData.returnUrl) {
-            frontendURL = stateData.returnUrl;
+            // Validate returnUrl - only allow same origin or whitelisted domains
+            const allowedOrigins = [frontendURL, 'https://aurikrex.tech', 'https://www.aurikrex.tech'];
+            if (allowedOrigins.some(origin => stateData.returnUrl.startsWith(origin))) {
+              returnUrl = stateData.returnUrl;
+            }
           }
         } catch (e) {
           console.warn('Failed to parse state:', e);
         }
       }
 
-      // Redirect to frontend with tokens
-      const redirectUrl = `${frontendURL}/auth/callback?` +
+      // Set secure httpOnly cookies for tokens
+      const isProduction = process.env.NODE_ENV === 'production';
+      const cookieOptions = {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'lax' as const,
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        domain: isProduction ? '.aurikrex.tech' : undefined,
+      };
+
+      res.cookie('aurikrex_token', accessToken, cookieOptions);
+      res.cookie('aurikrex_refresh_token', refreshToken, cookieOptions);
+
+      // Redirect to frontend with tokens in URL as fallback (for client-side storage)
+      const redirectUrl = `${returnUrl}/auth/callback?` +
         `token=${encodeURIComponent(accessToken)}` +
         `&refreshToken=${encodeURIComponent(refreshToken)}` +
         `&email=${encodeURIComponent(user.email)}` +
         `&displayName=${encodeURIComponent(user.displayName || '')}` +
         `&uid=${encodeURIComponent(user.uid)}`;
 
+      console.log('🔄 Redirecting to:', `${returnUrl}/auth/callback`);
       res.redirect(redirectUrl);
     } catch (error) {
       console.error('❌ Google callback error:', getErrorMessage(error));

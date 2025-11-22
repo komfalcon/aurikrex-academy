@@ -12,7 +12,7 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID || '',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
-      callbackURL: process.env.GOOGLE_CALLBACK_URL || '/api/auth/google/callback',
+      callbackURL: process.env.GOOGLE_CALLBACK_URL || `${process.env.BACKEND_URL || 'https://aurikrex-backend.onrender.com'}/api/auth/google/callback`,
     },
     async (_accessToken: string, _refreshToken: string, profile: Profile, done: VerifyCallback) => {
       try {

@@ -67,9 +67,19 @@ export default function Login() {
         if (data.data.token) {
           localStorage.setItem('aurikrex-token', data.data.token);
         }
+        if (data.data.refreshToken) {
+          localStorage.setItem('aurikrex-refresh-token', data.data.refreshToken);
+        }
         
         toast.success(`Welcome back, ${data.data.firstName}! 👋`);
-        navigate('/dashboard');
+        
+        // Use redirect URL from backend if provided
+        if (data.redirect) {
+          const redirectPath = data.redirect.replace(/^https?:\/\/[^/]+/, '');
+          navigate(redirectPath);
+        } else {
+          navigate('/dashboard');
+        }
       } else if (response.status === 403 && data.emailVerified === false) {
         // Email not verified
         toast.error('Account not verified. Please complete email verification to proceed.');

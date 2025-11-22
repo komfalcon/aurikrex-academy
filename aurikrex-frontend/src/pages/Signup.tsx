@@ -81,8 +81,16 @@ export default function Signup() {
         // Store email and firstName temporarily for verification page
         localStorage.setItem('pending-verification-email', email);
         localStorage.setItem('pending-verification-firstName', firstName);
-        // Navigate to verification page
-        navigate('/verify-email', { state: { email, firstName } });
+        
+        // Use redirect URL from backend if provided, otherwise navigate to verification page
+        if (data.redirect) {
+          // Extract path from redirect URL
+          const redirectPath = data.redirect.replace(/^https?:\/\/[^/]+/, '');
+          navigate(redirectPath, { state: { email, firstName } });
+        } else {
+          // Fallback to default verification page
+          navigate('/verify-email', { state: { email, firstName } });
+        }
       } else {
         setError(data.message || 'Registration failed. Please try again.');
         toast.error(data.message || 'Registration failed. Please try again.');
