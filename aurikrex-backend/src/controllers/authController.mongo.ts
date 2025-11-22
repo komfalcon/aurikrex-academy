@@ -490,7 +490,8 @@ export const googleAuthCallback = [
             // Validate returnUrl - only allow same origin or whitelisted domains
             // Get allowed origins from environment or use defaults
             const allowedOriginsEnv = process.env.ALLOWED_ORIGINS || 'https://aurikrex.tech,https://www.aurikrex.tech';
-            const allowedOrigins = [frontendURL, ...allowedOriginsEnv.split(',').map(o => o.trim())];
+            // Use Set to deduplicate origins
+            const allowedOrigins = [...new Set([frontendURL, ...allowedOriginsEnv.split(',').map(o => o.trim())])];
             
             // Use URL parsing to validate hostname (prevents subdomain attacks)
             try {
@@ -518,10 +519,16 @@ export const googleAuthCallback = [
       // Extract domain from FRONTEND_URL for cookie domain setting
       let cookieDomain: string | undefined = undefined;
       if (isProduction && frontendURL) {
-        const hostname = new URL(frontendURL).hostname;
-        // Only prepend '.' if hostname starts with 'www.' to create a parent domain cookie
-        // Otherwise use the exact hostname
-        cookieDomain = hostname.startsWith('www.') ? hostname.replace(/^www/, '') : `.${hostname}`;
+        try {
+          const hostname = new URL(frontendURL).hostname;
+          // For www subdomain, set to parent domain with leading dot
+          // For other domains, set with leading dot to allow all subdomains
+          cookieDomain = hostname.startsWith('www.') ? hostname.replace(/^www/, '') : `.${hostname}`;
+        } catch (urlError) {
+          console.warn('Failed to parse FRONTEND_URL for cookie domain:', urlError);
+          // Fallback to no domain restriction
+          cookieDomain = undefined;
+        }
       }
       
       const cookieOptions = {
@@ -535,7 +542,9 @@ export const googleAuthCallback = [
       res.cookie('aurikrex_token', accessToken, cookieOptions);
       res.cookie('aurikrex_refresh_token', refreshToken, cookieOptions);
 
-      // Redirect to frontend with tokens in URL as fallback (for client-side storage)
+      // Redirect to frontend with user info only (tokens are in httpOnly cookies)
+      // For backwards compatibility with client-side storage, include tokens
+      // TODO: Remove token parameters once frontend fully migrates to cookie-based auth
       const redirectUrl = `${returnUrl}/auth/callback?` +
         `token=${encodeURIComponent(accessToken)}` +
         `&refreshToken=${encodeURIComponent(refreshToken)}` +
