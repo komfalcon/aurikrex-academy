@@ -488,7 +488,9 @@ export const googleAuthCallback = [
           const stateData = JSON.parse(Buffer.from(state, 'base64').toString());
           if (stateData.returnUrl) {
             // Validate returnUrl - only allow same origin or whitelisted domains
-            const allowedOrigins = [frontendURL, 'https://aurikrex.tech', 'https://www.aurikrex.tech'];
+            // Get allowed origins from environment or use defaults
+            const allowedOriginsEnv = process.env.ALLOWED_ORIGINS || 'https://aurikrex.tech,https://www.aurikrex.tech';
+            const allowedOrigins = [frontendURL, ...allowedOriginsEnv.split(',').map(o => o.trim())];
             if (allowedOrigins.some(origin => stateData.returnUrl.startsWith(origin))) {
               returnUrl = stateData.returnUrl;
             }
@@ -500,12 +502,16 @@ export const googleAuthCallback = [
 
       // Set secure httpOnly cookies for tokens
       const isProduction = process.env.NODE_ENV === 'production';
+      // Extract domain from FRONTEND_URL for cookie domain setting
+      const cookieDomain = isProduction && frontendURL ? 
+        new URL(frontendURL).hostname.replace(/^www\./, '.') : undefined;
+      
       const cookieOptions = {
         httpOnly: true,
         secure: isProduction,
         sameSite: 'lax' as const,
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-        domain: isProduction ? '.aurikrex.tech' : undefined,
+        domain: cookieDomain,
       };
 
       res.cookie('aurikrex_token', accessToken, cookieOptions);
@@ -519,7 +525,9 @@ export const googleAuthCallback = [
         `&displayName=${encodeURIComponent(user.displayName || '')}` +
         `&uid=${encodeURIComponent(user.uid)}`;
 
-      console.log('🔄 Redirecting to:', `${returnUrl}/auth/callback`);
+      // Log redirect (sanitize URL to avoid exposing tokens)
+      const sanitizedUrl = `${returnUrl}/auth/callback`;
+      console.log('🔄 Redirecting to:', sanitizedUrl);
       res.redirect(redirectUrl);
     } catch (error) {
       console.error('❌ Google callback error:', getErrorMessage(error));

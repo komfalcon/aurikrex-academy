@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
 import { Mail, Lock, ArrowLeft, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
+import { extractPathFromUrl } from '../utils/redirect';
 
 const API_URL = import.meta.env.VITE_API_URL as string || 'https://aurikrex-backend.onrender.com/api';
 
@@ -75,7 +76,7 @@ export default function Login() {
         
         // Use redirect URL from backend if provided
         if (data.redirect) {
-          const redirectPath = data.redirect.replace(/^https?:\/\/[^/]+/, '');
+          const redirectPath = extractPathFromUrl(data.redirect);
           navigate(redirectPath);
         } else {
           navigate('/dashboard');

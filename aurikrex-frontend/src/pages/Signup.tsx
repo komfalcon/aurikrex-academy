@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
 import { User, Mail, Phone, Lock, ArrowLeft, Sparkles, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { extractPathFromUrl } from '../utils/redirect';
 
 const API_URL = import.meta.env.VITE_API_URL as string || 'https://aurikrex-backend.onrender.com/api';
 
@@ -85,7 +86,7 @@ export default function Signup() {
         // Use redirect URL from backend if provided, otherwise navigate to verification page
         if (data.redirect) {
           // Extract path from redirect URL
-          const redirectPath = data.redirect.replace(/^https?:\/\/[^/]+/, '');
+          const redirectPath = extractPathFromUrl(data.redirect);
           navigate(redirectPath, { state: { email, firstName } });
         } else {
           // Fallback to default verification page

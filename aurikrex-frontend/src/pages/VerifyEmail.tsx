@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Mail, ArrowLeft, Sparkles } from 'lucide-react';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { toast } from 'sonner';
+import { extractPathFromUrl } from '../utils/redirect';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://aurikrex-backend.onrender.com/api';
 
@@ -70,7 +71,7 @@ export default function VerifyEmail() {
         
         // Use redirect URL from backend if provided
         if (data.redirect) {
-          const redirectPath = data.redirect.replace(/^https?:\/\/[^/]+/, '');
+          const redirectPath = extractPathFromUrl(data.redirect);
           setTimeout(() => navigate(redirectPath), 1000);
         } else {
           setTimeout(() => navigate('/dashboard'), 1000);
