@@ -4,6 +4,7 @@ import {
   signup,
   login,
   verifyOTP,
+  sendOTP,
   resendOTP,
   getCurrentUser,
   refreshToken,
@@ -45,6 +46,18 @@ router.post(
 );
 
 /**
+ * @route   POST /api/auth/send-otp
+ * @desc    Send OTP to user's email for verification
+ * @access  Public
+ */
+router.post(
+  '/send-otp',
+  [body('email').isEmail().normalizeEmail().withMessage('Valid email is required')],
+  validateRequest,
+  sendOTP
+);
+
+/**
  * @route   POST /api/auth/verify-otp
  * @desc    Verify OTP sent to user's email
  * @access  Public
@@ -61,7 +74,7 @@ router.post(
 
 /**
  * @route   POST /api/auth/resend-otp
- * @desc    Resend OTP to user's email
+ * @desc    Resend OTP to user's email (alias for send-otp)
  * @access  Public
  */
 router.post(

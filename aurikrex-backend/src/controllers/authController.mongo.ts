@@ -235,60 +235,101 @@ export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
 };
 
 /**
- * Resend OTP to user's email
+ * Helper function to send OTP to user's email
  */
-export const resendOTP = async (req: Request, res: Response): Promise<void> => {
+async function sendOTPToUser(email: string, actionName: string): Promise<{
+  success: boolean;
+  statusCode: number;
+  message: string;
+  error?: string;
+}> {
   try {
-    const { email }: ResendOTPRequest = req.body;
-
-    console.log('🔐 Resend OTP request for:', email);
-
-    if (!email) {
-      res.status(400).json({
-        success: false,
-        message: 'Email is required',
-      });
-      return;
-    }
+    console.log(`🔐 ${actionName} OTP request for:`, email);
 
     // Get user data
     const user = await userService.getUserByEmail(email);
     
     if (!user) {
-      res.status(404).json({
+      return {
         success: false,
-        message: 'User not found',
-      });
-      return;
+        statusCode: 404,
+        message: 'User not found. Please sign up first.',
+      };
     }
 
     // Check if already verified
     if (user.emailVerified) {
-      res.status(400).json({
+      return {
         success: false,
+        statusCode: 400,
         message: 'Email is already verified',
-      });
-      return;
+      };
     }
 
     // Send new OTP
     const firstName = user.displayName?.split(' ')[0] || 'User';
     await emailService.sendVerificationOTP(email, firstName);
 
-    console.log('✅ Verification OTP resent to:', email);
+    console.log(`✅ Verification OTP ${actionName.toLowerCase()} to:`, email);
 
-    res.status(200).json({
+    return {
       success: true,
+      statusCode: 200,
       message: 'Verification code sent successfully',
-    });
+    };
   } catch (error) {
-    console.error('❌ Resend OTP error:', getErrorMessage(error));
-    res.status(500).json({
+    console.error(`❌ ${actionName} OTP error:`, getErrorMessage(error));
+    return {
       success: false,
-      message: 'Failed to resend verification code. Please try again.',
+      statusCode: 500,
+      message: 'Failed to send verification code. Please try again.',
       error: getErrorMessage(error),
-    });
+    };
   }
+}
+
+/**
+ * Send OTP to user's email (for standalone OTP sending)
+ */
+export const sendOTP = async (req: Request, res: Response): Promise<void> => {
+  const { email }: ResendOTPRequest = req.body;
+
+  if (!email) {
+    res.status(400).json({
+      success: false,
+      message: 'Email is required',
+    });
+    return;
+  }
+
+  const result = await sendOTPToUser(email, 'Send');
+  res.status(result.statusCode).json({
+    success: result.success,
+    message: result.message,
+    ...(result.error && { error: result.error }),
+  });
+};
+
+/**
+ * Resend OTP to user's email (alias for sendOTP for backwards compatibility)
+ */
+export const resendOTP = async (req: Request, res: Response): Promise<void> => {
+  const { email }: ResendOTPRequest = req.body;
+
+  if (!email) {
+    res.status(400).json({
+      success: false,
+      message: 'Email is required',
+    });
+    return;
+  }
+
+  const result = await sendOTPToUser(email, 'Resend');
+  res.status(result.statusCode).json({
+    success: result.success,
+    message: result.message,
+    ...(result.error && { error: result.error }),
+  });
 };
 
 /**
