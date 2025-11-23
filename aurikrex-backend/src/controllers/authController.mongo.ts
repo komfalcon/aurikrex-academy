@@ -235,7 +235,64 @@ export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
 };
 
 /**
- * Resend OTP to user's email
+ * Send OTP to user's email (for standalone OTP sending)
+ */
+export const sendOTP = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email }: ResendOTPRequest = req.body;
+
+    console.log('🔐 Send OTP request for:', email);
+
+    if (!email) {
+      res.status(400).json({
+        success: false,
+        message: 'Email is required',
+      });
+      return;
+    }
+
+    // Get user data
+    const user = await userService.getUserByEmail(email);
+    
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: 'User not found. Please sign up first.',
+      });
+      return;
+    }
+
+    // Check if already verified
+    if (user.emailVerified) {
+      res.status(400).json({
+        success: false,
+        message: 'Email is already verified',
+      });
+      return;
+    }
+
+    // Send new OTP
+    const firstName = user.displayName?.split(' ')[0] || 'User';
+    await emailService.sendVerificationOTP(email, firstName);
+
+    console.log('✅ Verification OTP sent to:', email);
+
+    res.status(200).json({
+      success: true,
+      message: 'Verification code sent successfully',
+    });
+  } catch (error) {
+    console.error('❌ Send OTP error:', getErrorMessage(error));
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send verification code. Please try again.',
+      error: getErrorMessage(error),
+    });
+  }
+};
+
+/**
+ * Resend OTP to user's email (alias for sendOTP for backwards compatibility)
  */
 export const resendOTP = async (req: Request, res: Response): Promise<void> => {
   try {
