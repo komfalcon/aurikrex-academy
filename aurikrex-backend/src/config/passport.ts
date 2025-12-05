@@ -1,6 +1,7 @@
 import passport from 'passport';
 import { Strategy as GoogleStrategy, Profile, VerifyCallback } from 'passport-google-oauth20';
 import { config } from 'dotenv';
+import crypto from 'crypto';
 import { userService } from '../services/UserService.mongo.js';
 import { getErrorMessage } from '../utils/errors.js';
 
@@ -47,9 +48,13 @@ passport.use(
           // Create new user from Google profile
           console.log('✨ Creating new user from Google profile:', email);
           
+          // Generate a secure random password for Google users
+          // They won't use this password since they authenticate via Google
+          const randomPassword = crypto.randomBytes(32).toString('hex');
+          
           const result = await userService.register({
             email,
-            password: '', // Google users don't have passwords
+            password: randomPassword,
             displayName,
             role: 'student',
           });

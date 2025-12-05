@@ -86,9 +86,26 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
     });
   } catch (error) {
     console.error('❌ Signup error:', getErrorMessage(error));
-    res.status(500).json({
+    
+    // Handle specific error types
+    let statusCode = 500;
+    let message = 'Failed to create account. Please try again.';
+    
+    if (error instanceof AuthError) {
+      statusCode = error.status;
+      message = error.message;
+    } else if (error instanceof Error) {
+      // Check for common error patterns
+      const errorMessage = error.message.toLowerCase();
+      if (errorMessage.includes('already in use') || errorMessage.includes('duplicate') || errorMessage.includes('exists')) {
+        statusCode = 409;
+        message = 'An account with this email already exists. Please try logging in.';
+      }
+    }
+    
+    res.status(statusCode).json({
       success: false,
-      message: 'Failed to create account. Please try again.',
+      message,
       error: getErrorMessage(error),
     });
   }
