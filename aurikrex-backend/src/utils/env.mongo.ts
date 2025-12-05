@@ -39,7 +39,7 @@ const envVars = {
   // Security settings
   ALLOWED_ORIGINS: {
     required: false,
-    default: 'https://aurikrex.tech,https://www.aurikrex.tech,https://aurikrex-backend.onrender.com',
+    default: 'https://aurikrex.tech,https://www.aurikrex.tech',
     validate: (value: string) => value.split(',').every(origin => 
       origin === '*' || origin.startsWith('http://') || origin.startsWith('https://')
     ),
@@ -103,6 +103,14 @@ const envVars = {
     message: 'REDIS_URL must be a valid Redis URL starting with redis:// or rediss:// (empty to disable caching)'
   },
   
+  // Backend URL for redirects and callbacks
+  BACKEND_URL: {
+    required: false,
+    default: 'http://localhost:5000',
+    validate: (value: string) => value.startsWith('http://') || value.startsWith('https://'),
+    message: 'BACKEND_URL must be a valid URL'
+  },
+  
   // Frontend URL for redirects
   FRONTEND_URL: {
     required: false,
@@ -126,12 +134,32 @@ const envVars = {
   },
   GOOGLE_CALLBACK_URL: {
     required: false,
-    default: 'https://aurikrex-backend.onrender.com/api/auth/google/callback',
-    validate: (value: string) => value.startsWith('http://') || value.startsWith('https://'),
-    message: 'GOOGLE_CALLBACK_URL must be a valid URL'
+    default: '',
+    validate: (value: string) => !value || value.startsWith('http://') || value.startsWith('https://'),
+    message: 'GOOGLE_CALLBACK_URL must be a valid URL when provided'
   },
   
-  // Email configuration
+  // Brevo email configuration (preferred for email sending)
+  BREVO_API_KEY: {
+    required: false,
+    default: '',
+    validate: (value: string) => !value || value.length > 0,
+    message: 'BREVO_API_KEY must be a non-empty string when provided'
+  },
+  BREVO_SENDER_EMAIL: {
+    required: false,
+    default: 'info@aurikrex.tech',
+    validate: (value: string) => !value || value.includes('@'),
+    message: 'BREVO_SENDER_EMAIL must be a valid email address'
+  },
+  BREVO_SENDER_NAME: {
+    required: false,
+    default: 'Aurikrex Academy',
+    validate: (value: string) => !value || value.length > 0,
+    message: 'BREVO_SENDER_NAME must be a non-empty string when provided'
+  },
+  
+  // Legacy Email configuration (for reference, not used with Brevo API)
   EMAIL_HOST: {
     required: false,
     default: '',

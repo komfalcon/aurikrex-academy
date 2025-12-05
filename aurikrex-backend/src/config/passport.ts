@@ -6,13 +6,17 @@ import { getErrorMessage } from '../utils/errors.js';
 
 config();
 
+// Get the callback URL from environment
+const backendURL = process.env.BACKEND_URL || 'http://localhost:5000';
+const callbackURL = process.env.GOOGLE_CALLBACK_URL || `${backendURL}/api/auth/google/callback`;
+
 // Google OAuth Strategy
 passport.use(
   new GoogleStrategy(
     {
       clientID: process.env.GOOGLE_CLIENT_ID || '',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
-      callbackURL: process.env.GOOGLE_CALLBACK_URL || `${process.env.BACKEND_URL || 'https://aurikrex-backend.onrender.com'}/api/auth/google/callback`,
+      callbackURL: callbackURL,
     },
     async (_accessToken: string, _refreshToken: string, profile: Profile, done: VerifyCallback) => {
       try {

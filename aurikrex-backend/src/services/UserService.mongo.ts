@@ -73,6 +73,12 @@ export class UserService {
           throw new AuthError('Account has been disabled', 'account-disabled', 403);
         }
 
+        // Check if email is verified
+        if (!userDoc.emailVerified) {
+          console.warn('⚠️ Email not verified for:', email);
+          throw new AuthError('Email not verified. Please verify your email before logging in.', 'email-not-verified', 403);
+        }
+
         console.log('✅ Credentials verified for:', email);
 
         // Convert to AuthUser format

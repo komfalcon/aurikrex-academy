@@ -172,10 +172,7 @@ async function startServer() {
       });
       
       // Use environment-aware URL
-      const backendURL = process.env.BACKEND_URL || 
-        (NODE_ENV === 'production' 
-          ? 'https://aurikrex-backend.onrender.com'
-          : `http://localhost:${PORT}`);
+      const backendURL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
       
       console.log(`\n${'='.repeat(60)}`);
       console.log(`🚀 Aurikrex Academy Backend Server`);
