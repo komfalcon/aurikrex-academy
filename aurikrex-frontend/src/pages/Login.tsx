@@ -106,8 +106,18 @@ export default function Login() {
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError('Login failed. Please try again.');
-      toast.error('Login failed. Please try again.');
+      
+      // Provide more helpful error messages
+      let errorMessage = 'Login failed. Please try again.';
+      
+      if (!API_URL) {
+        errorMessage = 'Backend API URL is not configured. Please contact support.';
+      } else if (err instanceof TypeError && err.message.includes('Failed to fetch')) {
+        errorMessage = 'Unable to connect to the server. Please check your internet connection.';
+      }
+      
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

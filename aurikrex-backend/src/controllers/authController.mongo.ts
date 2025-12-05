@@ -94,10 +94,19 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
     if (error instanceof AuthError) {
       statusCode = error.status;
       message = error.message;
-    } else if (error instanceof Error) {
-      // Check for common error patterns
-      const errorMessage = error.message.toLowerCase();
-      if (errorMessage.includes('already in use') || errorMessage.includes('duplicate') || errorMessage.includes('exists')) {
+    } else {
+      // Check for duplicate key error (MongoDB error code 11000 or known patterns)
+      const isDuplicateError = 
+        // Check MongoDB error code
+        (error as any)?.code === 11000 ||
+        // Check for known error patterns in message
+        (error instanceof Error && (
+          error.message.includes('already in use') ||
+          error.message.includes('E11000') ||  // MongoDB duplicate key error pattern
+          error.message.toLowerCase().includes('duplicate')
+        ));
+        
+      if (isDuplicateError) {
         statusCode = 409;
         message = 'An account with this email already exists. Please try logging in.';
       }

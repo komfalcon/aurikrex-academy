@@ -78,6 +78,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       console.log('🔐 Initiating Google OAuth flow...');
       
+      // Check if API URL is configured
+      if (!API_URL) {
+        throw new Error('Backend API URL is not configured. Please contact support.');
+      }
+      
       // Step 1: Get Google OAuth URL from backend
       const urlResponse = await fetch(`${API_URL}/auth/google/url`, {
         method: 'GET',

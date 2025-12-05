@@ -108,8 +108,18 @@ export default function Signup() {
       }
     } catch (err) {
       console.error('Signup error:', err);
-      setError('Network error. Please check your connection and try again.');
-      toast.error('Network error. Please check your connection and try again.');
+      
+      // Provide more helpful error messages
+      let errorMessage = 'Network error. Please check your connection and try again.';
+      
+      if (!API_URL) {
+        errorMessage = 'Backend API URL is not configured. Please contact support.';
+      } else if (err instanceof TypeError && err.message.includes('Failed to fetch')) {
+        errorMessage = 'Unable to connect to the server. Please check your internet connection.';
+      }
+      
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
