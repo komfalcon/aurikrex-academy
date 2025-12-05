@@ -74,9 +74,9 @@ export class EmailService {
         { $set: otpData },
         { upsert: true }
       );
-      console.log(`✅ OTP stored for ${email}, expires at ${expiresAt.toISOString()}`);
+      log.info('✅ OTP stored', { email, expiresAt: expiresAt.toISOString() });
     } catch (error) {
-      console.error('Error storing OTP:', getErrorMessage(error));
+      log.error('Error storing OTP', { error: getErrorMessage(error) });
       throw new Error('Failed to store OTP');
     }
   }
@@ -116,7 +116,7 @@ export class EmailService {
       await db.collection('otpVerifications').deleteOne({ email });
       return true;
     } catch (error) {
-      console.error('Error verifying OTP:', getErrorMessage(error));
+      log.error('Error verifying OTP', { error: getErrorMessage(error) });
       return false;
     }
   }
@@ -262,17 +262,12 @@ export class EmailService {
 
       // Send email via Brevo
       const result = await this.apiInstance.sendTransacEmail(sendSmtpEmail);
-      console.log(`✅ OTP email sent successfully to ${email} (Message ID: ${result.body?.messageId || 'N/A'})`);
+      log.info('✅ OTP email sent successfully', { messageId: result.body?.messageId || 'N/A' });
     } catch (error) {
-      console.error('❌ Error sending OTP email:', getErrorMessage(error));
-      
-      // Log more details for debugging
-      if (error instanceof Error) {
-        console.error('Error details:', {
-          message: error.message,
-          stack: error.stack,
-        });
-      }
+      log.error('❌ Error sending OTP email', {
+        error: getErrorMessage(error),
+        details: error instanceof Error ? { message: error.message } : undefined
+      });
       
       throw new Error('Failed to send verification email. Please check your Brevo API configuration.');
     }
