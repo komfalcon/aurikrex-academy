@@ -2,6 +2,7 @@ import { TransactionalEmailsApi, SendSmtpEmail, AccountApi } from '@getbrevo/bre
 import { config } from 'dotenv';
 import { getErrorMessage } from '../utils/errors.js';
 import { getDB } from '../config/mongodb.js';
+import { log } from '../utils/logger.js';
 
 config();
 
@@ -14,10 +15,11 @@ interface OTPData {
 }
 
 export class EmailService {
-  private apiInstance: TransactionalEmailsApi;
+  private apiInstance: TransactionalEmailsApi | null = null;
   private apiKey: string;
   private senderEmail: string;
   private senderName: string;
+  private isConfigured: boolean = false;
 
   constructor() {
     // Initialize Brevo API
@@ -26,14 +28,21 @@ export class EmailService {
     this.senderName = process.env.BREVO_SENDER_NAME || 'Aurikrex Academy';
 
     if (!this.apiKey) {
-      console.error('❌ BREVO_API_KEY is not configured in environment variables');
-      throw new Error('BREVO_API_KEY is required for email service');
+      log.warn('⚠️ BREVO_API_KEY is not configured. Email sending will be disabled.');
+      this.isConfigured = false;
+      return;
     }
 
-    // Configure Brevo API client
-    this.apiInstance = new TransactionalEmailsApi();
-    (this.apiInstance as any).authentications.apiKey.apiKey = this.apiKey;
-    console.log('✅ Brevo email service initialized');
+    try {
+      // Configure Brevo API client
+      this.apiInstance = new TransactionalEmailsApi();
+      (this.apiInstance as any).authentications.apiKey.apiKey = this.apiKey;
+      this.isConfigured = true;
+      log.info('✅ Brevo email service initialized');
+    } catch (error) {
+      log.error('❌ Failed to initialize Brevo API', { error: getErrorMessage(error) });
+      this.isConfigured = false;
+    }
   }
 
   /**
@@ -65,9 +74,9 @@ export class EmailService {
         { $set: otpData },
         { upsert: true }
       );
-      console.log(`✅ OTP stored for ${email}, expires at ${expiresAt.toISOString()}`);
+      log.info('✅ OTP stored', { email, expiresAt: expiresAt.toISOString() });
     } catch (error) {
-      console.error('Error storing OTP:', getErrorMessage(error));
+      log.error('Error storing OTP', { error: getErrorMessage(error) });
       throw new Error('Failed to store OTP');
     }
   }
@@ -107,7 +116,7 @@ export class EmailService {
       await db.collection('otpVerifications').deleteOne({ email });
       return true;
     } catch (error) {
-      console.error('Error verifying OTP:', getErrorMessage(error));
+      log.error('Error verifying OTP', { error: getErrorMessage(error) });
       return false;
     }
   }
@@ -116,8 +125,18 @@ export class EmailService {
    * Send OTP email using Brevo Transactional Email API
    */
   async sendOTPEmail(email: string, firstName: string, otp: string): Promise<void> {
+    // Check if email service is configured
+    if (!this.isConfigured || !this.apiInstance) {
+      log.warn('⚠️ Email service not configured. OTP email not sent.', { email });
+      // In development only, log the OTP for testing purposes
+      if (process.env.NODE_ENV === 'development') {
+        log.info(`🔐 DEV MODE - OTP for ${email}: ${otp}`);
+      }
+      return;
+    }
+
     try {
-      console.log(`📧 Preparing to send OTP email to ${email}`);
+      log.info(`📧 Preparing to send OTP email`, { email });
 
       // Create email content
       const htmlContent = `
@@ -243,17 +262,12 @@ export class EmailService {
 
       // Send email via Brevo
       const result = await this.apiInstance.sendTransacEmail(sendSmtpEmail);
-      console.log(`✅ OTP email sent successfully to ${email} (Message ID: ${result.body?.messageId || 'N/A'})`);
+      log.info('✅ OTP email sent successfully', { messageId: result.body?.messageId || 'N/A' });
     } catch (error) {
-      console.error('❌ Error sending OTP email:', getErrorMessage(error));
-      
-      // Log more details for debugging
-      if (error instanceof Error) {
-        console.error('Error details:', {
-          message: error.message,
-          stack: error.stack,
-        });
-      }
+      log.error('❌ Error sending OTP email', {
+        error: getErrorMessage(error),
+        details: error instanceof Error ? { message: error.message } : undefined
+      });
       
       throw new Error('Failed to send verification email. Please check your Brevo API configuration.');
     }
@@ -273,16 +287,20 @@ export class EmailService {
    * Verify the Brevo API connection
    */
   async verifyConnection(): Promise<boolean> {
+    if (!this.isConfigured) {
+      log.warn('⚠️ Brevo email service is not configured');
+      return false;
+    }
+
     try {
       // Test Brevo API connection by checking account info
       const accountApi = new AccountApi();
       (accountApi as any).authentications.apiKey.apiKey = this.apiKey;
       await accountApi.getAccount();
-      console.log('✅ Brevo email service is ready to send emails');
+      log.info('✅ Brevo email service is ready to send emails');
       return true;
     } catch (error) {
-      console.error('❌ Brevo email service verification failed:', getErrorMessage(error));
-      console.error('Please check your BREVO_API_KEY environment variable');
+      log.error('❌ Brevo email service verification failed', { error: getErrorMessage(error) });
       return false;
     }
   }

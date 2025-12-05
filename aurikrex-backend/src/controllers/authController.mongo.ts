@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { userService } from '../services/UserService.mongo.js';
 import { emailService } from '../services/EmailService.js';
-import { getErrorMessage } from '../utils/errors.js';
+import { getErrorMessage, AuthError } from '../utils/errors.js';
 import passport from '../config/passport.js';
 import { generateAccessToken, generateRefreshToken } from '../utils/jwt.js';
 
@@ -134,12 +134,45 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     });
   } catch (error) {
     console.error('❌ Login error:', getErrorMessage(error));
-    const errorMessage = error instanceof Error ? error.message : 'Failed to login';
-    const statusCode = errorMessage.includes('Invalid') || errorMessage.includes('password') ? 401 : 500;
+    
+    // Check for specific error types using error code (preferred) or message (fallback)
+    let statusCode = 500;
+    let message = 'Failed to login. Please try again.';
+    
+    // Check if it's an AuthError with a specific code
+    if (error instanceof AuthError) {
+      statusCode = error.status;
+      
+      if (error.code === 'auth/email-not-verified') {
+        message = 'Email not verified. Please verify your email before logging in.';
+        const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
+        res.status(statusCode).json({
+          success: false,
+          message,
+          emailVerified: false,
+          redirect: `${frontendURL}/verify-email`,
+          error: getErrorMessage(error),
+        });
+        return;
+      } else if (error.code === 'auth/invalid-credentials') {
+        message = 'Invalid email or password';
+      } else if (error.code === 'auth/account-disabled') {
+        message = 'Account has been disabled. Please contact support.';
+      } else {
+        message = error.message;
+      }
+    } else {
+      // Fallback to string-based checking for non-AuthError errors
+      const errorMessage = error instanceof Error ? error.message : 'Failed to login';
+      if (errorMessage.includes('Invalid') || errorMessage.includes('password')) {
+        statusCode = 401;
+        message = 'Invalid email or password';
+      }
+    }
     
     res.status(statusCode).json({
       success: false,
-      message: statusCode === 401 ? 'Invalid email or password' : 'Failed to login. Please try again.',
+      message,
       error: getErrorMessage(error),
     });
   }
@@ -436,7 +469,8 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
 export const googleAuthInit = async (_req: Request, res: Response): Promise<void> => {
   try {
     const clientID = process.env.GOOGLE_CLIENT_ID;
-    const callbackURL = process.env.GOOGLE_CALLBACK_URL || 'https://aurikrex-backend.onrender.com/api/auth/google/callback';
+    const backendURL = process.env.BACKEND_URL || 'http://localhost:5000';
+    const callbackURL = process.env.GOOGLE_CALLBACK_URL || `${backendURL}/api/auth/google/callback`;
     const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
 
     if (!clientID) {
