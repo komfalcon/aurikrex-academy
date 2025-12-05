@@ -86,9 +86,35 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
     });
   } catch (error) {
     console.error('❌ Signup error:', getErrorMessage(error));
-    res.status(500).json({
+    
+    // Handle specific error types
+    let statusCode = 500;
+    let message = 'Failed to create account. Please try again.';
+    
+    if (error instanceof AuthError) {
+      statusCode = error.status;
+      message = error.message;
+    } else {
+      // Check for duplicate key error (MongoDB error code 11000 or known patterns)
+      const isDuplicateError = 
+        // Check MongoDB error code
+        (error as any)?.code === 11000 ||
+        // Check for known error patterns in message
+        (error instanceof Error && (
+          error.message.includes('already in use') ||
+          error.message.includes('E11000') ||  // MongoDB duplicate key error pattern
+          error.message.toLowerCase().includes('duplicate')
+        ));
+        
+      if (isDuplicateError) {
+        statusCode = 409;
+        message = 'An account with this email already exists. Please try logging in.';
+      }
+    }
+    
+    res.status(statusCode).json({
       success: false,
-      message: 'Failed to create account. Please try again.',
+      message,
       error: getErrorMessage(error),
     });
   }

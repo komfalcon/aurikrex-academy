@@ -6,7 +6,17 @@ import { Mail, Lock, ArrowLeft, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { extractPathFromUrl } from '../utils/redirect';
 
-const API_URL = import.meta.env.VITE_API_URL as string || 'https://aurikrex-backend.onrender.com/api';
+/**
+ * Backend API URL - Must be configured via VITE_API_URL environment variable
+ * 
+ * Local development: http://localhost:5000/api
+ * Production (Digital Ocean): https://your-app.ondigitalocean.app/api
+ */
+const API_URL = import.meta.env.VITE_API_URL as string;
+
+if (!API_URL) {
+  console.warn('⚠️ VITE_API_URL is not set. Login will fail. Please configure your environment variables.');
+}
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -96,8 +106,18 @@ export default function Login() {
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError('Login failed. Please try again.');
-      toast.error('Login failed. Please try again.');
+      
+      // Provide more helpful error messages
+      let errorMessage = 'Login failed. Please try again.';
+      
+      if (!API_URL) {
+        errorMessage = 'Backend API URL is not configured. Please contact support.';
+      } else if (err instanceof TypeError && err.message.includes('Failed to fetch')) {
+        errorMessage = 'Unable to connect to the server. Please check your internet connection.';
+      }
+      
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

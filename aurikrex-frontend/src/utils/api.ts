@@ -1,8 +1,16 @@
 /**
  * API utility for making authenticated requests to the backend
+ * 
+ * IMPORTANT: Set VITE_API_URL in your environment variables:
+ * - Local development: http://localhost:5000/api
+ * - Production (Digital Ocean): https://your-app.ondigitalocean.app/api
  */
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://aurikrex-backend.onrender.com/api';
+const API_URL = import.meta.env.VITE_API_URL;
+
+if (!API_URL) {
+  console.warn('⚠️ VITE_API_URL is not set. API calls will fail. Please configure your environment variables.');
+}
 
 /**
  * Get the JWT token from localStorage

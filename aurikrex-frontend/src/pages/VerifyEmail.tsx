@@ -6,7 +6,17 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 import { toast } from 'sonner';
 import { extractPathFromUrl } from '../utils/redirect';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://aurikrex-backend.onrender.com/api';
+/**
+ * Backend API URL - Must be configured via VITE_API_URL environment variable
+ * 
+ * Local development: http://localhost:5000/api
+ * Production (Digital Ocean): https://your-app.ondigitalocean.app/api
+ */
+const API_URL = import.meta.env.VITE_API_URL;
+
+if (!API_URL) {
+  console.warn('⚠️ VITE_API_URL is not set. Email verification will fail. Please configure your environment variables.');
+}
 
 export default function VerifyEmail() {
   const [otp, setOtp] = useState('');

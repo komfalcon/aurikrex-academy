@@ -1,7 +1,17 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { validateToken } from '../utils/api';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://aurikrex-backend.onrender.com/api';
+/**
+ * Backend API URL - Must be configured via VITE_API_URL environment variable
+ * 
+ * Local development: http://localhost:5000/api
+ * Production (Digital Ocean): https://your-app.ondigitalocean.app/api
+ */
+const API_URL = import.meta.env.VITE_API_URL;
+
+if (!API_URL) {
+  console.warn('⚠️ VITE_API_URL is not set. Authentication will fail. Please configure your environment variables.');
+}
 
 interface User {
   uid: string;
@@ -67,6 +77,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signInWithGoogle = async () => {
     try {
       console.log('🔐 Initiating Google OAuth flow...');
+      
+      // Check if API URL is configured
+      if (!API_URL) {
+        throw new Error('Backend API URL is not configured. Please contact support.');
+      }
       
       // Step 1: Get Google OAuth URL from backend
       const urlResponse = await fetch(`${API_URL}/auth/google/url`, {
