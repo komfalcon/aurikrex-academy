@@ -143,20 +143,20 @@ const envVars = {
   BREVO_API_KEY: {
     required: false,
     default: '',
-    validate: (value: string) => !value || value.length > 0,
-    message: 'BREVO_API_KEY must be a non-empty string when provided'
+    validate: (_value: string) => true, // Optional - empty or any value is valid
+    message: 'BREVO_API_KEY is optional'
   },
   BREVO_SENDER_EMAIL: {
     required: false,
     default: 'info@aurikrex.tech',
-    validate: (value: string) => !value || value.includes('@'),
+    validate: (value: string) => value.includes('@'),
     message: 'BREVO_SENDER_EMAIL must be a valid email address'
   },
   BREVO_SENDER_NAME: {
     required: false,
     default: 'Aurikrex Academy',
-    validate: (value: string) => !value || value.length > 0,
-    message: 'BREVO_SENDER_NAME must be a non-empty string when provided'
+    validate: (value: string) => value.length > 0,
+    message: 'BREVO_SENDER_NAME must be a non-empty string'
   },
   
   // Legacy Email configuration (for reference, not used with Brevo API)
