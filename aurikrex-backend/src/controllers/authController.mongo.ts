@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { userService } from '../services/UserService.mongo.js';
 import { emailService } from '../services/EmailService.js';
-import { getErrorMessage } from '../utils/errors.js';
+import { getErrorMessage, AuthError } from '../utils/errors.js';
 import passport from '../config/passport.js';
 import { generateAccessToken, generateRefreshToken } from '../utils/jwt.js';
 
@@ -134,32 +134,40 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     });
   } catch (error) {
     console.error('❌ Login error:', getErrorMessage(error));
-    const errorMessage = error instanceof Error ? error.message : 'Failed to login';
     
-    // Check for specific error types
+    // Check for specific error types using error code (preferred) or message (fallback)
     let statusCode = 500;
     let message = 'Failed to login. Please try again.';
     
-    if (errorMessage.includes('Invalid') || errorMessage.includes('password')) {
-      statusCode = 401;
-      message = 'Invalid email or password';
-    } else if (errorMessage.includes('Email not verified') || errorMessage.includes('email-not-verified')) {
-      statusCode = 403;
-      message = 'Email not verified. Please verify your email before logging in.';
+    // Check if it's an AuthError with a specific code
+    if (error instanceof AuthError) {
+      statusCode = error.status;
       
-      // Include emailVerified flag for frontend to redirect to verification
-      const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
-      res.status(statusCode).json({
-        success: false,
-        message,
-        emailVerified: false,
-        redirect: `${frontendURL}/verify-email`,
-        error: getErrorMessage(error),
-      });
-      return;
-    } else if (errorMessage.includes('disabled')) {
-      statusCode = 403;
-      message = 'Account has been disabled. Please contact support.';
+      if (error.code === 'auth/email-not-verified') {
+        message = 'Email not verified. Please verify your email before logging in.';
+        const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
+        res.status(statusCode).json({
+          success: false,
+          message,
+          emailVerified: false,
+          redirect: `${frontendURL}/verify-email`,
+          error: getErrorMessage(error),
+        });
+        return;
+      } else if (error.code === 'auth/invalid-credentials') {
+        message = 'Invalid email or password';
+      } else if (error.code === 'auth/account-disabled') {
+        message = 'Account has been disabled. Please contact support.';
+      } else {
+        message = error.message;
+      }
+    } else {
+      // Fallback to string-based checking for non-AuthError errors
+      const errorMessage = error instanceof Error ? error.message : 'Failed to login';
+      if (errorMessage.includes('Invalid') || errorMessage.includes('password')) {
+        statusCode = 401;
+        message = 'Invalid email or password';
+      }
     }
     
     res.status(statusCode).json({

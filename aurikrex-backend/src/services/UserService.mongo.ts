@@ -5,6 +5,7 @@ import { registerSchema } from '../utils/schemas.js';
 import { withErrorHandling, AuthError } from '../utils/errors.js';
 import { getErrorMessage } from '../utils/errors.js';
 import { generateTokenPair, TokenPayload } from '../utils/jwt.js';
+import { log } from '../utils/logger.js';
 
 export class UserService {
   /**
@@ -69,17 +70,17 @@ export class UserService {
         }
 
         if (userDoc.disabled) {
-          console.warn('⚠️ Account disabled:', email);
+          log.warn('⚠️ Account disabled', { email });
           throw new AuthError('Account has been disabled', 'account-disabled', 403);
         }
 
         // Check if email is verified
         if (!userDoc.emailVerified) {
-          console.warn('⚠️ Email not verified for:', email);
+          log.warn('⚠️ Email not verified', { email });
           throw new AuthError('Email not verified. Please verify your email before logging in.', 'email-not-verified', 403);
         }
 
-        console.log('✅ Credentials verified for:', email);
+        log.info('✅ Credentials verified', { email });
 
         // Convert to AuthUser format
         const authUser = this.mapDocumentToAuthUser(userDoc);
