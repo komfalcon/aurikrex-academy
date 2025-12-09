@@ -4,6 +4,7 @@ import { config } from 'dotenv';
 import crypto from 'crypto';
 import { userService } from '../services/UserService.mongo.js';
 import { getErrorMessage } from '../utils/errors.js';
+import { log } from '../utils/logger.js';
 
 config();
 
@@ -21,7 +22,7 @@ passport.use(
     },
     async (_accessToken: string, _refreshToken: string, profile: Profile, done: VerifyCallback) => {
       try {
-        console.log('🔐 Google OAuth callback for:', profile.emails?.[0]?.value);
+        log.info('🔐 Google OAuth callback', { email: profile.emails?.[0]?.value });
 
         // Extract user information from Google profile
         const email = profile.emails?.[0]?.value;
@@ -37,7 +38,7 @@ passport.use(
 
         if (user) {
           // Update existing user's Google info if needed
-          console.log('✅ Existing user found:', email);
+          log.info('✅ Existing user found', { email });
           
           // Update photo if not set
           if (!user.photoURL && photoURL) {
@@ -46,7 +47,7 @@ passport.use(
           }
         } else {
           // Create new user from Google profile
-          console.log('✨ Creating new user from Google profile:', email);
+          log.info('✨ Creating new user from Google profile', { email });
           
           // Generate a secure random password for Google users
           // They won't use this password since they authenticate via Google
@@ -76,7 +77,7 @@ passport.use(
           user = await userService.getUserByEmail(email);
         }
 
-        console.log('✅ Google OAuth successful for:', email);
+        log.info('✅ Google OAuth successful', { email });
         // Return a TokenPayload-compatible object for Express.User
         const userPayload = user ? {
           userId: user.uid,
@@ -89,7 +90,7 @@ passport.use(
         } : false;
         return done(null, userPayload);
       } catch (error) {
-        console.error('❌ Google OAuth error:', getErrorMessage(error));
+        log.error('❌ Google OAuth error', { error: getErrorMessage(error) });
         return done(error as Error, undefined);
       }
     }
