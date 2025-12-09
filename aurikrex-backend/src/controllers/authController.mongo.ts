@@ -4,6 +4,8 @@ import { emailService } from '../services/EmailService.js';
 import { getErrorMessage, AuthError } from '../utils/errors.js';
 import passport from '../config/passport.js';
 import { generateAccessToken, generateRefreshToken } from '../utils/jwt.js';
+import { log } from '../utils/logger.js';
+import { sanitizeEmail } from '../utils/sanitize.js';
 
 interface SignupRequest {
   firstName: string;
@@ -36,7 +38,7 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
   try {
     const { firstName, lastName, email, password, role }: SignupRequest = req.body;
 
-    console.log('🔐 Signup request received for:', email);
+    log.info('🔐 Signup request received', { email: sanitizeEmail(email) });
 
     // Validate required fields
     if (!firstName || !lastName || !email || !password) {
@@ -58,14 +60,14 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
       role: (role && ['student', 'instructor', 'admin'].includes(role)) ? role as 'student' | 'instructor' : 'student',
     });
 
-    console.log('✅ User registered successfully:', result.user.email);
+    log.info('✅ User registered successfully', { email: sanitizeEmail(result.user.email) });
 
     // Send OTP for email verification
     try {
       await emailService.sendVerificationOTP(email, firstName);
-      console.log('✅ Verification OTP sent to:', email);
+      log.info('✅ Verification OTP sent', { email: sanitizeEmail(email) });
     } catch (emailError) {
-      console.error('⚠️ Failed to send verification email:', getErrorMessage(emailError));
+      log.error('⚠️ Failed to send verification email', { email: sanitizeEmail(email), error: getErrorMessage(emailError) });
       // Don't fail signup if email fails
     }
 
@@ -85,7 +87,7 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
       },
     });
   } catch (error) {
-    console.error('❌ Signup error:', getErrorMessage(error));
+    log.error('❌ Signup error', { error: getErrorMessage(error) });
     
     // Handle specific error types
     let statusCode = 500;
@@ -127,7 +129,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password }: LoginRequest = req.body;
 
-    console.log('🔐 Login request received for:', email);
+    log.info('🔐 Login request received', { email: sanitizeEmail(email) });
 
     if (!email || !password) {
       res.status(400).json({
@@ -140,7 +142,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     // Login user
     const result = await userService.login(email, password);
 
-    console.log('✅ User logged in successfully:', result.user.email);
+    log.info('✅ User logged in successfully', { email: sanitizeEmail(result.user.email) });
 
     const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
     
@@ -159,7 +161,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       },
     });
   } catch (error) {
-    console.error('❌ Login error:', getErrorMessage(error));
+    log.error('❌ Login error', { error: getErrorMessage(error) });
     
     // Check for specific error types using error code (preferred) or message (fallback)
     let statusCode = 500;
@@ -211,7 +213,7 @@ export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, otp }: VerifyOTPRequest = req.body;
 
-    console.log('🔐 OTP verification request for:', email);
+    log.info('🔐 OTP verification request', { email: sanitizeEmail(email) });
 
     if (!email || !otp) {
       res.status(400).json({
@@ -225,7 +227,7 @@ export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
     const isValid = await emailService.verifyOTP(email, otp);
 
     if (!isValid) {
-      console.warn('⚠️ Invalid OTP for:', email);
+      log.warn('⚠️ Invalid OTP', { email: sanitizeEmail(email) });
       res.status(400).json({
         success: false,
         message: 'Invalid or expired verification code',
@@ -233,7 +235,7 @@ export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    console.log('✅ OTP verified for:', email);
+    log.info('✅ OTP verified', { email: sanitizeEmail(email) });
 
     // Get user and update verification status
     const user = await userService.getUserByEmail(email);
@@ -248,7 +250,7 @@ export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
 
     // Update email verification status
     await userService.updateUser(user.uid, { emailVerified: true } as any);
-    console.log('✅ Email verified for user:', email);
+    log.info('✅ Email verified for user', { email: sanitizeEmail(email) });
 
     // Generate JWT tokens for the verified user
     const accessToken = generateAccessToken({
@@ -284,7 +286,7 @@ export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
       },
     });
   } catch (error) {
-    console.error('❌ OTP verification error:', getErrorMessage(error));
+    log.error('❌ OTP verification error', { error: getErrorMessage(error) });
     res.status(500).json({
       success: false,
       message: 'Failed to verify code. Please try again.',
@@ -303,7 +305,7 @@ async function sendOTPToUser(email: string, actionName: string): Promise<{
   error?: string;
 }> {
   try {
-    console.log(`🔐 ${actionName} OTP request for:`, email);
+    log.info(`🔐 ${actionName} OTP request`, { email: sanitizeEmail(email) });
 
     // Get user data
     const user = await userService.getUserByEmail(email);
@@ -329,7 +331,7 @@ async function sendOTPToUser(email: string, actionName: string): Promise<{
     const firstName = user.displayName?.split(' ')[0] || 'User';
     await emailService.sendVerificationOTP(email, firstName);
 
-    console.log(`✅ Verification OTP ${actionName.toLowerCase()} to:`, email);
+    log.info(`✅ Verification OTP ${actionName.toLowerCase()}`, { email: sanitizeEmail(email) });
 
     return {
       success: true,
@@ -337,7 +339,7 @@ async function sendOTPToUser(email: string, actionName: string): Promise<{
       message: 'Verification code sent successfully',
     };
   } catch (error) {
-    console.error(`❌ ${actionName} OTP error:`, getErrorMessage(error));
+    log.error(`❌ ${actionName} OTP error`, { error: getErrorMessage(error) });
     return {
       success: false,
       statusCode: 500,
@@ -399,7 +401,7 @@ export const getCurrentUser = async (req: Request, res: Response): Promise<void>
     // User is attached to request by auth middleware
     const userId = req.user?.userId;
 
-    console.log('🔍 Get current user request for:', userId);
+    log.info('🔍 Get current user request', { userId });
 
     if (!userId) {
       res.status(401).json({
@@ -419,7 +421,7 @@ export const getCurrentUser = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    console.log('✅ User data retrieved:', user.email);
+    log.info('✅ User data retrieved', { email: sanitizeEmail(user.email) });
 
     res.status(200).json({
       success: true,
@@ -433,7 +435,7 @@ export const getCurrentUser = async (req: Request, res: Response): Promise<void>
       },
     });
   } catch (error) {
-    console.error('❌ Get user error:', getErrorMessage(error));
+    log.error('❌ Get user error', { error: getErrorMessage(error) });
     res.status(500).json({
       success: false,
       message: 'Failed to get user data. Please try again.',
@@ -449,7 +451,7 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
   try {
     const { refreshToken } = req.body;
 
-    console.log('🔄 Token refresh request');
+    log.info('🔄 Token refresh request');
 
     if (!refreshToken) {
       res.status(400).json({
@@ -470,7 +472,7 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
       role: decoded.role
     });
 
-    console.log('✅ Access token refreshed for:', decoded.email);
+    log.info('✅ Access token refreshed', { email: sanitizeEmail(decoded.email) });
 
     res.status(200).json({
       success: true,
@@ -479,7 +481,7 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
       },
     });
   } catch (error) {
-    console.error('❌ Token refresh error:', getErrorMessage(error));
+    log.error('❌ Token refresh error', { error: getErrorMessage(error) });
     res.status(401).json({
       success: false,
       message: 'Invalid or expired refresh token',
@@ -521,7 +523,7 @@ export const googleAuthInit = async (_req: Request, res: Response): Promise<void
       `&access_type=offline` +
       `&prompt=consent`;
 
-    console.log('🔐 Google OAuth URL generated');
+    log.info('🔐 Google OAuth URL generated');
 
     res.status(200).json({
       success: true,
@@ -530,7 +532,7 @@ export const googleAuthInit = async (_req: Request, res: Response): Promise<void
       },
     });
   } catch (error) {
-    console.error('❌ Google OAuth init error:', getErrorMessage(error));
+    log.error('❌ Google OAuth init error', { error: getErrorMessage(error) });
     res.status(500).json({
       success: false,
       message: 'Failed to initialize Google authentication',
@@ -559,13 +561,13 @@ export const googleAuthCallback = [
       const user = req.user as OAuthUser | undefined;
 
       if (!user) {
-        console.error('❌ No user found after Google auth');
+        log.error('❌ No user found after Google auth');
         const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
         res.redirect(`${frontendURL}/login?error=auth_failed`);
         return;
       }
 
-      console.log('✅ Google OAuth successful for:', user.email);
+      log.info('✅ Google OAuth successful', { email: sanitizeEmail(user.email) });
 
       // Generate JWT tokens
       const accessToken = generateAccessToken({
@@ -604,14 +606,14 @@ export const googleAuthCallback = [
               if (isAllowed) {
                 returnUrl = stateData.returnUrl;
               } else {
-                console.warn('🚫 Rejected returnUrl with invalid hostname:', returnUrlObj.hostname);
+                log.warn('🚫 Rejected returnUrl with invalid hostname', { hostname: returnUrlObj.hostname });
               }
             } catch (urlError) {
-              console.warn('Failed to parse returnUrl:', urlError);
+              log.warn('Failed to parse returnUrl', { error: getErrorMessage(urlError) });
             }
           }
         } catch (e) {
-          console.warn('Failed to parse state:', e);
+          log.warn('Failed to parse state', { error: getErrorMessage(e) });
         }
       }
 
@@ -626,7 +628,7 @@ export const googleAuthCallback = [
           // For other domains, set with leading dot to allow all subdomains
           cookieDomain = hostname.startsWith('www.') ? hostname.replace(/^www/, '') : `.${hostname}`;
         } catch (urlError) {
-          console.warn('Failed to parse FRONTEND_URL for cookie domain:', urlError);
+          log.warn('Failed to parse FRONTEND_URL for cookie domain', { error: getErrorMessage(urlError) });
           // Fallback to no domain restriction
           cookieDomain = undefined;
         }
@@ -656,13 +658,13 @@ export const googleAuthCallback = [
       // Log redirect with sanitized information (avoid exposing tokens)
       try {
         const redirectUrlObj = new URL(redirectUrl);
-        console.log('🔄 Redirecting user to:', `${redirectUrlObj.origin}${redirectUrlObj.pathname}`);
+        log.info('🔄 Redirecting user', { destination: `${redirectUrlObj.origin}${redirectUrlObj.pathname}` });
       } catch {
-        console.log('🔄 Redirecting user to frontend');
+        log.info('🔄 Redirecting user to frontend');
       }
       res.redirect(redirectUrl);
     } catch (error) {
-      console.error('❌ Google callback error:', getErrorMessage(error));
+      log.error('❌ Google callback error', { error: getErrorMessage(error) });
       const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
       res.redirect(`${frontendURL}/login?error=auth_callback_failed`);
     }

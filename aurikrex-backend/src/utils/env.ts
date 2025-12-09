@@ -1,3 +1,9 @@
+/**
+ * @deprecated This file is deprecated and no longer used.
+ * Use env.mongo.ts instead for MongoDB-based authentication.
+ * This file contains legacy Firebase configuration that is no longer needed.
+ */
+
 import { config } from 'dotenv';
 import { log } from './logger.js';
 

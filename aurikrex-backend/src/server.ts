@@ -44,7 +44,7 @@ app.use("/api", routes);
 // Health check route
 app.get("/health", async (_req: Request, res: Response) => {
   try {
-    console.log('🏥 Health check requested');
+    log.info('🏥 Health check requested');
     
     const mongoHealth = await checkMongoHealth();
 
@@ -61,7 +61,7 @@ app.get("/health", async (_req: Request, res: Response) => {
     });
   } catch (error) {
     const apiError = error as ApiError;
-    console.error('❌ Health check failed:', apiError.message);
+    log.error('❌ Health check failed', { error: apiError.message });
     
     res.status(500).json({
       status: "error",
@@ -107,27 +107,27 @@ app.use((err: ApiError, req: Request, res: Response, _next: NextFunction) => {
 // Initialize MongoDB connection and indexes
 async function initializeDatabase() {
   try {
-    console.log('🔌 Initializing MongoDB connection...');
+    log.info('🔌 Initializing MongoDB connection...');
     
     // Connect to MongoDB
     await connectDB();
-    console.log('✅ MongoDB connected successfully');
+    log.info('✅ MongoDB connected successfully');
 
     // Create indexes for optimal performance
-    console.log('📊 Creating database indexes...');
+    log.info('📊 Creating database indexes...');
     await Promise.all([
       UserModel.createIndexes(),
       LessonModel.createIndexes(),
       LessonProgressModel.createIndexes(),
       AnalyticsModel.createIndexes()
     ]);
-    console.log('✅ Database indexes created successfully');
+    log.info('✅ Database indexes created successfully');
 
   } catch (error) {
-    console.error('❌ Database initialization failed:', error);
-    console.warn('⚠️  Server will start without database connection');
-    console.warn('⚠️  Database-dependent features will be unavailable');
-    console.warn('⚠️  Check /health endpoint for connection status');
+    log.error('❌ Database initialization failed', { error });
+    log.warn('⚠️  Server will start without database connection');
+    log.warn('⚠️  Database-dependent features will be unavailable');
+    log.warn('⚠️  Check /health endpoint for connection status');
     // Don't throw - allow server to start without database
   }
 }
@@ -174,6 +174,7 @@ async function startServer() {
       // Use environment-aware URL
       const backendURL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
       
+      // Use console for banner as it's startup information
       console.log(`\n${'='.repeat(60)}`);
       console.log(`🚀 Aurikrex Academy Backend Server`);
       console.log(`${'='.repeat(60)}`);
@@ -184,7 +185,7 @@ async function startServer() {
       console.log(`${'='.repeat(60)}\n`);
     });
   } catch (error) {
-    console.error('❌ Failed to start server:', error);
+    log.error('❌ Failed to start server', { error });
     process.exit(1);
   }
 }
