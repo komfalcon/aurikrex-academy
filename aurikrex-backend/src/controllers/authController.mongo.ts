@@ -5,6 +5,7 @@ import { getErrorMessage, AuthError } from '../utils/errors.js';
 import passport from '../config/passport.js';
 import { generateAccessToken, generateRefreshToken } from '../utils/jwt.js';
 import { log } from '../utils/logger.js';
+import { sanitizeEmail } from '../utils/sanitize.js';
 
 interface SignupRequest {
   firstName: string;
@@ -37,7 +38,7 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
   try {
     const { firstName, lastName, email, password, role }: SignupRequest = req.body;
 
-    log.info('🔐 Signup request received', { email });
+    log.info('🔐 Signup request received', { email: sanitizeEmail(email) });
 
     // Validate required fields
     if (!firstName || !lastName || !email || !password) {
@@ -59,14 +60,14 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
       role: (role && ['student', 'instructor', 'admin'].includes(role)) ? role as 'student' | 'instructor' : 'student',
     });
 
-    log.info('✅ User registered successfully', { email: result.user.email });
+    log.info('✅ User registered successfully', { email: sanitizeEmail(result.user.email) });
 
     // Send OTP for email verification
     try {
       await emailService.sendVerificationOTP(email, firstName);
-      log.info('✅ Verification OTP sent', { email });
+      log.info('✅ Verification OTP sent', { email: sanitizeEmail(email) });
     } catch (emailError) {
-      log.error('⚠️ Failed to send verification email', { email, error: getErrorMessage(emailError) });
+      log.error('⚠️ Failed to send verification email', { email: sanitizeEmail(email), error: getErrorMessage(emailError) });
       // Don't fail signup if email fails
     }
 
@@ -128,7 +129,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password }: LoginRequest = req.body;
 
-    log.info('🔐 Login request received', { email });
+    log.info('🔐 Login request received', { email: sanitizeEmail(email) });
 
     if (!email || !password) {
       res.status(400).json({
@@ -141,7 +142,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     // Login user
     const result = await userService.login(email, password);
 
-    log.info('✅ User logged in successfully', { email: result.user.email });
+    log.info('✅ User logged in successfully', { email: sanitizeEmail(result.user.email) });
 
     const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
     
@@ -212,7 +213,7 @@ export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, otp }: VerifyOTPRequest = req.body;
 
-    log.info('🔐 OTP verification request', { email });
+    log.info('🔐 OTP verification request', { email: sanitizeEmail(email) });
 
     if (!email || !otp) {
       res.status(400).json({
@@ -226,7 +227,7 @@ export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
     const isValid = await emailService.verifyOTP(email, otp);
 
     if (!isValid) {
-      log.warn('⚠️ Invalid OTP', { email });
+      log.warn('⚠️ Invalid OTP', { email: sanitizeEmail(email) });
       res.status(400).json({
         success: false,
         message: 'Invalid or expired verification code',
@@ -234,7 +235,7 @@ export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    log.info('✅ OTP verified', { email });
+    log.info('✅ OTP verified', { email: sanitizeEmail(email) });
 
     // Get user and update verification status
     const user = await userService.getUserByEmail(email);
@@ -249,7 +250,7 @@ export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
 
     // Update email verification status
     await userService.updateUser(user.uid, { emailVerified: true } as any);
-    log.info('✅ Email verified for user', { email });
+    log.info('✅ Email verified for user', { email: sanitizeEmail(email) });
 
     // Generate JWT tokens for the verified user
     const accessToken = generateAccessToken({
@@ -304,7 +305,7 @@ async function sendOTPToUser(email: string, actionName: string): Promise<{
   error?: string;
 }> {
   try {
-    log.info(`🔐 ${actionName} OTP request`, { email });
+    log.info(`🔐 ${actionName} OTP request`, { email: sanitizeEmail(email) });
 
     // Get user data
     const user = await userService.getUserByEmail(email);
@@ -330,7 +331,7 @@ async function sendOTPToUser(email: string, actionName: string): Promise<{
     const firstName = user.displayName?.split(' ')[0] || 'User';
     await emailService.sendVerificationOTP(email, firstName);
 
-    log.info(`✅ Verification OTP ${actionName.toLowerCase()}`, { email });
+    log.info(`✅ Verification OTP ${actionName.toLowerCase()}`, { email: sanitizeEmail(email) });
 
     return {
       success: true,
@@ -420,7 +421,7 @@ export const getCurrentUser = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    log.info('✅ User data retrieved', { email: user.email });
+    log.info('✅ User data retrieved', { email: sanitizeEmail(user.email) });
 
     res.status(200).json({
       success: true,
@@ -471,7 +472,7 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
       role: decoded.role
     });
 
-    log.info('✅ Access token refreshed', { email: decoded.email });
+    log.info('✅ Access token refreshed', { email: sanitizeEmail(decoded.email) });
 
     res.status(200).json({
       success: true,
@@ -566,7 +567,7 @@ export const googleAuthCallback = [
         return;
       }
 
-      log.info('✅ Google OAuth successful', { email: user.email });
+      log.info('✅ Google OAuth successful', { email: sanitizeEmail(user.email) });
 
       // Generate JWT tokens
       const accessToken = generateAccessToken({
