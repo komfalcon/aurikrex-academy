@@ -160,7 +160,7 @@ async function startServer() {
     await initializeDatabase();
 
     // Start HTTP server
-    server = app.listen(PORT, () => {
+    server = app.listen(PORT, '0.0.0.0', () => {
       log.info(`Server started`, {
         environment: NODE_ENV,
         port: PORT,
