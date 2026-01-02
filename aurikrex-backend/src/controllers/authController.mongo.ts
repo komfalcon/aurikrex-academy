@@ -31,6 +31,17 @@ interface ResendOTPRequest {
 }
 
 /**
+ * Helper function to parse displayName into firstName and lastName
+ */
+function parseDisplayName(displayName?: string): { firstName: string; lastName: string } {
+  const [firstName, ...lastNameParts] = (displayName || '').split(' ');
+  return {
+    firstName: firstName || 'User',
+    lastName: lastNameParts.join(' ') || '',
+  };
+}
+
+/**
  * Handle user signup with email/password
  * Sends OTP for verification
  */
@@ -145,9 +156,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     log.info('✅ User logged in successfully', { email: sanitizeEmail(result.user.email) });
 
     const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
-    
-    // Split displayName to get firstName and lastName
-    const [firstName, ...lastNameParts] = (result.user.displayName || '').split(' ');
+    const { firstName, lastName } = parseDisplayName(result.user.displayName);
     
     res.status(200).json({
       success: true,
@@ -156,8 +165,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       data: {
         uid: result.user.uid,
         email: result.user.email,
-        firstName: firstName || 'User',
-        lastName: lastNameParts.join(' ') || '',
+        firstName,
+        lastName,
         displayName: result.user.displayName,
         role: result.user.role,
         emailVerified: result.user.emailVerified,
@@ -188,11 +197,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         try {
           const user = await userService.getUserByEmail(email);
           if (user) {
-            const [firstName, ...lastNameParts] = (user.displayName || '').split(' ');
+            const { firstName, lastName } = parseDisplayName(user.displayName);
             userData = {
               email: user.email,
-              firstName: firstName || 'User',
-              lastName: lastNameParts.join(' ') || '',
+              firstName,
+              lastName,
             };
           }
         } catch (userError) {
@@ -292,7 +301,7 @@ export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
 
     // Get updated user data
     const updatedUser = await userService.getUserByEmail(email);
-    const [firstName, ...lastNameParts] = (updatedUser?.displayName || '').split(' ');
+    const { firstName, lastName } = parseDisplayName(updatedUser?.displayName);
 
     const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
     
@@ -303,8 +312,8 @@ export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
       data: {
         uid: user.uid,
         email: user.email,
-        firstName: firstName || 'User',
-        lastName: lastNameParts.join(' ') || '',
+        firstName,
+        lastName,
         displayName: updatedUser?.displayName,
         emailVerified: true,
         token: accessToken,

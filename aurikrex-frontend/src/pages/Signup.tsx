@@ -10,13 +10,17 @@ import { extractPathFromUrl } from '../utils/redirect';
  * Backend API URL - Must be configured via VITE_API_URL environment variable
  * 
  * Local development: http://localhost:5000/api
- * Production (Digital Ocean): https://your-app.ondigitalocean.app/api
+ * Production: https://api.aurikrex.tech/api
  */
 const API_URL = import.meta.env.VITE_API_URL as string;
 
 if (!API_URL) {
   console.warn('⚠️ VITE_API_URL is not set. Signup will fail. Please configure your environment variables.');
 }
+
+// LocalStorage keys for pending verification data
+const PENDING_EMAIL_KEY = 'pending-verification-email';
+const PENDING_FIRSTNAME_KEY = 'pending-verification-firstName';
 
 export default function Signup() {
   const [firstName, setFirstName] = useState('');
@@ -90,8 +94,8 @@ export default function Signup() {
       if (response.ok && data.success) {
         toast.success('Account created! Check your email for verification code.');
         // Store email and firstName temporarily for verification page
-        localStorage.setItem('pending-verification-email', email);
-        localStorage.setItem('pending-verification-firstName', firstName);
+        localStorage.setItem(PENDING_EMAIL_KEY, email);
+        localStorage.setItem(PENDING_FIRSTNAME_KEY, firstName);
         
         // Use redirect URL from backend if provided, otherwise navigate to verification page
         if (data.redirect) {
