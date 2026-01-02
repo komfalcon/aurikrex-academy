@@ -10,13 +10,17 @@ import { extractPathFromUrl } from '../utils/redirect';
  * Backend API URL - Must be configured via VITE_API_URL environment variable
  * 
  * Local development: http://localhost:5000/api
- * Production (Digital Ocean): https://your-app.ondigitalocean.app/api
+ * Production: https://api.aurikrex.tech/api
  */
 const API_URL = import.meta.env.VITE_API_URL;
 
 if (!API_URL) {
   console.warn('⚠️ VITE_API_URL is not set. Email verification will fail. Please configure your environment variables.');
 }
+
+// LocalStorage keys for pending verification data
+const PENDING_EMAIL_KEY = 'pending-verification-email';
+const PENDING_FIRSTNAME_KEY = 'pending-verification-firstName';
 
 export default function VerifyEmail() {
   const [otp, setOtp] = useState('');
@@ -27,10 +31,11 @@ export default function VerifyEmail() {
   const navigate = useNavigate();
   const location = useLocation();
   
-  const email = location.state?.email || '';
-  const firstName = location.state?.firstName || '';
+  // Get email and firstName from state or localStorage
+  const email = location.state?.email || localStorage.getItem(PENDING_EMAIL_KEY) || '';
+  const firstName = location.state?.firstName || localStorage.getItem(PENDING_FIRSTNAME_KEY) || '';
 
-  // If no email in state, redirect to signup
+  // If no email in state or localStorage, redirect to signup
   useEffect(() => {
     if (!email) {
       navigate('/signup');
@@ -62,6 +67,10 @@ export default function VerifyEmail() {
       const data = await response.json();
 
       if (response.ok && data.success) {
+        // Clear pending verification data from localStorage
+        localStorage.removeItem(PENDING_EMAIL_KEY);
+        localStorage.removeItem(PENDING_FIRSTNAME_KEY);
+        
         // Store user data in localStorage
         const userData = {
           uid: data.data.uid,

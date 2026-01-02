@@ -31,6 +31,17 @@ interface ResendOTPRequest {
 }
 
 /**
+ * Helper function to parse displayName into firstName and lastName
+ */
+function parseDisplayName(displayName?: string): { firstName: string; lastName: string } {
+  const [firstName, ...lastNameParts] = (displayName || '').split(' ');
+  return {
+    firstName: firstName || 'User',
+    lastName: lastNameParts.join(' ') || '',
+  };
+}
+
+/**
  * Handle user signup with email/password
  * Sends OTP for verification
  */
@@ -145,6 +156,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     log.info('✅ User logged in successfully', { email: sanitizeEmail(result.user.email) });
 
     const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
+    const { firstName, lastName } = parseDisplayName(result.user.displayName);
     
     res.status(200).json({
       success: true,
@@ -153,15 +165,20 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       data: {
         uid: result.user.uid,
         email: result.user.email,
+        firstName,
+        lastName,
         displayName: result.user.displayName,
         role: result.user.role,
         emailVerified: result.user.emailVerified,
+        photoURL: result.user.photoURL,
         token: result.tokens.accessToken,
         refreshToken: result.tokens.refreshToken,
       },
     });
   } catch (error) {
     log.error('❌ Login error', { error: getErrorMessage(error) });
+    
+    const { email } = req.body as LoginRequest;
     
     // Check for specific error types using error code (preferred) or message (fallback)
     let statusCode = 500;
@@ -174,11 +191,29 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       if (error.code === 'auth/email-not-verified') {
         message = 'Email not verified. Please verify your email before logging in.';
         const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
+        
+        // Fetch user data to provide firstName for the verification page
+        let userData = null;
+        try {
+          const user = await userService.getUserByEmail(email);
+          if (user) {
+            const { firstName, lastName } = parseDisplayName(user.displayName);
+            userData = {
+              email: user.email,
+              firstName,
+              lastName,
+            };
+          }
+        } catch (userError) {
+          log.warn('Could not fetch user data for email verification redirect', { error: getErrorMessage(userError) });
+        }
+        
         res.status(statusCode).json({
           success: false,
           message,
           emailVerified: false,
           redirect: `${frontendURL}/verify-email`,
+          data: userData,
           error: getErrorMessage(error),
         });
         return;
@@ -266,7 +301,7 @@ export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
 
     // Get updated user data
     const updatedUser = await userService.getUserByEmail(email);
-    const [firstName, ...lastNameParts] = (updatedUser?.displayName || '').split(' ');
+    const { firstName, lastName } = parseDisplayName(updatedUser?.displayName);
 
     const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
     
@@ -277,8 +312,8 @@ export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
       data: {
         uid: user.uid,
         email: user.email,
-        firstName: firstName || 'User',
-        lastName: lastNameParts.join(' ') || '',
+        firstName,
+        lastName,
         displayName: updatedUser?.displayName,
         emailVerified: true,
         token: accessToken,

@@ -5,13 +5,17 @@ import { validateToken } from '../utils/api';
  * Backend API URL - Must be configured via VITE_API_URL environment variable
  * 
  * Local development: http://localhost:5000/api
- * Production (Digital Ocean): https://your-app.ondigitalocean.app/api
+ * Production: https://api.aurikrex.tech/api
  */
 const API_URL = import.meta.env.VITE_API_URL;
 
 if (!API_URL) {
   console.warn('⚠️ VITE_API_URL is not set. Authentication will fail. Please configure your environment variables.');
 }
+
+// LocalStorage keys for pending verification data
+const PENDING_EMAIL_KEY = 'pending-verification-email';
+const PENDING_FIRSTNAME_KEY = 'pending-verification-firstName';
 
 interface User {
   uid: string;
@@ -118,8 +122,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
     localStorage.removeItem('aurikrex-user');
     localStorage.removeItem('aurikrex-token');
-    localStorage.removeItem('pending-verification-email');
-    localStorage.removeItem('pending-verification-firstName');
+    localStorage.removeItem(PENDING_EMAIL_KEY);
+    localStorage.removeItem(PENDING_FIRSTNAME_KEY);
   };
 
   return (
