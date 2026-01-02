@@ -27,10 +27,11 @@ export default function VerifyEmail() {
   const navigate = useNavigate();
   const location = useLocation();
   
-  const email = location.state?.email || '';
-  const firstName = location.state?.firstName || '';
+  // Get email and firstName from state or localStorage
+  const email = location.state?.email || localStorage.getItem('pending-verification-email') || '';
+  const firstName = location.state?.firstName || localStorage.getItem('pending-verification-firstName') || '';
 
-  // If no email in state, redirect to signup
+  // If no email in state or localStorage, redirect to signup
   useEffect(() => {
     if (!email) {
       navigate('/signup');

@@ -96,6 +96,12 @@ export default function Login() {
         toast.error('Account not verified. Please complete email verification to proceed.');
         setError('Account not verified. Please complete email verification to proceed.');
         
+        // Store email/firstName in localStorage for verification page
+        localStorage.setItem('pending-verification-email', email);
+        if (data.data?.firstName) {
+          localStorage.setItem('pending-verification-firstName', data.data.firstName);
+        }
+        
         // Redirect to verify email page
         setTimeout(() => {
           navigate('/verify-email', { state: { email, firstName: data.data?.firstName || '' } });

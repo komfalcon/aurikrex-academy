@@ -146,6 +146,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
     
+    // Split displayName to get firstName and lastName
+    const [firstName, ...lastNameParts] = (result.user.displayName || '').split(' ');
+    
     res.status(200).json({
       success: true,
       message: 'Login successful',
@@ -153,15 +156,20 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       data: {
         uid: result.user.uid,
         email: result.user.email,
+        firstName: firstName || 'User',
+        lastName: lastNameParts.join(' ') || '',
         displayName: result.user.displayName,
         role: result.user.role,
         emailVerified: result.user.emailVerified,
+        photoURL: result.user.photoURL,
         token: result.tokens.accessToken,
         refreshToken: result.tokens.refreshToken,
       },
     });
   } catch (error) {
     log.error('❌ Login error', { error: getErrorMessage(error) });
+    
+    const { email } = req.body as LoginRequest;
     
     // Check for specific error types using error code (preferred) or message (fallback)
     let statusCode = 500;
@@ -174,11 +182,29 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       if (error.code === 'auth/email-not-verified') {
         message = 'Email not verified. Please verify your email before logging in.';
         const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
+        
+        // Fetch user data to provide firstName for the verification page
+        let userData = null;
+        try {
+          const user = await userService.getUserByEmail(email);
+          if (user) {
+            const [firstName, ...lastNameParts] = (user.displayName || '').split(' ');
+            userData = {
+              email: user.email,
+              firstName: firstName || 'User',
+              lastName: lastNameParts.join(' ') || '',
+            };
+          }
+        } catch (userError) {
+          log.warn('Could not fetch user data for email verification redirect', { error: getErrorMessage(userError) });
+        }
+        
         res.status(statusCode).json({
           success: false,
           message,
           emailVerified: false,
           redirect: `${frontendURL}/verify-email`,
+          data: userData,
           error: getErrorMessage(error),
         });
         return;
