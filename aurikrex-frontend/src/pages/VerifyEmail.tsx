@@ -63,6 +63,10 @@ export default function VerifyEmail() {
       const data = await response.json();
 
       if (response.ok && data.success) {
+        // Clear pending verification data from localStorage
+        localStorage.removeItem('pending-verification-email');
+        localStorage.removeItem('pending-verification-firstName');
+        
         // Store user data in localStorage
         const userData = {
           uid: data.data.uid,

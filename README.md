@@ -5,8 +5,8 @@ A modern e-learning platform built with React, TypeScript, MongoDB, and Node.js,
 ## 🚀 Architecture
 
 This is a full-stack application using:
-- **Frontend**: React with Vite, deployed on Vercel
-- **Backend**: Node.js/Express API, deployed on Render
+- **Frontend**: React with Vite, deployed on https://aurikrex.tech
+- **Backend**: Node.js/Express API running on https://api.aurikrex.tech (PM2)
 - **Database**: MongoDB Atlas for data persistence
 - **AI Services**: OpenAI GPT and Google Gemini for lesson generation
 
@@ -159,19 +159,27 @@ Backend API at: `http://localhost:5000/api`
    - **Build Command**: `npm run build`
    - **Output Directory**: `dist`
 3. Add environment variables in Vercel dashboard:
-   - `VITE_API_URL`: Your Render backend URL
+   - `VITE_API_URL`: https://api.aurikrex.tech/api
 
-### Backend Deployment (Render)
+### Backend Deployment (PM2)
 
-1. Connect your GitHub repository to Render
-2. Create a new Web Service
-3. Configure service:
-   - **Root Directory**: `aurikrex-backend`
-   - **Build Command**: `npm install && npm run build`
-   - **Start Command**: `npm start`
-   - **Environment**: Node 20
-4. Add environment variables in Render dashboard:
-   - `MONGO_URI`, `OPENAI_API_KEY`, `JWT_SECRET`, `ALLOWED_ORIGINS`, etc.
+The backend runs on a server with PM2 process manager:
+
+1. Clone the repository on your server
+2. Install dependencies:
+   ```bash
+   cd aurikrex-backend
+   npm install
+   npm run build
+   ```
+3. Configure environment variables in `.env`:
+   - Copy `.env.example` to `.env`
+   - Update `MONGO_URI`, `JWT_SECRET`, `BREVO_API_KEY`, `GOOGLE_CLIENT_ID`, etc.
+4. Start with PM2:
+   ```bash
+   npm run start:pm2
+   ```
+5. Configure Nginx as reverse proxy for HTTPS
 
 See [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) for detailed deployment instructions.
 
@@ -183,9 +191,9 @@ See [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) for detailed deployment instruc
 ```env
 # Server
 PORT=5000
-NODE_ENV=development
-HOST=localhost
-ALLOWED_ORIGINS=http://localhost:8080,http://localhost:3000,https://your-vercel-domain.vercel.app
+NODE_ENV=production
+HOST=0.0.0.0
+ALLOWED_ORIGINS=https://aurikrex.tech,https://www.aurikrex.tech
 
 # MongoDB
 MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/aurikrex-academy
@@ -201,12 +209,18 @@ JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
 ACCESS_TOKEN_EXPIRY=1h
 REFRESH_TOKEN_EXPIRY=7d
 
-# Email (Titan Mail SMTP)
-EMAIL_HOST=smtp.titan.email
-EMAIL_PORT=465
-EMAIL_SECURE=true
-EMAIL_USER=info@aurikrex.tech
-EMAIL_PASS=your-email-password
+# Email (Brevo API)
+BREVO_API_KEY=your-brevo-api-key
+BREVO_SENDER_EMAIL=info@aurikrex.tech
+BREVO_SENDER_NAME=Aurikrex Academy
+
+# URL Configuration
+BACKEND_URL=https://api.aurikrex.tech
+FRONTEND_URL=https://aurikrex.tech
+
+# Google OAuth
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
 
 # Logging
 LOG_LEVEL=debug
@@ -220,11 +234,10 @@ RATE_LIMIT_MAX=100
 #### Frontend (.env)
 ```env
 # Backend API URL
-# For local development
-VITE_API_URL=http://localhost:5000/api
+VITE_API_URL=https://api.aurikrex.tech/api
 
-# For production (update with your Render backend URL)
-# VITE_API_URL=https://your-render-backend.onrender.com/api
+# For local development
+# VITE_API_URL=http://localhost:5000/api
 ```
 
 ## 📋 API Endpoints
@@ -263,7 +276,7 @@ All endpoints are prefixed with `/api`:
 curl http://localhost:5000/health
 
 # Production
-curl https://your-render-backend.onrender.com/health
+curl https://api.aurikrex.tech/health
 ```
 
 ### Build Tests
@@ -284,20 +297,20 @@ Use tools like Postman or curl to test endpoints:
 
 ```bash
 # Signup
-curl -X POST http://localhost:5000/api/auth/signup \
+curl -X POST https://api.aurikrex.tech/api/auth/signup \
   -H "Content-Type: application/json" \
   -d '{
     "firstName":"John",
     "lastName":"Doe",
     "email":"john@example.com",
-    "password":"SecurePass123!",
+    "password":"SecurePass123!@",
     "phone":"+1234567890"
   }'
 
 # Login
-curl -X POST http://localhost:5000/api/auth/login \
+curl -X POST https://api.aurikrex.tech/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"john@example.com","password":"SecurePass123!"}'
+  -d '{"email":"john@example.com","password":"SecurePass123!@"}'
 ```
 
 ## 🔒 Security
@@ -432,6 +445,6 @@ For questions or support:
 
 ---
 
-**Last Updated**: November 2024  
-**Status**: ✅ Production Ready (MongoDB + Render + Vercel)  
-**Version**: 3.0.0 (MongoDB Migration Complete)
+**Last Updated**: January 2026  
+**Status**: ✅ Production Ready (MongoDB + PM2 + Vercel)  
+**Version**: 3.1.0 (Authentication & OAuth Fixes)
