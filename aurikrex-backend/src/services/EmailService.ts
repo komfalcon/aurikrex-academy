@@ -41,7 +41,8 @@ class EmailService {
     const gmailAppPassword = process.env.GMAIL_APP_PASSWORD || '';
     const gmailHost = process.env.GMAIL_HOST || 'smtp.gmail.com';
     const gmailPort = parseInt(process.env.GMAIL_PORT || '465', 10);
-    const gmailSecure = process.env.GMAIL_SECURE !== 'false'; // Default to true
+    // Default to true for security (SSL/TLS). Only 'false' explicitly disables it.
+    const gmailSecure = process.env.GMAIL_SECURE !== 'false';
 
     if (!this.senderEmail || !gmailAppPassword) {
       log.warn('⚠️ GMAIL_EMAIL or GMAIL_APP_PASSWORD is not configured. Email sending will be disabled.');
