@@ -25,7 +25,7 @@ interface OTPData {
  * - GMAIL_PORT: SMTP port (default: 465)
  * - GMAIL_SECURE: Whether to use SSL/TLS (default: true)
  */
-class EmailService {
+export default class EmailService {
   private transporter: Transporter | null = null;
   private senderEmail: string;
   private senderName: string;
@@ -404,15 +404,3 @@ class EmailService {
     }
   }
 }
-
-// Default export for class-based instantiation (Option 2 - recommended)
-export default EmailService;
-
-// Named export for the class
-export { EmailService };
-
-/**
- * @deprecated Use `new EmailService()` instead for better testability and control.
- * This pre-instantiated singleton will be removed in a future version.
- */
-export const emailService = new EmailService();

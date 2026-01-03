@@ -1,11 +1,13 @@
 import { Request, Response } from 'express';
 import { userService } from '../services/UserService.mongo.js';
-import { emailService } from '../services/EmailService.js';
+import EmailService from '../services/EmailService.js';
 import { getErrorMessage, AuthError } from '../utils/errors.js';
 import passport from '../config/passport.js';
 import { generateAccessToken, generateRefreshToken } from '../utils/jwt.js';
 import { log } from '../utils/logger.js';
 import { sanitizeEmail } from '../utils/sanitize.js';
+
+const emailService = new EmailService();
 
 interface SignupRequest {
   firstName: string;
