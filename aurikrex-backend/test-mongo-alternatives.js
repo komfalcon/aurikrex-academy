@@ -1,6 +1,13 @@
 import { MongoClient, ServerApiVersion } from 'mongodb';
 
-const mongoUri = 'mongodb+srv://moparaji57_db_user:bcGb5OueuJ0LEPqW@cluster0.sknrqn8.mongodb.net/aurikrex-academy?retryWrites=true&w=majority';
+// IMPORTANT: Use MONGO_URI environment variable instead of hardcoding credentials
+const mongoUri = process.env.MONGO_URI || 'mongodb+srv://USERNAME:PASSWORD@cluster.mongodb.net/aurikrex-academy?retryWrites=true&w=majority';
+
+if (!process.env.MONGO_URI) {
+  console.error('❌ MONGO_URI environment variable is not set');
+  console.error('Set MONGO_URI before running this test');
+  process.exit(1);
+}
 
 console.log('🧪 MongoDB Alternative Connection Tests\n');
 console.log('Testing various connection approaches...\n');
@@ -30,31 +37,34 @@ try {
   console.log(`⚠️  IPv4-only connection failed: ${err.message.substring(0, 100)}`);
 }
 
-// Test 2: Direct connection (non-SRV)
-const directUri = 'mongodb://ac-wsdrggj-shard-00-02.sknrqn8.mongodb.net:27017,ac-wsdrggj-shard-00-01.sknrqn8.mongodb.net:27017/?authSource=admin';
-const directUriWithAuth = `mongodb://moparaji57_db_user:bcGb5OueuJ0LEPqW@ac-wsdrggj-shard-00-02.sknrqn8.mongodb.net:27017,ac-wsdrggj-shard-00-01.sknrqn8.mongodb.net:27017/aurikrex-academy?authSource=admin&retryWrites=true`;
+// Test 2: Direct connection (non-SRV) - requires MONGO_DIRECT_URI env var
+const directUriWithAuth = process.env.MONGO_DIRECT_URI;
 
 console.log('\nTest 2: Direct connection (non-SRV)...');
-try {
-  const clientDirect = new MongoClient(directUriWithAuth, {
-    serverApi: {
-      version: ServerApiVersion.v1,
-      strict: false,
-      deprecationErrors: true,
-    },
-    maxPoolSize: 10,
-    minPoolSize: 2,
-    serverSelectionTimeoutMS: 8000,
-    socketTimeoutMS: 15000,
-    retryWrites: true,
-  });
+if (!directUriWithAuth) {
+  console.log('⚠️  Skipping: MONGO_DIRECT_URI not set');
+} else {
+  try {
+    const clientDirect = new MongoClient(directUriWithAuth, {
+      serverApi: {
+        version: ServerApiVersion.v1,
+        strict: false,
+        deprecationErrors: true,
+      },
+      maxPoolSize: 10,
+      minPoolSize: 2,
+      serverSelectionTimeoutMS: 8000,
+      socketTimeoutMS: 15000,
+      retryWrites: true,
+    });
 
-  const startDirect = Date.now();
-  await clientDirect.connect();
-  console.log(`✅ Direct connection successful! (${Date.now() - startDirect}ms)`);
-  await clientDirect.close();
-} catch (err) {
-  console.log(`⚠️  Direct connection failed: ${err.message.substring(0, 100)}`);
+    const startDirect = Date.now();
+    await clientDirect.connect();
+    console.log(`✅ Direct connection successful! (${Date.now() - startDirect}ms)`);
+    await clientDirect.close();
+  } catch (err) {
+    console.log(`⚠️  Direct connection failed: ${err.message.substring(0, 100)}`);
+  }
 }
 
 // Test 3: Connection with longer timeout
