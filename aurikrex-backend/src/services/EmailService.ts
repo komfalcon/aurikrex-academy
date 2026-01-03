@@ -15,7 +15,17 @@ interface OTPData {
   expiresAt: Date;
 }
 
-export class EmailService {
+/**
+ * EmailService - Handles email sending via Gmail SMTP using Nodemailer
+ * 
+ * Required environment variables:
+ * - GMAIL_EMAIL: Gmail address used for sending emails
+ * - GMAIL_APP_PASSWORD: Gmail App Password (not regular password)
+ * - GMAIL_HOST: SMTP host (default: smtp.gmail.com)
+ * - GMAIL_PORT: SMTP port (default: 465)
+ * - GMAIL_SECURE: Whether to use SSL/TLS (default: true)
+ */
+class EmailService {
   private transporter: Transporter | null = null;
   private senderEmail: string;
   private senderName: string;
@@ -29,6 +39,9 @@ export class EmailService {
     this.appName = 'Aurikrex Academy';
 
     const gmailAppPassword = process.env.GMAIL_APP_PASSWORD || '';
+    const gmailHost = process.env.GMAIL_HOST || 'smtp.gmail.com';
+    const gmailPort = parseInt(process.env.GMAIL_PORT || '465', 10);
+    const gmailSecure = process.env.GMAIL_SECURE !== 'false'; // Default to true
 
     if (!this.senderEmail || !gmailAppPassword) {
       log.warn('⚠️ GMAIL_EMAIL or GMAIL_APP_PASSWORD is not configured. Email sending will be disabled.');
@@ -37,16 +50,18 @@ export class EmailService {
     }
 
     try {
-      // Configure Nodemailer transport with Gmail SMTP
+      // Configure Nodemailer transport with Gmail SMTP using host, port, secure
       this.transporter = nodemailer.createTransport({
-        service: 'gmail',
+        host: gmailHost,
+        port: gmailPort,
+        secure: gmailSecure,
         auth: {
           user: this.senderEmail,
           pass: gmailAppPassword,
         },
       });
       this.isConfigured = true;
-      log.info('✅ Gmail email service initialized');
+      log.info('✅ Gmail email service initialized', { host: gmailHost, port: gmailPort, secure: gmailSecure });
     } catch (error) {
       log.error('❌ Failed to initialize Gmail SMTP', { error: getErrorMessage(error) });
       this.isConfigured = false;
@@ -389,4 +404,14 @@ export class EmailService {
   }
 }
 
+// Default export for class-based instantiation (Option 2 - recommended)
+export default EmailService;
+
+// Named export for the class
+export { EmailService };
+
+/**
+ * @deprecated Use `new EmailService()` instead for better testability and control.
+ * This pre-instantiated singleton will be removed in a future version.
+ */
 export const emailService = new EmailService();
