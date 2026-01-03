@@ -29,10 +29,14 @@ npm install @getbrevo/brevo --save
 #### Required Variables for Render:
 
 ```env
-BREVO_API_KEY=your_actual_brevo_api_key_here
-BREVO_SENDER_EMAIL=info@aurikrex.tech
+BREVO_API_KEY=REPLACE_WITH_YOUR_BREVO_API_KEY
+BREVO_SENDER_EMAIL=no_reply@aurikrex.email
 BREVO_SENDER_NAME=Aurikrex Academy
+BREVO_TEMPLATE_ID=2
 ```
+
+> **NOTE:** Never commit actual API keys to source control. All secrets should
+> be stored as environment variables.
 
 #### How to Get Your Brevo API Key:
 
@@ -70,9 +74,10 @@ The following endpoints are now available:
 
 1. Create a `.env` file in `aurikrex-backend/`:
    ```env
-   BREVO_API_KEY=your_brevo_api_key_here
-   BREVO_SENDER_EMAIL=info@aurikrex.tech
+   BREVO_API_KEY=REPLACE_WITH_YOUR_BREVO_API_KEY
+   BREVO_SENDER_EMAIL=no_reply@aurikrex.email
    BREVO_SENDER_NAME=Aurikrex Academy
+   BREVO_TEMPLATE_ID=2
    ```
 
 2. **Never commit the `.env` file** - it's already in `.gitignore`
@@ -84,8 +89,9 @@ The following endpoints are now available:
 3. Navigate to **Environment** tab
 4. Add the following environment variables:
    - `BREVO_API_KEY`: Your actual Brevo API key
-   - `BREVO_SENDER_EMAIL`: `info@aurikrex.tech`
+   - `BREVO_SENDER_EMAIL`: `no_reply@aurikrex.email`
    - `BREVO_SENDER_NAME`: `Aurikrex Academy`
+   - `BREVO_TEMPLATE_ID`: `2`
 
 4. Click **Save Changes**
 5. Render will automatically redeploy with the new configuration

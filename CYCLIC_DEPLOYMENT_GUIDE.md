@@ -11,7 +11,7 @@
 ### 1. Prepare MongoDB Atlas
 
 Your MongoDB Atlas is already configured:
-- ✅ Connection URI: `mongodb+srv://moparaji57_db_user:...@cluster0.sknrqn8.mongodb.net/`
+- ✅ Connection URI: Use your `MONGO_URI` environment variable
 - ✅ Database: `aurikrex-academy`
 - ✅ Collections will be created automatically on first run
 
@@ -36,10 +36,10 @@ Your MongoDB Atlas is already configured:
    ```
    Required Variables:
    -------------------
-   MONGO_URI=mongodb+srv://moparaji57_db_user:AchNufUlCbfDBXdL@cluster0.sknrqn8.mongodb.net/?appName=Cluster0
+   MONGO_URI=REPLACE_WITH_ENV_MONGO_URI
    MONGO_DB_NAME=aurikrex-academy
-   JWT_SECRET=change-this-to-a-strong-secret-min-32-characters-long
-   OPENAI_API_KEY=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
+   JWT_SECRET=REPLACE_WITH_ENV_JWT_SECRET_MIN_32_CHARS
+   OPENAI_API_KEY=REPLACE_WITH_ENV_OPENAI_API_KEY
    
    NODE_ENV=production
    PORT=3000
@@ -47,16 +47,19 @@ Your MongoDB Atlas is already configured:
    
    Optional Variables:
    ------------------
-   GEMINI_API_KEY=AIzaSyBTpOom9Sdsx17XLwbFzmsLiozRYq5vPf4
+   GEMINI_API_KEY=REPLACE_WITH_ENV_GEMINI_API_KEY
    ACCESS_TOKEN_EXPIRY=1h
    REFRESH_TOKEN_EXPIRY=7d
    
-   EMAIL_HOST=smtp.titan.email
-   EMAIL_PORT=465
-   EMAIL_SECURE=true
-   EMAIL_USER=info@aurikrex.tech
-   EMAIL_PASS=your-email-password
+   # Email Configuration (using Brevo)
+   BREVO_API_KEY=REPLACE_WITH_ENV_BREVO_API_KEY
+   BREVO_SENDER_EMAIL=no_reply@aurikrex.email
+   BREVO_SENDER_NAME=Aurikrex Academy
+   BREVO_TEMPLATE_ID=2
    ```
+   
+   > **NOTE:** All secrets (API keys, passwords, connection strings) must be 
+   > stored as environment variables. Never commit actual secrets to source control.
 
 3. **Deploy:**
    - Click "Deploy" button

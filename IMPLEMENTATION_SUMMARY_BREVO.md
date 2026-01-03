@@ -143,10 +143,14 @@ The OTP email includes:
 
 ### Environment Variables:
 ```env
-BREVO_API_KEY=xkeysib-... (from Render)
-BREVO_SENDER_EMAIL=info@aurikrex.tech
+BREVO_API_KEY=REPLACE_WITH_ENV_BREVO_API_KEY
+BREVO_SENDER_EMAIL=no_reply@aurikrex.email
 BREVO_SENDER_NAME=Aurikrex Academy
+BREVO_TEMPLATE_ID=2
 ```
+
+> **NOTE:** All secrets must be set as environment variables. Never commit actual
+> API keys to source control.
 
 ### Security Measures:
 1. **No Hardcoded Secrets:** All credentials from environment

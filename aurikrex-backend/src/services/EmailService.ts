@@ -1,5 +1,6 @@
 import { TransactionalEmailsApi, SendSmtpEmail, AccountApi } from '@getbrevo/brevo';
 import { config } from 'dotenv';
+import crypto from 'crypto';
 import { getErrorMessage } from '../utils/errors.js';
 import { getDB } from '../config/mongodb.js';
 import { log } from '../utils/logger.js';
@@ -19,13 +20,19 @@ export class EmailService {
   private apiKey: string;
   private senderEmail: string;
   private senderName: string;
+  private templateId: number;
+  private frontendUrl: string;
+  private appName: string;
   private isConfigured: boolean = false;
 
   constructor() {
-    // Initialize Brevo API
+    // Initialize Brevo API from environment variables
     this.apiKey = process.env.BREVO_API_KEY || '';
-    this.senderEmail = process.env.BREVO_SENDER_EMAIL || 'info@aurikrex.tech';
+    this.senderEmail = process.env.BREVO_SENDER_EMAIL || 'no_reply@aurikrex.email';
     this.senderName = process.env.BREVO_SENDER_NAME || 'Aurikrex Academy';
+    this.templateId = parseInt(process.env.BREVO_TEMPLATE_ID || '2', 10);
+    this.frontendUrl = process.env.FRONTEND_URL || 'https://aurikrex.tech';
+    this.appName = 'Aurikrex Academy';
 
     if (!this.apiKey) {
       log.warn('⚠️ BREVO_API_KEY is not configured. Email sending will be disabled.');
@@ -46,10 +53,12 @@ export class EmailService {
   }
 
   /**
-   * Generate a 6-digit OTP
+   * Generate a cryptographically secure 6-digit OTP
+   * Uses crypto.randomInt for secure random number generation
    */
   generateOTP(): string {
-    return Math.floor(100000 + Math.random() * 900000).toString();
+    // Generate a cryptographically secure random number between 100000 and 999999
+    return crypto.randomInt(100000, 1000000).toString();
   }
 
   /**
@@ -122,7 +131,9 @@ export class EmailService {
   }
 
   /**
-   * Send OTP email using Brevo Transactional Email API
+   * Send OTP email using Brevo Transactional Email API with template
+   * Uses template ID from BREVO_TEMPLATE_ID environment variable
+   * Template variables: {{OTP}}, {{APP_NAME}}, {{FRONTEND_URL}}, {{FIRST_NAME}}
    */
   async sendOTPEmail(email: string, firstName: string, otp: string): Promise<void> {
     // Check if email service is configured
@@ -137,6 +148,50 @@ export class EmailService {
 
     try {
       log.info(`📧 Preparing to send OTP email`, { email });
+
+      // Create Brevo email object using template
+      const sendSmtpEmail = new SendSmtpEmail();
+      sendSmtpEmail.sender = { email: this.senderEmail, name: this.senderName };
+      sendSmtpEmail.to = [{ email, name: firstName }];
+      sendSmtpEmail.subject = 'Verify Your Email - Aurikrex Academy';
+      sendSmtpEmail.templateId = this.templateId;
+      
+      // Template parameters for Brevo template ID 2
+      sendSmtpEmail.params = {
+        OTP: otp,
+        APP_NAME: this.appName,
+        FRONTEND_URL: this.frontendUrl,
+        FIRST_NAME: firstName
+      };
+
+      // Send email via Brevo (non-blocking using Promise)
+      const result = await this.apiInstance.sendTransacEmail(sendSmtpEmail);
+      log.info('✅ OTP email sent successfully via template', { 
+        messageId: result.body?.messageId || 'N/A',
+        templateId: this.templateId 
+      });
+    } catch (error) {
+      log.error('❌ Error sending OTP email via template', {
+        error: getErrorMessage(error),
+        details: error instanceof Error ? { message: error.message } : undefined
+      });
+      
+      // Fallback to HTML content if template fails
+      await this.sendOTPEmailWithHtml(email, firstName, otp);
+    }
+  }
+
+  /**
+   * Fallback method to send OTP email with inline HTML content
+   * Used when template-based sending fails
+   */
+  private async sendOTPEmailWithHtml(email: string, firstName: string, otp: string): Promise<void> {
+    if (!this.apiInstance) {
+      throw new Error('Email service not configured');
+    }
+
+    try {
+      log.info(`📧 Sending OTP email with HTML fallback`, { email });
 
       // Create email content
       const htmlContent = `
@@ -221,28 +276,28 @@ export class EmailService {
           <div class="container">
             <div class="header">
               <div class="logo">
-                <h1>🎓 Aurikrex Academy</h1>
+                <h1>🎓 ${this.appName}</h1>
                 <p>The Future of Learning</p>
               </div>
             </div>
             
             <div class="content">
               <h2>Welcome, ${firstName}! 👋</h2>
-              <p>Thank you for joining Aurikrex Academy. To complete your registration, please verify your email address using the code below:</p>
+              <p>Thank you for joining ${this.appName}. To complete your registration, please verify your email address using the code below:</p>
               
               <div class="otp-box">${otp}</div>
               
               <p>This verification code will expire in <strong>10 minutes</strong>.</p>
               
               <div class="warning">
-                <strong>⚠️ Security Notice:</strong> Never share this code with anyone. Aurikrex Academy will never ask for your verification code via email, phone, or any other means.
+                <strong>⚠️ Security Notice:</strong> Never share this code with anyone. ${this.appName} will never ask for your verification code via email, phone, or any other means.
               </div>
               
               <p style="margin-top: 20px;">If you didn't request this code, please ignore this email.</p>
             </div>
             
             <div class="footer">
-              <p>© ${new Date().getFullYear()} Aurikrex Academy. All rights reserved.</p>
+              <p>© ${new Date().getFullYear()} ${this.appName}. All rights reserved.</p>
               <p>This is an automated message, please do not reply.</p>
             </div>
           </div>
@@ -250,7 +305,7 @@ export class EmailService {
         </html>
       `;
 
-      const textContent = `Welcome to Aurikrex Academy, ${firstName}!\n\nYour verification code is: ${otp}\n\nThis code will expire in 10 minutes.\n\nIf you didn't request this code, please ignore this email.`;
+      const textContent = `Welcome to ${this.appName}, ${firstName}!\n\nYour verification code is: ${otp}\n\nThis code will expire in 10 minutes.\n\nIf you didn't request this code, please ignore this email.`;
 
       // Create Brevo email object
       const sendSmtpEmail = new SendSmtpEmail();
@@ -262,9 +317,9 @@ export class EmailService {
 
       // Send email via Brevo
       const result = await this.apiInstance.sendTransacEmail(sendSmtpEmail);
-      log.info('✅ OTP email sent successfully', { messageId: result.body?.messageId || 'N/A' });
+      log.info('✅ OTP email sent successfully with HTML', { messageId: result.body?.messageId || 'N/A' });
     } catch (error) {
-      log.error('❌ Error sending OTP email', {
+      log.error('❌ Error sending OTP email with HTML fallback', {
         error: getErrorMessage(error),
         details: error instanceof Error ? { message: error.message } : undefined
       });
@@ -281,6 +336,59 @@ export class EmailService {
     await this.storeOTP(email, otp, firstName);
     await this.sendOTPEmail(email, firstName, otp);
     return otp;
+  }
+
+  /**
+   * Send verification email with OTP
+   * Returns boolean indicating success/failure for controller consumption
+   * Non-blocking: does not throw errors, only logs them
+   * @param email - User's email address
+   * @param otp - The OTP code to send
+   * @returns Promise<boolean> - true if email sent successfully, false otherwise
+   */
+  async sendVerificationEmail(email: string, otp: string): Promise<boolean> {
+    // Check if email service is configured
+    if (!this.isConfigured || !this.apiInstance) {
+      log.warn('⚠️ Email service not configured. Verification email not sent.', { email });
+      // In development, log the OTP for testing
+      if (process.env.NODE_ENV === 'development') {
+        log.info(`🔐 DEV MODE - OTP for ${email}: ${otp}`);
+      }
+      return false;
+    }
+
+    try {
+      log.info(`📧 Sending verification email`, { email });
+
+      // Create Brevo email object using template
+      const sendSmtpEmail = new SendSmtpEmail();
+      sendSmtpEmail.sender = { email: this.senderEmail, name: this.senderName };
+      sendSmtpEmail.to = [{ email, name: email.split('@')[0] }];
+      sendSmtpEmail.subject = 'Verify Your Email - Aurikrex Academy';
+      sendSmtpEmail.templateId = this.templateId;
+      
+      // Template parameters for Brevo template ID 2
+      sendSmtpEmail.params = {
+        OTP: otp,
+        APP_NAME: this.appName,
+        FRONTEND_URL: this.frontendUrl,
+        FIRST_NAME: email.split('@')[0]
+      };
+
+      // Send email via Brevo (non-blocking)
+      const result = await this.apiInstance.sendTransacEmail(sendSmtpEmail);
+      log.info('✅ Verification email sent successfully', { 
+        messageId: result.body?.messageId || 'N/A',
+        templateId: this.templateId 
+      });
+      return true;
+    } catch (error) {
+      log.error('❌ Error sending verification email', {
+        error: getErrorMessage(error),
+        details: error instanceof Error ? { message: error.message } : undefined
+      });
+      return false;
+    }
   }
 
   /**
