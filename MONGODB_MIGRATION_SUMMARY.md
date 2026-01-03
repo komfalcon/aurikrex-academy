@@ -14,7 +14,7 @@ This document summarizes the MongoDB Atlas migration work completed for your Aur
 
 **MongoDB Configuration:**
 - Created `/src/config/mongodb.ts` - Handles MongoDB Atlas connection with auto-reconnect
-- Connection URI configured: `mongodb+srv://moparaji57_db_user:AchNufUlCbfDBXdL@cluster0.sknrqn8.mongodb.net/`
+- Connection URI configured via `MONGO_URI` environment variable
 - Database name: `aurikrex-academy`
 - Updated `.env.example` with MongoDB settings
 
@@ -130,11 +130,11 @@ Update your `.env` file with these variables:
 
 ```bash
 # MongoDB Atlas
-MONGO_URI=mongodb+srv://moparaji57_db_user:AchNufUlCbfDBXdL@cluster0.sknrqn8.mongodb.net/?appName=Cluster0
+MONGO_URI=REPLACE_WITH_ENV_MONGO_URI
 MONGO_DB_NAME=aurikrex-academy
 
 # JWT Authentication
-JWT_SECRET=your-super-secret-jwt-key-change-this-in-production-min-32-chars
+JWT_SECRET=REPLACE_WITH_ENV_JWT_SECRET_MIN_32_CHARS
 ACCESS_TOKEN_EXPIRY=1h
 REFRESH_TOKEN_EXPIRY=7d
 
@@ -144,16 +144,18 @@ NODE_ENV=development
 CORS_ORIGIN=http://localhost:3000
 
 # AI Services
-OPENAI_API_KEY=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
-GEMINI_API_KEY=AIzaSyBTpOom9Sdsx17XLwbFzmsLiozRYq5vPf4
+OPENAI_API_KEY=REPLACE_WITH_ENV_OPENAI_API_KEY
+GEMINI_API_KEY=REPLACE_WITH_ENV_GEMINI_API_KEY
 
-# Email (optional - for OTP verification)
-EMAIL_HOST=smtp.titan.email
-EMAIL_PORT=465
-EMAIL_SECURE=true
-EMAIL_USER=info@aurikrex.tech
-EMAIL_PASS=your-email-password
+# Email (Brevo/Sendinblue)
+BREVO_API_KEY=REPLACE_WITH_ENV_BREVO_API_KEY
+BREVO_SENDER_EMAIL=no_reply@aurikrex.email
+BREVO_SENDER_NAME=Aurikrex Academy
+BREVO_TEMPLATE_ID=2
 ```
+
+> **NOTE:** All secrets and API keys should be set as environment variables.
+> Never commit actual secrets to source control.
 
 ## ⚠️ Important Notes
 

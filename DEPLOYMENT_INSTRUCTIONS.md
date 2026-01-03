@@ -31,7 +31,7 @@ Your OTP email verification is now fixed and ready for production! Follow these 
 ### Step 2: Verify Sender Email
 
 1. In Brevo Dashboard, go to **Senders & IP**
-2. Verify that `info@aurikrex.tech` is added and verified
+2. Verify that `no_reply@aurikrex.email` is added and verified
 3. If not, add it and follow the verification process
 
 ### Step 3: Add Environment Variables to Render
@@ -39,13 +39,17 @@ Your OTP email verification is now fixed and ready for production! Follow these 
 1. Go to your [Render Dashboard](https://dashboard.render.com/)
 2. Select your **aurikrex-backend** service
 3. Go to **Environment** tab
-4. Add these three variables:
+4. Add these environment variables:
 
 ```
-BREVO_API_KEY = xkeysib-your-actual-key-here
-BREVO_SENDER_EMAIL = info@aurikrex.tech
+BREVO_API_KEY = REPLACE_WITH_YOUR_BREVO_API_KEY
+BREVO_SENDER_EMAIL = no_reply@aurikrex.email
 BREVO_SENDER_NAME = Aurikrex Academy
+BREVO_TEMPLATE_ID = 2
 ```
+
+> **IMPORTANT:** Never commit actual API keys to source control.
+> All secrets should be stored as environment variables.
 
 5. Click **Save Changes**
 

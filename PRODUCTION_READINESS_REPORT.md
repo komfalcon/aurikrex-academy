@@ -80,13 +80,16 @@ The Aurikrex Academy application has been thoroughly analyzed and is **READY FOR
 #### Environment Configuration
 ```
 ✅ NODE_ENV: development (change to production on Render)
-✅ MONGO_URI: Valid MongoDB Atlas connection
-✅ JWT_SECRET: Strong 64-character key
-✅ EMAIL_HOST: smtp.gmail.com (correct)
-✅ EMAIL_USER: aurikrexacademy@gmail.com (correct)
-✅ EMAIL_PASS: App password configured (correct)
+✅ MONGO_URI: Valid MongoDB Atlas connection (set via env var)
+✅ JWT_SECRET: Strong 32+ character key (set via env var)
+✅ BREVO_API_KEY: Brevo API for OTP emails (set via env var)
+✅ BREVO_SENDER_EMAIL: no_reply@aurikrex.email
+✅ BREVO_TEMPLATE_ID: 2 (transactional email template)
 ✅ OPENAI_API_KEY: Placeholder added (requires real key for production)
 ```
+
+> **NOTE:** All secrets are managed via environment variables.
+> See .env.example for required configuration.
 
 #### Authentication Routes ✅
 
@@ -149,14 +152,14 @@ The Aurikrex Academy application has been thoroughly analyzed and is **READY FOR
 
 ### 3. Database Analysis ✅
 
-**MongoDB Atlas Cluster**: cluster0.sknrqn8.mongodb.net
+**MongoDB Atlas Cluster**: Configured via MONGO_URI environment variable
 
 #### Connection Status
 ```
-✅ Connection String: Valid and tested
-✅ IP Whitelisting: 105.113.94.208 whitelisted
+✅ Connection String: Valid and tested (set via MONGO_URI env var)
+✅ IP Whitelisting: Ensure deployment server IPs are whitelisted
 ✅ Database: aurikrex-academy created
-✅ User: moparaji57_db_user with appropriate permissions
+✅ User: Configured with appropriate permissions
 ```
 
 #### Collections ✅

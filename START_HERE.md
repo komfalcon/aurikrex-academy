@@ -15,19 +15,23 @@
 2. Click **Settings** → **SMTP & API** → **API Keys**
 3. Click **"Generate a new API key"**
 4. Name it: `Aurikrex Academy Production`
-5. Copy the key (it looks like: `xkeysib-abc123...`)
+5. Copy the key (it starts with: `xkeysib-...`)
 
 ### Step 2: Add to Render (3 minutes)
 1. Go to https://dashboard.render.com/
 2. Select your **aurikrex-backend** service
 3. Click **Environment** tab
-4. Add these three variables:
+4. Add these environment variables:
    ```
-   BREVO_API_KEY = xkeysib-your-actual-key-here
-   BREVO_SENDER_EMAIL = info@aurikrex.tech
+   BREVO_API_KEY = REPLACE_WITH_YOUR_BREVO_API_KEY
+   BREVO_SENDER_EMAIL = no_reply@aurikrex.email
    BREVO_SENDER_NAME = Aurikrex Academy
+   BREVO_TEMPLATE_ID = 2
    ```
 5. Click **Save Changes**
+
+> **NOTE:** Never commit actual API keys to source control. All secrets should
+> be stored as environment variables.
 
 ### Step 3: Wait for Deployment (2 minutes)
 Render will automatically redeploy. Watch the logs for:

@@ -1,23 +1,38 @@
 import { MongoClient, ServerApiVersion } from 'mongodb';
 import dns from 'dns/promises';
 
-const mongoUri = 'mongodb+srv://moparaji57_db_user:bcGb5OueuJ0LEPqW@cluster0.sknrqn8.mongodb.net/aurikrex-academy?retryWrites=true&w=majority';
+// IMPORTANT: Use MONGO_URI environment variable instead of hardcoding credentials
+const mongoUri = process.env.MONGO_URI || '';
+
+if (!mongoUri) {
+  console.error('❌ MONGO_URI environment variable is not set');
+  console.error('Set MONGO_URI before running this test');
+  process.exit(1);
+}
 
 console.log('🧪 MongoDB Connection Test');
 console.log('='.repeat(60));
 console.log('URI:', mongoUri.replace(/:[^:]*@/, ':****@'));
 
+// Extract cluster hostname from SRV URI for DNS testing
+const clusterMatch = mongoUri.match(/mongodb\+srv:\/\/[^@]+@([^/?]+)/);
+const clusterHostname = clusterMatch ? clusterMatch[1] : null;
+
 // Test DNS resolution first
 console.log('\n1️⃣ Testing DNS SRV resolution...');
-try {
-  const addresses = await dns.resolveSrv('_mongodb._tcp.cluster0.sknrqn8.mongodb.net');
-  console.log('✅ DNS SRV resolution successful!');
-  addresses.slice(0, 2).forEach((addr, i) => {
-    console.log(`   Server ${i + 1}: ${addr.name}:${addr.port}`);
-  });
-} catch (err) {
-  console.error('⚠️  DNS SRV resolution failed:', err.message);
-  console.log('   This is a known issue on some networks. Attempting direct connection...\n');
+if (clusterHostname) {
+  try {
+    const addresses = await dns.resolveSrv(`_mongodb._tcp.${clusterHostname}`);
+    console.log('✅ DNS SRV resolution successful!');
+    addresses.slice(0, 2).forEach((addr, i) => {
+      console.log(`   Server ${i + 1}: ${addr.name}:${addr.port}`);
+    });
+  } catch (err) {
+    console.error('⚠️  DNS SRV resolution failed:', err.message);
+    console.log('   This is a known issue on some networks. Attempting direct connection...\n');
+  }
+} else {
+  console.log('⚠️  Skipping DNS SRV test - Non-SRV URI format');
 }
 
 // Try MongoDB connection

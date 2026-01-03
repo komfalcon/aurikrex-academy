@@ -322,8 +322,8 @@ Regular tasks to perform:
 - [x] **Firebase References Removed**: All Firebase imports/configs completely removed from frontend
 - [x] **Environment Variables Fixed**: VITE_API_BASE_URL → VITE_API_URL (corrected inconsistency)
 - [x] **Backend .env Updated**: Added OPENAI_API_KEY and GEMINI_API_KEY placeholders
-- [x] **MongoDB Connection**: Verified and working (IP whitelisted: 105.113.94.208)
-- [x] **Email Service**: Gmail SMTP configured (aurikrexacademy@gmail.com with app password)
+- [x] **MongoDB Connection**: Verified and working (IP whitelisted)
+- [x] **Email Service**: Brevo API configured for OTP emails
 - [x] **Frontend Build**: ✅ Successfully builds with `npm run build`
   - Output: dist folder created with ~1.57 kB HTML, ~73.78 kB CSS, ~454.13 kB JS
   - No TypeScript errors
@@ -345,18 +345,20 @@ Regular tasks to perform:
 
 ```
 # Required variables to set in Vercel dashboard:
-VITE_API_URL=https://aurikrex-backend.onrender.com/api
-VITE_JWT_SECRET=c1ac45a722413b913d6bfa529524386a6c25ec1021202b73b335b03b977d97fa
+VITE_API_URL=https://api.aurikrex.tech/api
+VITE_JWT_SECRET=REPLACE_WITH_A_SECURE_SECRET
 VITE_APP_NAME=AurikrexAcademy
 VITE_FRONTEND_URL=https://aurikrex.tech
 ```
 
+> **IMPORTANT:** Never commit actual secrets to source control.
+
 **Current .env (Development)**:
 ```dotenv
-VITE_API_URL=https://aurikrex-backend.onrender.com/api
-VITE_JWT_SECRET=c1ac45a722413b913d6bfa529524386a6c25ec1021202b73b335b03b977d97fa
+VITE_API_URL=http://localhost:5000/api
+VITE_JWT_SECRET=REPLACE_WITH_A_SECURE_SECRET
 VITE_APP_NAME=AurikrexAcademy
-VITE_FRONTEND_URL=https://aurikrex.tech
+VITE_FRONTEND_URL=http://localhost:8080
 ```
 
 ### Backend - Render Environment Variables
@@ -365,50 +367,53 @@ VITE_FRONTEND_URL=https://aurikrex.tech
 # Required variables to set in Render dashboard:
 PORT=5000
 NODE_ENV=production
-ALLOWED_ORIGINS=https://aurikrex.tech,https://aurikrex-academy12.web.app,https://vercel-deployment-url.vercel.app
+ALLOWED_ORIGINS=https://aurikrex.tech,https://www.aurikrex.tech
 
-MONGO_URI=mongodb+srv://moparaji57_db_user:bcGb5OueuJ0LEPqW@cluster0.sknrqn8.mongodb.net/aurikrex-academy?retryWrites=true&w=majority
+MONGO_URI=REPLACE_WITH_YOUR_MONGO_URI
 MONGO_DB_NAME=aurikrex-academy
 
-JWT_SECRET=c1ac45a722413b913d6bfa529524386a6c25ec1021202b73b335b03b977d97fa
+JWT_SECRET=REPLACE_WITH_A_SECURE_32_CHAR_SECRET
 ACCESS_TOKEN_EXPIRY=1h
 REFRESH_TOKEN_EXPIRY=7d
 
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_SECURE=false
-EMAIL_USER=aurikrexacademy@gmail.com
-EMAIL_PASS=jssf erzj wqqx yeip
+# Email Configuration (Brevo)
+BREVO_API_KEY=REPLACE_WITH_YOUR_BREVO_API_KEY
+BREVO_SENDER_EMAIL=no_reply@aurikrex.email
+BREVO_SENDER_NAME=Aurikrex Academy
+BREVO_TEMPLATE_ID=2
 
-OPENAI_API_KEY=sk-YOUR-REAL-KEY-HERE
-GEMINI_API_KEY=YOUR-GEMINI-API-KEY-HERE
+OPENAI_API_KEY=REPLACE_WITH_YOUR_OPENAI_API_KEY
+GEMINI_API_KEY=REPLACE_WITH_YOUR_GEMINI_API_KEY
 
 LOG_LEVEL=info
 RATE_LIMIT_WINDOW=900000
 RATE_LIMIT_MAX=100
 ```
 
+> **IMPORTANT:** Never commit actual secrets to source control.
+> All credentials should be set via environment variables in your deployment platform.
+
 **Current .env (Development)**:
 ```dotenv
 PORT=5000
 NODE_ENV=development
-ALLOWED_ORIGINS=https://aurikrex-academy12.web.app,https://aurikrex.tech,http://localhost:3000,http://localhost:8080
+ALLOWED_ORIGINS=https://aurikrex.tech,http://localhost:3000,http://localhost:8080
 
-MONGO_URI=mongodb+srv://moparaji57_db_user:bcGb5OueuJ0LEPqW@cluster0.sknrqn8.mongodb.net/aurikrex-academy?retryWrites=true&w=majority
+MONGO_URI=REPLACE_WITH_YOUR_MONGO_URI
 MONGO_DB_NAME=aurikrex-academy
 
-JWT_SECRET=c1ac45a722413b913d6bfa529524386a6c25ec1021202b73b335b03b977d97fa
+JWT_SECRET=REPLACE_WITH_A_SECURE_32_CHAR_SECRET
 ACCESS_TOKEN_EXPIRY=1h
 REFRESH_TOKEN_EXPIRY=7d
 
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_SECURE=false
-EMAIL_USER=aurikrexacademy@gmail.com
-EMAIL_PASS=jssf erzj wqqx yeip
+# Email Configuration (Brevo)
+BREVO_API_KEY=REPLACE_WITH_YOUR_BREVO_API_KEY
+BREVO_SENDER_EMAIL=no_reply@aurikrex.email
+BREVO_SENDER_NAME=Aurikrex Academy
+BREVO_TEMPLATE_ID=2
 
-OPENAI_API_KEY=sk-placeholder-key-add-real-key-for-lesson-generation
-GEMINI_API_KEY=optional-gemini-api-key
+OPENAI_API_KEY=REPLACE_WITH_YOUR_OPENAI_API_KEY
+GEMINI_API_KEY=REPLACE_WITH_YOUR_GEMINI_API_KEY
 ```
 
 ---
