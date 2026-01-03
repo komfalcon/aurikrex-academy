@@ -62,6 +62,21 @@ export class EmailService {
   }
 
   /**
+   * Extract a display name from email address
+   * Falls back to 'User' if extraction fails
+   * @param email - Email address
+   * @returns Display name extracted from email or 'User'
+   */
+  private extractNameFromEmail(email: string): string {
+    if (!email || !email.includes('@')) {
+      return 'User';
+    }
+    const localPart = email.split('@')[0];
+    // Return 'User' if local part is empty or too short
+    return localPart && localPart.length > 0 ? localPart : 'User';
+  }
+
+  /**
    * Store OTP in MongoDB with 10-minute expiry
    */
   async storeOTP(email: string, otp: string, firstName: string): Promise<void> {
@@ -360,10 +375,13 @@ export class EmailService {
     try {
       log.info(`📧 Sending verification email`, { email });
 
+      // Extract name from email for display purposes
+      const displayName = this.extractNameFromEmail(email);
+
       // Create Brevo email object using template
       const sendSmtpEmail = new SendSmtpEmail();
       sendSmtpEmail.sender = { email: this.senderEmail, name: this.senderName };
-      sendSmtpEmail.to = [{ email, name: email.split('@')[0] }];
+      sendSmtpEmail.to = [{ email, name: displayName }];
       sendSmtpEmail.subject = 'Verify Your Email - Aurikrex Academy';
       sendSmtpEmail.templateId = this.templateId;
       
@@ -372,7 +390,7 @@ export class EmailService {
         OTP: otp,
         APP_NAME: this.appName,
         FRONTEND_URL: this.frontendUrl,
-        FIRST_NAME: email.split('@')[0]
+        FIRST_NAME: displayName
       };
 
       // Send email via Brevo (non-blocking)
