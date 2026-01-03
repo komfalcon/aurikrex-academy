@@ -322,8 +322,8 @@ Regular tasks to perform:
 - [x] **Firebase References Removed**: All Firebase imports/configs completely removed from frontend
 - [x] **Environment Variables Fixed**: VITE_API_BASE_URL → VITE_API_URL (corrected inconsistency)
 - [x] **Backend .env Updated**: Added OPENAI_API_KEY and GEMINI_API_KEY placeholders
-- [x] **MongoDB Connection**: Verified and working (IP whitelisted: 105.113.94.208)
-- [x] **Email Service**: Gmail SMTP configured (aurikrexacademy@gmail.com with app password)
+- [x] **MongoDB Connection**: Verified and working (IP whitelisted)
+- [x] **Email Service**: Brevo API configured for OTP emails
 - [x] **Frontend Build**: ✅ Successfully builds with `npm run build`
   - Output: dist folder created with ~1.57 kB HTML, ~73.78 kB CSS, ~454.13 kB JS
   - No TypeScript errors
@@ -345,18 +345,20 @@ Regular tasks to perform:
 
 ```
 # Required variables to set in Vercel dashboard:
-VITE_API_URL=https://aurikrex-backend.onrender.com/api
-VITE_JWT_SECRET=c1ac45a722413b913d6bfa529524386a6c25ec1021202b73b335b03b977d97fa
+VITE_API_URL=https://api.aurikrex.tech/api
+VITE_JWT_SECRET=REPLACE_WITH_A_SECURE_SECRET
 VITE_APP_NAME=AurikrexAcademy
 VITE_FRONTEND_URL=https://aurikrex.tech
 ```
 
+> **IMPORTANT:** Never commit actual secrets to source control.
+
 **Current .env (Development)**:
 ```dotenv
-VITE_API_URL=https://aurikrex-backend.onrender.com/api
-VITE_JWT_SECRET=c1ac45a722413b913d6bfa529524386a6c25ec1021202b73b335b03b977d97fa
+VITE_API_URL=http://localhost:5000/api
+VITE_JWT_SECRET=REPLACE_WITH_A_SECURE_SECRET
 VITE_APP_NAME=AurikrexAcademy
-VITE_FRONTEND_URL=https://aurikrex.tech
+VITE_FRONTEND_URL=http://localhost:8080
 ```
 
 ### Backend - Render Environment Variables
