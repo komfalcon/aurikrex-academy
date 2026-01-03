@@ -1,9 +1,9 @@
 import { MongoClient, ServerApiVersion } from 'mongodb';
 
-// IMPORTANT: Use MONGO_URI environment variable instead of hardcoding credentials
-const mongoUri = process.env.MONGO_URI || 'mongodb+srv://USERNAME:PASSWORD@cluster.mongodb.net/aurikrex-academy?retryWrites=true&w=majority';
+// IMPORTANT: MONGO_URI environment variable must be set before running this test
+const mongoUri = process.env.MONGO_URI;
 
-if (!process.env.MONGO_URI) {
+if (!mongoUri) {
   console.error('❌ MONGO_URI environment variable is not set');
   console.error('Set MONGO_URI before running this test');
   process.exit(1);

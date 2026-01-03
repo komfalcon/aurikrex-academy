@@ -191,7 +191,9 @@ export class EmailService {
         details: error instanceof Error ? { message: error.message } : undefined
       });
       
-      // Fallback to HTML content if template fails
+      // Fallback to inline HTML content when template fails
+      // This ensures emails are sent even if the Brevo template is misconfigured
+      log.info('📧 Attempting fallback to inline HTML email');
       await this.sendOTPEmailWithHtml(email, firstName, otp);
     }
   }
