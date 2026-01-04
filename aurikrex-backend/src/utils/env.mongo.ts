@@ -139,56 +139,36 @@ const envVars = {
     message: 'GOOGLE_CALLBACK_URL must be a valid URL when provided'
   },
   
-  // Brevo email configuration (preferred for email sending)
-  BREVO_API_KEY: {
+  // Gmail SMTP configuration (for email sending)
+  GMAIL_HOST: {
     required: false,
-    default: '',
-    validate: (_value: string) => true, // Optional - empty or any value is valid
-    message: 'BREVO_API_KEY is optional'
-  },
-  BREVO_SENDER_EMAIL: {
-    required: false,
-    default: 'info@aurikrex.tech',
-    validate: (value: string) => value.includes('@'),
-    message: 'BREVO_SENDER_EMAIL must be a valid email address'
-  },
-  BREVO_SENDER_NAME: {
-    required: false,
-    default: 'Aurikrex Academy',
+    default: 'smtp.gmail.com',
     validate: (value: string) => value.length > 0,
-    message: 'BREVO_SENDER_NAME must be a non-empty string'
+    message: 'GMAIL_HOST must be a non-empty string'
   },
-  
-  // Legacy Email configuration (for reference, not used with Brevo API)
-  EMAIL_HOST: {
-    required: false,
-    default: '',
-    validate: (value: string) => !value || value.length > 0,
-    message: 'EMAIL_HOST must be a non-empty string when provided'
-  },
-  EMAIL_PORT: {
+  GMAIL_PORT: {
     required: false,
     default: '465',
-    validate: (value: string) => !value || (!isNaN(Number(value)) && Number(value) > 0),
-    message: 'EMAIL_PORT must be a positive number'
+    validate: (value: string) => !isNaN(Number(value)) && Number(value) > 0,
+    message: 'GMAIL_PORT must be a positive number'
   },
-  EMAIL_SECURE: {
+  GMAIL_SECURE: {
     required: false,
     default: 'true',
-    validate: (value: string) => !value || ['true', 'false'].includes(value),
-    message: 'EMAIL_SECURE must be "true" or "false"'
+    validate: (value: string) => ['true', 'false'].includes(value),
+    message: 'GMAIL_SECURE must be "true" or "false"'
   },
-  EMAIL_USER: {
+  GMAIL_EMAIL: {
     required: false,
     default: '',
     validate: (value: string) => !value || value.includes('@'),
-    message: 'EMAIL_USER must be a valid email address when provided'
+    message: 'GMAIL_EMAIL must be a valid email address when provided'
   },
-  EMAIL_PASS: {
+  GMAIL_APP_PASSWORD: {
     required: false,
     default: '',
-    validate: (_value: string) => true,
-    message: 'EMAIL_PASS is optional'
+    validate: (_value: string) => true, // Optional - empty or any value is valid
+    message: 'GMAIL_APP_PASSWORD is optional'
   }
 } as const;
 
