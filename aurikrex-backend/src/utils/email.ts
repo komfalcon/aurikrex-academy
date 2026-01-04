@@ -39,8 +39,18 @@ export function hashOTP(otp: string): string {
  * Verify OTP against stored hash
  */
 export function verifyOTPHash(otp: string, storedHash: string): boolean {
-  const hash = hashOTP(otp);
-  return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(storedHash));
+  const computedHash = hashOTP(otp);
+  // Use timing-safe comparison to prevent timing attacks
+  // Both strings are hex-encoded SHA256 hashes, so they have the same length
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(computedHash, 'hex'),
+      Buffer.from(storedHash, 'hex')
+    );
+  } catch {
+    // If buffers have different lengths, comparison fails
+    return false;
+  }
 }
 
 /**
@@ -168,6 +178,17 @@ If you didn't request this code, please ignore this email.
 }
 
 /**
+ * Sanitize email for logging (mask middle portion)
+ */
+function sanitizeEmailForLog(email: string): string {
+  const atIndex = email.indexOf('@');
+  if (atIndex <= 2) {
+    return email.substring(0, 1) + '***@' + email.substring(atIndex + 1);
+  }
+  return email.substring(0, 2) + '***@' + email.substring(atIndex + 1);
+}
+
+/**
  * Send OTP verification email
  * @returns true if email was sent successfully, false otherwise
  */
@@ -179,10 +200,10 @@ export async function sendOTPEmail(
   const transporter = createTransporter();
 
   if (!transporter) {
-    log.warn('Email not sent: transporter not configured', { email });
+    log.warn('Email not sent: transporter not configured', { email: sanitizeEmailForLog(email) });
     // In development, log info for testing (but never log actual OTP)
     if (process.env.NODE_ENV === 'development') {
-      log.info('DEV MODE - Verification code generated for email', { email });
+      log.info('DEV MODE - Verification code generated', { email: sanitizeEmailForLog(email) });
     }
     return false;
   }
@@ -200,7 +221,7 @@ export async function sendOTPEmail(
     });
 
     log.info('Verification email sent successfully', {
-      email,
+      email: sanitizeEmailForLog(email),
       messageId: info.messageId || 'N/A',
     });
 
@@ -208,7 +229,7 @@ export async function sendOTPEmail(
   } catch (error) {
     log.error('Failed to send verification email', {
       error: error instanceof Error ? error.message : String(error),
-      email,
+      email: sanitizeEmailForLog(email),
     });
     return false;
   }

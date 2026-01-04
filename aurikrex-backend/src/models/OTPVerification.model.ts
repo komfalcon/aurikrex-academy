@@ -8,7 +8,6 @@ export interface OTPDocument {
   otpHash: string;
   createdAt: Date;
   expiresAt: Date;
-  used: boolean;
 }
 
 const OTP_EXPIRY_MINUTES = 10;
@@ -35,7 +34,6 @@ export class OTPVerificationModel {
         otpHash,
         createdAt: now,
         expiresAt,
-        used: false,
       };
 
       // Replace existing OTP for this email or insert new one
