@@ -11,7 +11,7 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { motion, useInView, useReducedMotion, AnimatePresence } from "framer-motion";
-import { Menu, X, Moon, Sun, Sparkles, Brain, GraduationCap, Users, Globe, BookOpen, Target, MessageSquare, CheckCircle, Zap, Shield, Clock, TrendingUp, ChevronLeft, ChevronRight, Twitter, Linkedin, Youtube, Github, } from "lucide-react";
+import { Moon, Sun, Sparkles, Brain, GraduationCap, Users, Globe, BookOpen, Target, MessageSquare, CheckCircle, Zap, Shield, Clock, TrendingUp, ChevronLeft, ChevronRight, Twitter, Linkedin, Youtube, Github, } from "lucide-react";
 // ============================================================
 // CUSTOM HOOKS
 // ============================================================
@@ -96,7 +96,6 @@ function StatItem({ label, end, suffix }: { label: string; end: number; suffix: 
 
 function NavBar() {
   const navigate = useNavigate(); // ✅ Must be at the top of component
-  const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const { theme, toggleTheme } = useTheme();
 
@@ -168,6 +167,14 @@ function NavBar() {
               )}
             </button>
 
+            {/* CTA Button - Mobile */}
+            <button
+              onClick={() => navigate("/login")}
+              className="inline-flex lg:hidden px-4 py-2.5 bg-gradient-primary text-white text-sm font-semibold rounded-xl hover:shadow-glow transition-all focus:outline-none focus:ring-2 focus:ring-primary shadow-md"
+            >
+              Start Free
+            </button>
+
             {/* CTA Button - Desktop */}
             <button
               onClick={() => navigate("/login")}
@@ -175,57 +182,23 @@ function NavBar() {
             >
               Start Learning Free
             </button>
-
-            {/* Mobile Menu Toggle */}
-            <button
-              onClick={() => setIsOpen(!isOpen)}
-              className="lg:hidden p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
-              aria-label={isOpen ? "Close menu" : "Open menu"}
-              aria-expanded={isOpen}
-            >
-              {isOpen ? (
-                <X className="w-6 h-6" aria-hidden="true" />
-              ) : (
-                <Menu className="w-6 h-6" aria-hidden="true" />
-              )}
-            </button>
           </div>
         </div>
 
-        {/* Mobile Menu */}
-        <AnimatePresence>
-          {isOpen && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="lg:hidden overflow-hidden"
-            >
-              <div className="py-4 space-y-2 border-t border-border">
-                {navLinks.map((link) => (
-                  <a
-                    key={link.href}
-                    href={link.href}
-                    onClick={() => setIsOpen(false)}
-                    className="block px-4 py-2 text-sm font-medium text-foreground/80 hover:bg-secondary rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    {link.label}
-                  </a>
-                ))}
-                {/* Mobile CTA Button */}
-                <button
-                  onClick={() => {
-                    navigate("/login");
-                    setIsOpen(false);
-                  }}
-                  className="block mx-4 mt-4 px-6 py-2.5 bg-gradient-primary text-white text-center font-semibold rounded-2xl hover:shadow-glow hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-primary shadow-md"
-                >
-                  Start Learning Free
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Mobile Navigation */}
+        <div className="lg:hidden pt-2 pb-3 border-t border-border/60">
+          <div className="flex items-center gap-2 overflow-x-auto -mx-1 px-1 pb-1">
+            {navLinks.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                className="shrink-0 px-3 py-2 text-sm font-semibold text-foreground/90 bg-secondary/80 hover:bg-secondary transition-colors rounded-xl focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                {link.label}
+              </a>
+            ))}
+          </div>
+        </div>
       </div>
     </nav>
   );
@@ -241,7 +214,7 @@ function Hero() {
   return (
     <section
       id="home"
-      className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20 lg:pt-0"
+      className="relative min-h-screen flex items-center justify-center overflow-hidden pt-24 lg:pt-0"
     >
       {/* Background Gradient Animation */}
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-accent/5 to-background -z-10">
