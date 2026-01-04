@@ -44,7 +44,8 @@ function parseDisplayName(displayName?: string): { firstName: string; lastName: 
 
 /**
  * Handle user signup with email/password
- * Sends OTP for verification
+ * Creates user in MongoDB, generates tokens, stores OTP, and sends verification email (non-blocking)
+ * HTTP response is sent immediately after user creation, regardless of email success
  */
 export const signup = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -64,7 +65,8 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
     // Create display name
     const displayName = `${firstName} ${lastName}`;
 
-    // Register user (created with emailVerified: false by default)
+    // 1. Register user in MongoDB (created with emailVerified: false by default)
+    // This also generates access token and refresh token
     const result = await userService.register({
       email,
       password,
@@ -74,24 +76,28 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
 
     log.info('User registered successfully', { email: sanitizeEmail(result.user.email) });
 
-    // Generate and store OTP for email verification
-    try {
-      const otp = generateOTP();
-      const otpHash = hashOTP(otp);
-      await OTPVerificationModel.store(email, otpHash);
-      
-      // Send OTP email
-      const emailSent = await sendOTPEmail(email, otp, firstName);
-      if (emailSent) {
-        log.info('Verification OTP sent', { email: sanitizeEmail(email) });
-      } else {
-        log.warn('Email service not available, OTP generated but not sent', { email: sanitizeEmail(email) });
-      }
-    } catch (emailError) {
-      log.error('Failed to send verification email', { email: sanitizeEmail(email), error: getErrorMessage(emailError) });
-      // Don't fail signup if email fails
-    }
+    // 2. Generate and store OTP for email verification (synchronous - must complete before response)
+    const otp = generateOTP();
+    const otpHash = hashOTP(otp);
+    await OTPVerificationModel.store(email, otpHash);
+    log.info('OTP stored for verification', { email: sanitizeEmail(email) });
 
+    // 3. Send verification email - fire-and-forget (non-blocking)
+    // Email is sent asynchronously without awaiting, so HTTP response returns immediately
+    sendOTPEmail(email, otp, firstName)
+      .then((emailSent) => {
+        if (emailSent) {
+          log.info('Verification OTP sent', { email: sanitizeEmail(email) });
+        } else {
+          log.warn('Email service not available, OTP generated but not sent', { email: sanitizeEmail(email) });
+        }
+      })
+      .catch((emailError) => {
+        // Log email errors but don't block or fail - user can resend OTP later
+        log.error('Failed to send verification email', { email: sanitizeEmail(email), error: getErrorMessage(emailError) });
+      });
+
+    // 4. Send HTTP response immediately after user creation and OTP storage
     const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
     
     res.status(201).json({
