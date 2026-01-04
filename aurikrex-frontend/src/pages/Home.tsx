@@ -11,7 +11,7 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { motion, useInView, useReducedMotion, AnimatePresence } from "framer-motion";
-import { Menu, X, Moon, Sun, Sparkles, Brain, GraduationCap, Users, Globe, BookOpen, Target, MessageSquare, CheckCircle, Zap, Shield, Clock, TrendingUp, ChevronLeft, ChevronRight, Twitter, Linkedin, Youtube, Github, } from "lucide-react";
+import { Menu, X, Moon, Sun, Sparkles, Brain, GraduationCap, Users, Globe, Target, MessageSquare, CheckCircle, Zap, Shield, Clock, ChevronLeft, ChevronRight, Twitter, Linkedin, Youtube, Github } from "lucide-react";
 // ============================================================
 // CUSTOM HOOKS
 // ============================================================
@@ -168,6 +168,14 @@ function NavBar() {
               )}
             </button>
 
+            {/* CTA Button - Mobile */}
+            <button
+              onClick={() => navigate("/login")}
+              className="inline-flex lg:hidden px-4 py-2.5 bg-gradient-primary text-white text-sm font-semibold rounded-xl hover:shadow-glow hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 shadow-md"
+            >
+              Start Free
+            </button>
+
             {/* CTA Button - Desktop */}
             <button
               onClick={() => navigate("/login")}
@@ -175,53 +183,61 @@ function NavBar() {
             >
               Start Learning Free
             </button>
-
             {/* Mobile Menu Toggle */}
             <button
-              onClick={() => setIsOpen(!isOpen)}
+              onClick={() => setIsOpen((prev) => !prev)}
               className="lg:hidden p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
               aria-label={isOpen ? "Close menu" : "Open menu"}
               aria-expanded={isOpen}
             >
-              {isOpen ? (
-                <X className="w-6 h-6" aria-hidden="true" />
-              ) : (
-                <Menu className="w-6 h-6" aria-hidden="true" />
-              )}
+              {isOpen ? <X className="w-6 h-6" aria-hidden="true" /> : <Menu className="w-6 h-6" aria-hidden="true" />}
             </button>
           </div>
         </div>
 
-        {/* Mobile Menu */}
+        {/* Mobile Navigation */}
         <AnimatePresence>
           {isOpen && (
             <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
+              initial={{ opacity: 0, height: 0, y: -8 }}
+              animate={{ opacity: 1, height: "auto", y: 0 }}
+              exit={{ opacity: 0, height: 0, y: -8 }}
               className="lg:hidden overflow-hidden"
             >
-              <div className="py-4 space-y-2 border-t border-border">
-                {navLinks.map((link) => (
-                  <a
-                    key={link.href}
-                    href={link.href}
+              <div className="mt-3 border border-border/70 rounded-2xl bg-background/95 backdrop-blur-xl shadow-xl">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-border/70">
+                  <span className="text-sm font-semibold text-foreground/80">Menu</span>
+                  <button
                     onClick={() => setIsOpen(false)}
-                    className="block px-4 py-2 text-sm font-medium text-foreground/80 hover:bg-secondary rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
+                    aria-label="Close menu"
                   >
-                    {link.label}
-                  </a>
-                ))}
-                {/* Mobile CTA Button */}
-                <button
-                  onClick={() => {
-                    navigate("/login");
-                    setIsOpen(false);
-                  }}
-                  className="block mx-4 mt-4 px-6 py-2.5 bg-gradient-primary text-white text-center font-semibold rounded-2xl hover:shadow-glow hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-primary shadow-md"
-                >
-                  Start Learning Free
-                </button>
+                    <X className="w-5 h-5" aria-hidden="true" />
+                  </button>
+                </div>
+                <div className="py-2">
+                  {navLinks.map((link) => (
+                    <a
+                      key={link.href}
+                      href={link.href}
+                      onClick={() => setIsOpen(false)}
+                      className="block px-4 py-3 text-base font-semibold text-foreground/90 hover:bg-secondary transition-colors rounded-none focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      {link.label}
+                    </a>
+                  ))}
+                  <div className="px-4 pb-4 pt-2">
+                    <button
+                      onClick={() => {
+                        navigate("/login");
+                        setIsOpen(false);
+                      }}
+                      className="w-full px-5 py-3 bg-gradient-primary text-white text-base font-semibold rounded-xl hover:shadow-glow hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 shadow-md"
+                    >
+                      Start Learning Free
+                    </button>
+                  </div>
+                </div>
               </div>
             </motion.div>
           )}
@@ -241,7 +257,7 @@ function Hero() {
   return (
     <section
       id="home"
-      className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20 lg:pt-0"
+      className="relative min-h-screen flex items-center justify-center overflow-hidden pt-24 lg:pt-0"
     >
       {/* Background Gradient Animation */}
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-accent/5 to-background -z-10">
