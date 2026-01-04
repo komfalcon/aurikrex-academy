@@ -1,13 +1,12 @@
 import { Request, Response } from 'express';
 import { userService } from '../services/UserService.mongo.js';
-import EmailService from '../services/EmailService.js';
+import { OTPVerificationModel } from '../models/OTPVerification.model.js';
+import { generateOTP, hashOTP, verifyOTPHash, sendOTPEmail } from '../utils/email.js';
 import { getErrorMessage, AuthError } from '../utils/errors.js';
 import passport from '../config/passport.js';
 import { generateAccessToken, generateRefreshToken } from '../utils/jwt.js';
 import { log } from '../utils/logger.js';
 import { sanitizeEmail } from '../utils/sanitize.js';
-
-const emailService = new EmailService();
 
 interface SignupRequest {
   firstName: string;
@@ -51,7 +50,7 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
   try {
     const { firstName, lastName, email, password, role }: SignupRequest = req.body;
 
-    log.info('🔐 Signup request received', { email: sanitizeEmail(email) });
+    log.info('Signup request received', { email: sanitizeEmail(email) });
 
     // Validate required fields
     if (!firstName || !lastName || !email || !password) {
@@ -65,7 +64,7 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
     // Create display name
     const displayName = `${firstName} ${lastName}`;
 
-    // Register user
+    // Register user (created with emailVerified: false by default)
     const result = await userService.register({
       email,
       password,
@@ -73,14 +72,23 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
       role: (role && ['student', 'instructor', 'admin'].includes(role)) ? role as 'student' | 'instructor' : 'student',
     });
 
-    log.info('✅ User registered successfully', { email: sanitizeEmail(result.user.email) });
+    log.info('User registered successfully', { email: sanitizeEmail(result.user.email) });
 
-    // Send OTP for email verification
+    // Generate and store OTP for email verification
     try {
-      await emailService.sendVerificationOTP(email, firstName);
-      log.info('✅ Verification OTP sent', { email: sanitizeEmail(email) });
+      const otp = generateOTP();
+      const otpHash = hashOTP(otp);
+      await OTPVerificationModel.store(email, otpHash);
+      
+      // Send OTP email
+      const emailSent = await sendOTPEmail(email, otp, firstName);
+      if (emailSent) {
+        log.info('Verification OTP sent', { email: sanitizeEmail(email) });
+      } else {
+        log.warn('Email service not available, OTP generated but not sent', { email: sanitizeEmail(email) });
+      }
     } catch (emailError) {
-      log.error('⚠️ Failed to send verification email', { email: sanitizeEmail(email), error: getErrorMessage(emailError) });
+      log.error('Failed to send verification email', { email: sanitizeEmail(email), error: getErrorMessage(emailError) });
       // Don't fail signup if email fails
     }
 
@@ -100,7 +108,7 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
       },
     });
   } catch (error) {
-    log.error('❌ Signup error', { error: getErrorMessage(error) });
+    log.error('Signup error', { error: getErrorMessage(error) });
     
     // Handle specific error types
     let statusCode = 500;
@@ -142,7 +150,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password }: LoginRequest = req.body;
 
-    log.info('🔐 Login request received', { email: sanitizeEmail(email) });
+    log.info('Login request received', { email: sanitizeEmail(email) });
 
     if (!email || !password) {
       res.status(400).json({
@@ -152,10 +160,10 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Login user
+    // Login user (UserService.login already checks emailVerified and throws AuthError)
     const result = await userService.login(email, password);
 
-    log.info('✅ User logged in successfully', { email: sanitizeEmail(result.user.email) });
+    log.info('User logged in successfully', { email: sanitizeEmail(result.user.email) });
 
     const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
     const { firstName, lastName } = parseDisplayName(result.user.displayName);
@@ -178,7 +186,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       },
     });
   } catch (error) {
-    log.error('❌ Login error', { error: getErrorMessage(error) });
+    log.error('Login error', { error: getErrorMessage(error) });
     
     const { email } = req.body as LoginRequest;
     
@@ -191,7 +199,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       statusCode = error.status;
       
       if (error.code === 'auth/email-not-verified') {
-        message = 'Email not verified. Please verify your email before logging in.';
+        message = 'Your email address has not been verified. Please check your inbox for the verification code and verify your email before logging in.';
         const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
         
         // Fetch user data to provide firstName for the verification page
@@ -250,7 +258,7 @@ export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, otp }: VerifyOTPRequest = req.body;
 
-    log.info('🔐 OTP verification request', { email: sanitizeEmail(email) });
+    log.info('OTP verification request', { email: sanitizeEmail(email) });
 
     if (!email || !otp) {
       res.status(400).json({
@@ -260,19 +268,44 @@ export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Verify OTP
-    const isValid = await emailService.verifyOTP(email, otp);
+    // Find OTP record for this email
+    const otpRecord = await OTPVerificationModel.findByEmail(email);
 
-    if (!isValid) {
-      log.warn('⚠️ Invalid OTP', { email: sanitizeEmail(email) });
+    if (!otpRecord) {
+      log.warn('No OTP found for email', { email: sanitizeEmail(email) });
       res.status(400).json({
         success: false,
-        message: 'Invalid or expired verification code',
+        message: 'Invalid or expired verification code. Please request a new one.',
       });
       return;
     }
 
-    log.info('✅ OTP verified', { email: sanitizeEmail(email) });
+    // Check if OTP has expired
+    if (new Date() > otpRecord.expiresAt) {
+      log.warn('OTP has expired', { email: sanitizeEmail(email) });
+      await OTPVerificationModel.markAsUsed(email); // Clean up expired OTP
+      res.status(400).json({
+        success: false,
+        message: 'Verification code has expired. Please request a new one.',
+      });
+      return;
+    }
+
+    // Verify OTP hash
+    const isValid = verifyOTPHash(otp, otpRecord.otpHash);
+
+    if (!isValid) {
+      log.warn('Invalid OTP provided', { email: sanitizeEmail(email) });
+      res.status(400).json({
+        success: false,
+        message: 'Invalid verification code. Please check and try again.',
+      });
+      return;
+    }
+
+    // OTP is valid - mark as used (single-use)
+    await OTPVerificationModel.markAsUsed(email);
+    log.info('OTP verified successfully', { email: sanitizeEmail(email) });
 
     // Get user and update verification status
     const user = await userService.getUserByEmail(email);
@@ -287,7 +320,7 @@ export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
 
     // Update email verification status
     await userService.updateUser(user.uid, { emailVerified: true } as any);
-    log.info('✅ Email verified for user', { email: sanitizeEmail(email) });
+    log.info('Email verified for user', { email: sanitizeEmail(email) });
 
     // Generate JWT tokens for the verified user
     const accessToken = generateAccessToken({
@@ -309,7 +342,7 @@ export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
     
     res.status(200).json({
       success: true,
-      message: 'Email verified successfully',
+      message: 'Email verified successfully. You can now access your account.',
       redirect: `${frontendURL}/dashboard`,
       data: {
         uid: user.uid,
@@ -323,7 +356,7 @@ export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
       },
     });
   } catch (error) {
-    log.error('❌ OTP verification error', { error: getErrorMessage(error) });
+    log.error('OTP verification error', { error: getErrorMessage(error) });
     res.status(500).json({
       success: false,
       message: 'Failed to verify code. Please try again.',
@@ -342,7 +375,7 @@ async function sendOTPToUser(email: string, actionName: string): Promise<{
   error?: string;
 }> {
   try {
-    log.info(`🔐 ${actionName} OTP request`, { email: sanitizeEmail(email) });
+    log.info(`${actionName} OTP request`, { email: sanitizeEmail(email) });
 
     // Get user data
     const user = await userService.getUserByEmail(email);
@@ -360,23 +393,38 @@ async function sendOTPToUser(email: string, actionName: string): Promise<{
       return {
         success: false,
         statusCode: 400,
-        message: 'Email is already verified',
+        message: 'Email is already verified. You can proceed to login.',
       };
     }
 
-    // Send new OTP
+    // Generate and store new OTP
     const firstName = user.displayName?.split(' ')[0] || 'User';
-    await emailService.sendVerificationOTP(email, firstName);
+    const otp = generateOTP();
+    const otpHash = hashOTP(otp);
+    await OTPVerificationModel.store(email, otpHash);
+    
+    // Send OTP email
+    const emailSent = await sendOTPEmail(email, otp, firstName);
 
-    log.info(`✅ Verification OTP ${actionName.toLowerCase()}`, { email: sanitizeEmail(email) });
+    if (!emailSent) {
+      log.warn('Email service not available', { email: sanitizeEmail(email) });
+      // Still return success since OTP is stored and can be used in dev mode
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Verification code generated. If email service is configured, please check your inbox.',
+      };
+    }
+
+    log.info(`Verification OTP ${actionName.toLowerCase()} successfully`, { email: sanitizeEmail(email) });
 
     return {
       success: true,
       statusCode: 200,
-      message: 'Verification code sent successfully',
+      message: 'Verification code sent successfully. Please check your email.',
     };
   } catch (error) {
-    log.error(`❌ ${actionName} OTP error`, { error: getErrorMessage(error) });
+    log.error(`${actionName} OTP error`, { error: getErrorMessage(error) });
     return {
       success: false,
       statusCode: 500,
@@ -438,7 +486,7 @@ export const getCurrentUser = async (req: Request, res: Response): Promise<void>
     // User is attached to request by auth middleware
     const userId = req.user?.userId;
 
-    log.info('🔍 Get current user request', { userId });
+    log.info('Get current user request', { userId });
 
     if (!userId) {
       res.status(401).json({
@@ -458,7 +506,7 @@ export const getCurrentUser = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    log.info('✅ User data retrieved', { email: sanitizeEmail(user.email) });
+    log.info('User data retrieved', { email: sanitizeEmail(user.email) });
 
     res.status(200).json({
       success: true,
@@ -472,7 +520,7 @@ export const getCurrentUser = async (req: Request, res: Response): Promise<void>
       },
     });
   } catch (error) {
-    log.error('❌ Get user error', { error: getErrorMessage(error) });
+    log.error('Get user error', { error: getErrorMessage(error) });
     res.status(500).json({
       success: false,
       message: 'Failed to get user data. Please try again.',
@@ -488,7 +536,7 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
   try {
     const { refreshToken } = req.body;
 
-    log.info('🔄 Token refresh request');
+    log.info('Token refresh request');
 
     if (!refreshToken) {
       res.status(400).json({
@@ -509,7 +557,7 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
       role: decoded.role
     });
 
-    log.info('✅ Access token refreshed', { email: sanitizeEmail(decoded.email) });
+    log.info('Access token refreshed', { email: sanitizeEmail(decoded.email) });
 
     res.status(200).json({
       success: true,
@@ -518,7 +566,7 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
       },
     });
   } catch (error) {
-    log.error('❌ Token refresh error', { error: getErrorMessage(error) });
+    log.error('Token refresh error', { error: getErrorMessage(error) });
     res.status(401).json({
       success: false,
       message: 'Invalid or expired refresh token',
@@ -560,7 +608,7 @@ export const googleAuthInit = async (_req: Request, res: Response): Promise<void
       `&access_type=offline` +
       `&prompt=consent`;
 
-    log.info('🔐 Google OAuth URL generated');
+    log.info('Google OAuth URL generated');
 
     res.status(200).json({
       success: true,
@@ -569,7 +617,7 @@ export const googleAuthInit = async (_req: Request, res: Response): Promise<void
       },
     });
   } catch (error) {
-    log.error('❌ Google OAuth init error', { error: getErrorMessage(error) });
+    log.error('Google OAuth init error', { error: getErrorMessage(error) });
     res.status(500).json({
       success: false,
       message: 'Failed to initialize Google authentication',
@@ -598,13 +646,13 @@ export const googleAuthCallback = [
       const user = req.user as OAuthUser | undefined;
 
       if (!user) {
-        log.error('❌ No user found after Google auth');
+        log.error('No user found after Google auth');
         const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
         res.redirect(`${frontendURL}/login?error=auth_failed`);
         return;
       }
 
-      log.info('✅ Google OAuth successful', { email: sanitizeEmail(user.email) });
+      log.info('Google OAuth successful', { email: sanitizeEmail(user.email) });
 
       // Generate JWT tokens
       const accessToken = generateAccessToken({
@@ -643,7 +691,7 @@ export const googleAuthCallback = [
               if (isAllowed) {
                 returnUrl = stateData.returnUrl;
               } else {
-                log.warn('🚫 Rejected returnUrl with invalid hostname', { hostname: returnUrlObj.hostname });
+                log.warn('Rejected returnUrl with invalid hostname', { hostname: returnUrlObj.hostname });
               }
             } catch (urlError) {
               log.warn('Failed to parse returnUrl', { error: getErrorMessage(urlError) });
@@ -695,13 +743,13 @@ export const googleAuthCallback = [
       // Log redirect with sanitized information (avoid exposing tokens)
       try {
         const redirectUrlObj = new URL(redirectUrl);
-        log.info('🔄 Redirecting user', { destination: `${redirectUrlObj.origin}${redirectUrlObj.pathname}` });
+        log.info('Redirecting user', { destination: `${redirectUrlObj.origin}${redirectUrlObj.pathname}` });
       } catch {
-        log.info('🔄 Redirecting user to frontend');
+        log.info('Redirecting user to frontend');
       }
       res.redirect(redirectUrl);
     } catch (error) {
-      log.error('❌ Google callback error', { error: getErrorMessage(error) });
+      log.error('Google callback error', { error: getErrorMessage(error) });
       const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
       res.redirect(`${frontendURL}/login?error=auth_callback_failed`);
     }

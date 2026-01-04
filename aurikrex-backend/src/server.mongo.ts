@@ -6,6 +6,7 @@ import { connectDB, checkMongoHealth } from "./config/mongodb.js";
 import { UserModel } from "./models/User.model.js";
 import { LessonModel, LessonProgressModel } from "./models/Lesson.model.js";
 import { AnalyticsModel } from "./models/Analytics.model.js";
+import { OTPVerificationModel } from "./models/OTPVerification.model.js";
 import { log } from "./utils/logger.js";
 import validateEnv from "./utils/env.mongo.js";
 import { apiLimiter } from "./middleware/rate-limit.middleware.js";
@@ -111,24 +112,25 @@ app.use((err: ApiError, req: Request, res: Response, _next: NextFunction) => {
 // Initialize MongoDB connection and indexes
 async function initializeDatabase() {
   try {
-    log.info('🔌 Initializing MongoDB connection...');
+    log.info('Initializing MongoDB connection...');
     
     // Connect to MongoDB
     await connectDB();
-    log.info('✅ MongoDB connected successfully');
+    log.info('MongoDB connected successfully');
 
     // Create indexes for optimal performance
-    log.info('📊 Creating database indexes...');
+    log.info('Creating database indexes...');
     await Promise.all([
       UserModel.createIndexes(),
       LessonModel.createIndexes(),
       LessonProgressModel.createIndexes(),
-      AnalyticsModel.createIndexes()
+      AnalyticsModel.createIndexes(),
+      OTPVerificationModel.createIndexes()
     ]);
-    log.info('✅ Database indexes created successfully');
+    log.info('Database indexes created successfully');
 
   } catch (error) {
-    log.error('❌ Database initialization failed', { error });
+    log.error('Database initialization failed', { error });
     throw error;
   }
 }
