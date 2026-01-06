@@ -300,21 +300,26 @@ export const microsoftAuthCallback = [
 /**
  * Initiate GitHub OAuth flow
  * Returns the GitHub OAuth URL for frontend to redirect to
+ * Note: GitHub OAuth is not yet configured - env vars needed
  */
 export const githubAuthInit = async (_req: Request, res: Response): Promise<void> => {
   try {
     const clientID = process.env.GITHUB_CLIENT_ID;
-    const backendURL = process.env.BACKEND_URL || 'http://localhost:5000';
-    const callbackURL = process.env.GITHUB_CALLBACK_URL || `${backendURL}/api/auth/github/callback`;
-    const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
 
+    // GitHub OAuth requires environment variables to be configured
     if (!clientID) {
-      res.status(500).json({
+      log.warn('GitHub OAuth init attempted but not configured');
+      res.status(503).json({
         success: false,
-        message: 'GitHub OAuth is not configured. Please contact the administrator.',
+        message: 'GitHub sign-in is not yet available. Please use Google or Microsoft to sign in.',
+        error: 'GITHUB_NOT_CONFIGURED',
       });
       return;
     }
+
+    const backendURL = process.env.BACKEND_URL || 'http://localhost:5000';
+    const callbackURL = process.env.GITHUB_CALLBACK_URL || `${backendURL}/api/auth/github/callback`;
+    const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
 
     const scopes = ['user:email', 'read:user'];
     const state = Buffer.from(JSON.stringify({ returnUrl: frontendURL })).toString('base64');
@@ -343,13 +348,18 @@ export const githubAuthInit = async (_req: Request, res: Response): Promise<void
 };
 
 /**
- * Handle GitHub OAuth callback (placeholder)
+ * Handle GitHub OAuth callback
+ * Note: This is a placeholder - full implementation requires GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET
+ * When GitHub OAuth is configured, this should use passport.authenticate('github')
  */
 export const githubAuthCallback = async (_req: Request, res: Response): Promise<void> => {
   const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
   
-  // GitHub OAuth is not yet implemented - redirect with error
-  log.warn('GitHub OAuth callback called but not configured');
+  // GitHub OAuth is not yet fully implemented
+  // When configured, this endpoint will receive the OAuth callback from GitHub
+  log.warn('GitHub OAuth callback received but GitHub OAuth is not fully configured');
+  
+  // Redirect to login with appropriate error message
   res.redirect(`${frontendURL}/login?error=github_not_configured`);
 };
 

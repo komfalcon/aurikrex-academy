@@ -118,23 +118,9 @@ const MicrosoftStrategy = new OAuth2Strategy(
         return done(new Error('No email found in Microsoft profile'));
       }
 
-      // Try to get profile photo from Microsoft Graph API
-      let photoURL: string | undefined;
-      try {
-        const photoResponse = await fetch('https://graph.microsoft.com/v1.0/me/photo/$value', {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
-        if (photoResponse.ok) {
-          const photoBuffer = await photoResponse.arrayBuffer();
-          const base64Photo = Buffer.from(photoBuffer).toString('base64');
-          const contentType = photoResponse.headers.get('content-type') || 'image/jpeg';
-          photoURL = `data:${contentType};base64,${base64Photo}`;
-        }
-      } catch (photoError) {
-        log.warn('Could not fetch Microsoft profile photo', { error: getErrorMessage(photoError) });
-      }
+      // Note: Microsoft Graph API does not provide a persistent photo URL
+      // We skip storing photos for Microsoft users to avoid large base64 strings in the database
+      // Users can update their profile photo through the app settings later
 
       // Find or create user from OAuth data
       const user = await UserModel.findOrCreateFromOAuth({
@@ -142,7 +128,7 @@ const MicrosoftStrategy = new OAuth2Strategy(
         providerUserId,
         email,
         displayName,
-        photoURL,
+        photoURL: undefined, // Microsoft doesn't provide persistent photo URLs
       });
 
       log.info('✅ Microsoft OAuth successful', { email: sanitizeEmail(email) });
