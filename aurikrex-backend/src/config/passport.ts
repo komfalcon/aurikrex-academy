@@ -1,5 +1,6 @@
 import passport from 'passport';
 import { Strategy as GoogleStrategy, Profile as GoogleProfile, VerifyCallback as GoogleVerifyCallback } from 'passport-google-oauth20';
+import { Strategy as GitHubStrategy, Profile as GitHubProfile } from 'passport-github2';
 import OAuth2Strategy from 'passport-oauth2';
 import { config } from 'dotenv';
 import { UserModel, OAuthProvider } from '../models/User.model.js';
@@ -13,6 +14,7 @@ config();
 const backendURL = process.env.BACKEND_URL || 'http://localhost:5000';
 const googleCallbackURL = process.env.GOOGLE_CALLBACK_URL || `${backendURL}/api/auth/google/callback`;
 const microsoftCallbackURL = process.env.MICROSOFT_CALLBACK_URL || `${backendURL}/api/auth/microsoft/callback`;
+const githubCallbackURL = process.env.GITHUB_CALLBACK_URL || `${backendURL}/api/auth/github/callback`;
 
 /**
  * Helper function to create user payload for JWT tokens
@@ -143,10 +145,76 @@ const MicrosoftStrategy = new OAuth2Strategy(
 passport.use('microsoft', MicrosoftStrategy);
 
 // ============================================
-// GITHUB OAuth Strategy (placeholder - no env vars yet)
+// GITHUB OAuth Strategy
 // ============================================
-// GitHub OAuth will be added later when environment variables are available
-// The frontend will show the button but backend routes won't work until configured
+// GitHub email interface (GitHub's actual API returns more fields than passport types define)
+interface GitHubEmail {
+  value: string;
+  type?: string;
+  primary?: boolean;
+  verified?: boolean;
+}
+
+// Only register GitHub strategy if credentials are configured
+if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
+  passport.use(
+    'github',
+    new GitHubStrategy(
+      {
+        clientID: process.env.GITHUB_CLIENT_ID,
+        clientSecret: process.env.GITHUB_CLIENT_SECRET,
+        callbackURL: githubCallbackURL,
+        scope: ['user:email', 'read:user'],
+      },
+      async (
+        _accessToken: string,
+        _refreshToken: string,
+        profile: GitHubProfile,
+        done: (error: Error | null, user?: unknown) => void
+      ) => {
+        try {
+          // GitHub may return multiple emails, get the primary or first verified email
+          // Cast to GitHubEmail[] since GitHub's actual API includes primary/verified fields
+          const emails = (profile.emails || []) as GitHubEmail[];
+          const primaryEmail = emails.find((e) => e.primary)?.value 
+            || emails.find((e) => e.verified)?.value 
+            || emails[0]?.value;
+          const providerUserId = profile.id;
+          const displayName = profile.displayName || profile.username || '';
+          const photoURL = profile.photos?.[0]?.value || '';
+
+          log.info('🔐 GitHub OAuth callback', { 
+            email: primaryEmail ? sanitizeEmail(primaryEmail) : 'no-email', 
+            providerId: providerUserId,
+            username: profile.username 
+          });
+
+          if (!primaryEmail) {
+            return done(new Error('No email found in GitHub profile. Please ensure your GitHub email is public or add a verified email.'));
+          }
+
+          // Find or create user from OAuth data
+          const user = await UserModel.findOrCreateFromOAuth({
+            provider: 'github' as OAuthProvider,
+            providerUserId,
+            email: primaryEmail,
+            displayName,
+            photoURL,
+          });
+
+          log.info('✅ GitHub OAuth successful', { email: sanitizeEmail(primaryEmail) });
+          return done(null, createUserPayload(user));
+        } catch (error) {
+          log.error('❌ GitHub OAuth error', { error: getErrorMessage(error) });
+          return done(error as Error);
+        }
+      }
+    )
+  );
+  log.info('✅ GitHub OAuth strategy registered');
+} else {
+  log.warn('⚠️ GitHub OAuth not configured - GITHUB_CLIENT_ID or GITHUB_CLIENT_SECRET missing');
+}
 
 // ============================================
 // Serialization for session-based auth
