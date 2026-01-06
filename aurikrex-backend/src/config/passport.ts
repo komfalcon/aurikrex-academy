@@ -1,95 +1,70 @@
 import passport from 'passport';
-import { Strategy as GoogleStrategy, Profile, VerifyCallback } from 'passport-google-oauth20';
+import { Strategy as GoogleStrategy, Profile as GoogleProfile, VerifyCallback as GoogleVerifyCallback } from 'passport-google-oauth20';
+import OAuth2Strategy from 'passport-oauth2';
 import { config } from 'dotenv';
-import crypto from 'crypto';
-import { userService } from '../services/UserService.mongo.js';
+import { UserModel, OAuthProvider } from '../models/User.model.js';
 import { getErrorMessage } from '../utils/errors.js';
 import { log } from '../utils/logger.js';
 import { sanitizeEmail } from '../utils/sanitize.js';
 
 config();
 
-// Get the callback URL from environment
+// Get the callback URLs from environment
 const backendURL = process.env.BACKEND_URL || 'http://localhost:5000';
-const callbackURL = process.env.GOOGLE_CALLBACK_URL || `${backendURL}/api/auth/google/callback`;
+const googleCallbackURL = process.env.GOOGLE_CALLBACK_URL || `${backendURL}/api/auth/google/callback`;
+const microsoftCallbackURL = process.env.MICROSOFT_CALLBACK_URL || `${backendURL}/api/auth/microsoft/callback`;
 
-// Google OAuth Strategy
+/**
+ * Helper function to create user payload for JWT tokens
+ */
+function createUserPayload(user: any) {
+  return {
+    userId: user._id?.toString() || user.uid,
+    email: user.email,
+    role: user.role,
+    uid: user._id?.toString() || user.uid,
+    displayName: user.displayName,
+    photoURL: user.photoURL,
+    emailVerified: user.emailVerified,
+    provider: user.provider,
+  };
+}
+
+// ============================================
+// GOOGLE OAuth Strategy
+// ============================================
 passport.use(
+  'google',
   new GoogleStrategy(
     {
       clientID: process.env.GOOGLE_CLIENT_ID || '',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
-      callbackURL: callbackURL,
+      callbackURL: googleCallbackURL,
     },
-    async (_accessToken: string, _refreshToken: string, profile: Profile, done: VerifyCallback) => {
+    async (_accessToken: string, _refreshToken: string, profile: GoogleProfile, done: GoogleVerifyCallback) => {
       try {
         const email = profile.emails?.[0]?.value;
-        log.info('🔐 Google OAuth callback', { email: email ? sanitizeEmail(email) : 'no-email' });
-
-        // Extract user information from Google profile
+        const providerUserId = profile.id;
         const displayName = profile.displayName || '';
         const photoURL = profile.photos?.[0]?.value || '';
+
+        log.info('🔐 Google OAuth callback', { email: email ? sanitizeEmail(email) : 'no-email', providerId: providerUserId });
 
         if (!email) {
           return done(new Error('No email found in Google profile'), undefined);
         }
 
-        // Check if user exists
-        let user = await userService.getUserByEmail(email);
-
-        if (user) {
-          // Update existing user's Google info if needed
-          log.info('✅ Existing user found', { email: sanitizeEmail(email) });
-          
-          // Update photo if not set
-          if (!user.photoURL && photoURL) {
-            await userService.updateUser(user.uid, { photoURL } as any);
-            user = await userService.getUserByEmail(email);
-          }
-        } else {
-          // Create new user from Google profile
-          log.info('✨ Creating new user from Google profile', { email: sanitizeEmail(email) });
-          
-          // Generate a secure random password for Google users
-          // They won't use this password since they authenticate via Google
-          const randomPassword = crypto.randomBytes(32).toString('hex');
-          
-          const result = await userService.register({
-            email,
-            password: randomPassword,
-            displayName,
-            role: 'student',
-          });
-
-          user = result.user;
-
-          // Update additional fields
-          await userService.updateUser(user.uid, {
-            photoURL,
-            emailVerified: true, // Google emails are already verified
-          } as any);
-
-          user = await userService.getUserByEmail(email);
-        }
-
-        // Ensure email is verified for Google users
-        if (user && !user.emailVerified) {
-          await userService.updateUser(user.uid, { emailVerified: true } as any);
-          user = await userService.getUserByEmail(email);
-        }
+        // Find or create user from OAuth data
+        const user = await UserModel.findOrCreateFromOAuth({
+          provider: 'google' as OAuthProvider,
+          providerUserId,
+          email,
+          displayName,
+          photoURL,
+        });
 
         log.info('✅ Google OAuth successful', { email: sanitizeEmail(email) });
-        // Return a TokenPayload-compatible object for Express.User
-        const userPayload = user ? {
-          userId: user.uid,
-          email: user.email,
-          role: user.role,
-          uid: user.uid,
-          displayName: user.displayName,
-          photoURL: user.photoURL,
-          emailVerified: user.emailVerified
-        } : false;
-        return done(null, userPayload);
+        return done(null, createUserPayload(user));
       } catch (error) {
         log.error('❌ Google OAuth error', { error: getErrorMessage(error) });
         return done(error as Error, undefined);
@@ -98,26 +73,93 @@ passport.use(
   )
 );
 
-// Serialize user to store in session (for session-based auth)
+// ============================================
+// MICROSOFT OAuth Strategy (Azure AD / Microsoft Identity)
+// ============================================
+const microsoftTenantId = process.env.MICROSOFT_TENANT_ID || 'common';
+
+// Microsoft OAuth2 using passport-oauth2
+const MicrosoftStrategy = new OAuth2Strategy(
+  {
+    authorizationURL: `https://login.microsoftonline.com/${microsoftTenantId}/oauth2/v2.0/authorize`,
+    tokenURL: `https://login.microsoftonline.com/${microsoftTenantId}/oauth2/v2.0/token`,
+    clientID: process.env.MICROSOFT_CLIENT_ID || '',
+    clientSecret: process.env.MICROSOFT_CLIENT_SECRET || '',
+    callbackURL: microsoftCallbackURL,
+    scope: ['openid', 'profile', 'email', 'User.Read'],
+  },
+  async (accessToken: string, _refreshToken: string, _params: any, _profile: any, done: (error: any, user?: any) => void) => {
+    try {
+      // Fetch user profile from Microsoft Graph API
+      const response = await fetch('https://graph.microsoft.com/v1.0/me', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Microsoft Graph API error: ${response.status}`);
+      }
+
+      const microsoftProfile = await response.json() as {
+        mail?: string;
+        userPrincipalName?: string;
+        id: string;
+        displayName?: string;
+      };
+      
+      const email = microsoftProfile.mail || microsoftProfile.userPrincipalName;
+      const providerUserId = microsoftProfile.id;
+      const displayName = microsoftProfile.displayName || '';
+
+      log.info('🔐 Microsoft OAuth callback', { email: email ? sanitizeEmail(email) : 'no-email', providerId: providerUserId });
+
+      if (!email) {
+        return done(new Error('No email found in Microsoft profile'));
+      }
+
+      // Note: Microsoft Graph API does not provide a persistent photo URL
+      // We skip storing photos for Microsoft users to avoid large base64 strings in the database
+      // Users can update their profile photo through the app settings later
+
+      // Find or create user from OAuth data
+      const user = await UserModel.findOrCreateFromOAuth({
+        provider: 'microsoft' as OAuthProvider,
+        providerUserId,
+        email,
+        displayName,
+        photoURL: undefined, // Microsoft doesn't provide persistent photo URLs
+      });
+
+      log.info('✅ Microsoft OAuth successful', { email: sanitizeEmail(email) });
+      return done(null, createUserPayload(user));
+    } catch (error) {
+      log.error('❌ Microsoft OAuth error', { error: getErrorMessage(error) });
+      return done(error as Error);
+    }
+  }
+);
+
+passport.use('microsoft', MicrosoftStrategy);
+
+// ============================================
+// GITHUB OAuth Strategy (placeholder - no env vars yet)
+// ============================================
+// GitHub OAuth will be added later when environment variables are available
+// The frontend will show the button but backend routes won't work until configured
+
+// ============================================
+// Serialization for session-based auth
+// ============================================
 passport.serializeUser((user: any, done) => {
   done(null, user.userId || user.uid);
 });
 
-// Deserialize user from session
 passport.deserializeUser(async (userId: string, done) => {
   try {
-    const user = await userService.getUserById(userId);
+    const user = await UserModel.findById(userId);
     if (user) {
-      const userPayload = {
-        userId: user.uid,
-        email: user.email,
-        role: user.role,
-        uid: user.uid,
-        displayName: user.displayName,
-        photoURL: user.photoURL,
-        emailVerified: user.emailVerified
-      };
-      done(null, userPayload);
+      done(null, createUserPayload(user));
     } else {
       done(null, false);
     }

@@ -16,12 +16,23 @@ export default function AuthCallback() {
         const email = searchParams.get('email');
         const displayName = searchParams.get('displayName');
         const uid = searchParams.get('uid');
+        const provider = searchParams.get('provider') || 'oauth';
         const error = searchParams.get('error');
 
         // Check for errors
         if (error) {
           console.error('OAuth error:', error);
-          toast.error('Google sign-in failed. Please try again.');
+          let errorMessage = 'Sign-in failed. Please try again.';
+          
+          if (error === 'auth_failed') {
+            errorMessage = 'Authentication failed. Please try again.';
+          } else if (error === 'github_not_configured') {
+            errorMessage = 'GitHub sign-in is not yet available. Please use Google or Microsoft.';
+          } else if (error === 'auth_callback_failed') {
+            errorMessage = 'Authentication callback failed. Please try again.';
+          }
+          
+          toast.error(errorMessage);
           navigate('/login');
           return;
         }
@@ -40,19 +51,26 @@ export default function AuthCallback() {
           localStorage.setItem('aurikrex-refresh-token', refreshToken);
         }
 
+        // Parse displayName into firstName and lastName
+        const [firstName = 'User', ...lastNameParts] = (displayName || email.split('@')[0]).split(' ');
+        const lastName = lastNameParts.join(' ') || '';
+
         // Create user object
         const user = {
           uid,
           email,
-          displayName: displayName || email?.split('@')?.[0] || 'User',
-          emailVerified: true, // Google users are always verified
+          firstName,
+          lastName,
+          displayName: displayName || email.split('@')[0],
+          emailVerified: true, // OAuth users are always verified
+          provider,
         };
 
         // Store user data
         localStorage.setItem('aurikrex-user', JSON.stringify(user));
 
-        console.log('✅ Google OAuth successful, redirecting to dashboard');
-        toast.success(`Welcome, ${user.displayName}! 🎉`);
+        console.log(`✅ ${provider} OAuth successful, redirecting to dashboard`);
+        toast.success(`Welcome, ${firstName}! 🎉`);
 
         // Redirect to dashboard
         navigate('/dashboard', { replace: true });

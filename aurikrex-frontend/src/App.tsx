@@ -7,7 +7,6 @@ import type { ReactNode } from 'react';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
-import VerifyEmail from './pages/VerifyEmail';
 import Dashboard from './pages/Dashboard';
 import AuthCallback from './pages/AuthCallback';
 
@@ -37,7 +36,6 @@ function AppRoutes() {
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
-      <Route path="/verify-email" element={<VerifyEmail />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
       
       {/* Protected Routes */}

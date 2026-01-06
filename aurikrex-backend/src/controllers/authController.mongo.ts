@@ -1,495 +1,377 @@
 import { Request, Response } from 'express';
-import { userService } from '../services/UserService.mongo.js';
-import { OTPVerificationModel } from '../models/OTPVerification.model.js';
-import { generateOTP, hashOTP, verifyOTPHash, sendOTPEmail } from '../utils/email.js';
-import { getErrorMessage, AuthError } from '../utils/errors.js';
+import { getErrorMessage } from '../utils/errors.js';
 import passport from '../config/passport.js';
-import { generateAccessToken, generateRefreshToken } from '../utils/jwt.js';
+import { generateAccessToken, generateRefreshToken, verifyToken } from '../utils/jwt.js';
 import { log } from '../utils/logger.js';
 import { sanitizeEmail } from '../utils/sanitize.js';
+import { userService } from '../services/UserService.mongo.js';
 
-interface SignupRequest {
-  firstName: string;
-  lastName: string;
+/**
+ * OAuth user interface for callback handlers
+ */
+interface OAuthUser {
+  userId: string;
   email: string;
-  password: string;
-  phone?: string;
-  role?: 'student' | 'instructor' | 'admin';
-}
-
-interface LoginRequest {
-  email: string;
-  password: string;
-}
-
-interface VerifyOTPRequest {
-  email: string;
-  otp: string;
-}
-
-interface ResendOTPRequest {
-  email: string;
+  role: 'student' | 'instructor' | 'admin';
+  uid: string;
+  displayName?: string;
+  photoURL?: string;
+  provider?: string;
 }
 
 /**
- * Helper function to parse displayName into firstName and lastName
+ * Helper to generate OAuth redirect URL with tokens
  */
-function parseDisplayName(displayName?: string): { firstName: string; lastName: string } {
-  const [firstName, ...lastNameParts] = (displayName || '').split(' ');
-  return {
-    firstName: firstName || 'User',
-    lastName: lastNameParts.join(' ') || '',
+function generateOAuthRedirectUrl(
+  user: OAuthUser,
+  accessToken: string,
+  refreshToken: string,
+  frontendURL: string,
+  provider: string
+): string {
+  return `${frontendURL}/auth/callback?` +
+    `token=${encodeURIComponent(accessToken)}` +
+    `&refreshToken=${encodeURIComponent(refreshToken)}` +
+    `&email=${encodeURIComponent(user.email)}` +
+    `&displayName=${encodeURIComponent(user.displayName || '')}` +
+    `&uid=${encodeURIComponent(user.uid)}` +
+    `&provider=${encodeURIComponent(provider)}`;
+}
+
+/**
+ * Helper to set OAuth cookies
+ */
+function setOAuthCookies(
+  res: Response,
+  accessToken: string,
+  refreshToken: string,
+  frontendURL: string
+): void {
+  const isProduction = process.env.NODE_ENV === 'production';
+  let cookieDomain: string | undefined = undefined;
+  
+  if (isProduction && frontendURL) {
+    try {
+      const hostname = new URL(frontendURL).hostname;
+      cookieDomain = hostname.startsWith('www.') ? hostname.replace(/^www/, '') : `.${hostname}`;
+    } catch (urlError) {
+      log.warn('Failed to parse FRONTEND_URL for cookie domain', { error: getErrorMessage(urlError) });
+    }
+  }
+  
+  const cookieOptions = {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: 'lax' as const,
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    domain: cookieDomain,
   };
+
+  res.cookie('aurikrex_token', accessToken, cookieOptions);
+  res.cookie('aurikrex_refresh_token', refreshToken, cookieOptions);
 }
 
 /**
- * Handle user signup with email/password
- * Creates user in MongoDB, generates tokens, stores OTP, and sends verification email (non-blocking)
- * HTTP response is sent immediately after user creation, regardless of email success
+ * Helper to validate return URL from state
  */
-export const signup = async (req: Request, res: Response): Promise<void> => {
+function validateReturnUrl(state: string | undefined, frontendURL: string): string {
+  if (!state) return frontendURL;
+  
   try {
-    const { firstName, lastName, email, password, role }: SignupRequest = req.body;
-
-    log.info('Signup request received', { email: sanitizeEmail(email) });
-
-    // Validate required fields
-    if (!firstName || !lastName || !email || !password) {
-      res.status(400).json({
-        success: false,
-        message: 'Missing required fields: firstName, lastName, email, password',
-      });
-      return;
-    }
-
-    // Create display name
-    const displayName = `${firstName} ${lastName}`;
-
-    // 1. Register user in MongoDB (created with emailVerified: false by default)
-    // This also generates access token and refresh token
-    const result = await userService.register({
-      email,
-      password,
-      displayName,
-      role: (role && ['student', 'instructor', 'admin'].includes(role)) ? role as 'student' | 'instructor' : 'student',
-    });
-
-    log.info('User registered successfully', { email: sanitizeEmail(result.user.email) });
-
-    // 2. Generate and store OTP for email verification (synchronous - must complete before response)
-    const otp = generateOTP();
-    const otpHash = hashOTP(otp);
-    await OTPVerificationModel.store(email, otpHash);
-    log.info('OTP stored for verification', { email: sanitizeEmail(email) });
-
-    // 3. Send verification email - fire-and-forget (non-blocking)
-    // Email is sent asynchronously without awaiting, so HTTP response returns immediately
-    sendOTPEmail(email, otp, firstName)
-      .then((emailSent) => {
-        if (emailSent) {
-          log.info('Verification OTP sent', { email: sanitizeEmail(email) });
-        } else {
-          log.warn('Email service not available, OTP generated but not sent', { email: sanitizeEmail(email) });
-        }
-      })
-      .catch((emailError) => {
-        // Log email errors but don't block or fail - user can resend OTP later
-        log.error('Failed to send verification email', { email: sanitizeEmail(email), error: getErrorMessage(emailError) });
-      });
-
-    // 4. Send HTTP response immediately after user creation and OTP storage
-    const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
-    
-    res.status(201).json({
-      success: true,
-      message: 'Account created successfully. Please check your email for verification code.',
-      redirect: `${frontendURL}/verify-email`,
-      data: {
-        uid: result.user.uid,
-        email: result.user.email,
-        firstName,
-        lastName,
-        token: result.tokens.accessToken,
-        refreshToken: result.tokens.refreshToken,
-      },
-    });
-  } catch (error) {
-    log.error('Signup error', { error: getErrorMessage(error) });
-    
-    // Handle specific error types
-    let statusCode = 500;
-    let message = 'Failed to create account. Please try again.';
-    
-    if (error instanceof AuthError) {
-      statusCode = error.status;
-      message = error.message;
-    } else {
-      // Check for duplicate key error (MongoDB error code 11000 or known patterns)
-      const isDuplicateError = 
-        // Check MongoDB error code
-        (error as any)?.code === 11000 ||
-        // Check for known error patterns in message
-        (error instanceof Error && (
-          error.message.includes('already in use') ||
-          error.message.includes('E11000') ||  // MongoDB duplicate key error pattern
-          error.message.toLowerCase().includes('duplicate')
-        ));
-        
-      if (isDuplicateError) {
-        statusCode = 409;
-        message = 'An account with this email already exists. Please try logging in.';
-      }
-    }
-    
-    res.status(statusCode).json({
-      success: false,
-      message,
-      error: getErrorMessage(error),
-    });
-  }
-};
-
-/**
- * Handle user login with email/password
- */
-export const login = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { email, password }: LoginRequest = req.body;
-
-    log.info('Login request received', { email: sanitizeEmail(email) });
-
-    if (!email || !password) {
-      res.status(400).json({
-        success: false,
-        message: 'Email and password are required',
-      });
-      return;
-    }
-
-    // Login user (UserService.login already checks emailVerified and throws AuthError)
-    const result = await userService.login(email, password);
-
-    log.info('User logged in successfully', { email: sanitizeEmail(result.user.email) });
-
-    const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
-    const { firstName, lastName } = parseDisplayName(result.user.displayName);
-    
-    res.status(200).json({
-      success: true,
-      message: 'Login successful',
-      redirect: `${frontendURL}/dashboard`,
-      data: {
-        uid: result.user.uid,
-        email: result.user.email,
-        firstName,
-        lastName,
-        displayName: result.user.displayName,
-        role: result.user.role,
-        emailVerified: result.user.emailVerified,
-        photoURL: result.user.photoURL,
-        token: result.tokens.accessToken,
-        refreshToken: result.tokens.refreshToken,
-      },
-    });
-  } catch (error) {
-    log.error('Login error', { error: getErrorMessage(error) });
-    
-    const { email } = req.body as LoginRequest;
-    
-    // Check for specific error types using error code (preferred) or message (fallback)
-    let statusCode = 500;
-    let message = 'Failed to login. Please try again.';
-    
-    // Check if it's an AuthError with a specific code
-    if (error instanceof AuthError) {
-      statusCode = error.status;
+    const stateData = JSON.parse(Buffer.from(state, 'base64').toString());
+    if (stateData.returnUrl) {
+      const allowedOriginsEnv = process.env.ALLOWED_ORIGINS || 'https://aurikrex.tech,https://www.aurikrex.tech';
+      const allowedOrigins = [...new Set([frontendURL, ...allowedOriginsEnv.split(',').map(o => o.trim())])];
       
-      if (error.code === 'auth/email-not-verified') {
-        message = 'Your email address has not been verified. Please check your inbox for the verification code and verify your email before logging in.';
-        const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
-        
-        // Fetch user data to provide firstName for the verification page
-        let userData = null;
-        try {
-          const user = await userService.getUserByEmail(email);
-          if (user) {
-            const { firstName, lastName } = parseDisplayName(user.displayName);
-            userData = {
-              email: user.email,
-              firstName,
-              lastName,
-            };
-          }
-        } catch (userError) {
-          log.warn('Could not fetch user data for email verification redirect', { error: getErrorMessage(userError) });
-        }
-        
-        res.status(statusCode).json({
-          success: false,
-          message,
-          emailVerified: false,
-          redirect: `${frontendURL}/verify-email`,
-          data: userData,
-          error: getErrorMessage(error),
-        });
-        return;
-      } else if (error.code === 'auth/invalid-credentials') {
-        message = 'Invalid email or password';
-      } else if (error.code === 'auth/account-disabled') {
-        message = 'Account has been disabled. Please contact support.';
-      } else {
-        message = error.message;
+      const returnUrlObj = new URL(stateData.returnUrl);
+      const isAllowed = allowedOrigins.some(origin => {
+        const allowedUrlObj = new URL(origin);
+        return returnUrlObj.hostname === allowedUrlObj.hostname;
+      });
+      
+      if (isAllowed) {
+        return stateData.returnUrl;
       }
-    } else {
-      // Fallback to string-based checking for non-AuthError errors
-      const errorMessage = error instanceof Error ? error.message : 'Failed to login';
-      if (errorMessage.includes('Invalid') || errorMessage.includes('password')) {
-        statusCode = 401;
-        message = 'Invalid email or password';
-      }
+      log.warn('Rejected returnUrl with invalid hostname', { hostname: returnUrlObj.hostname });
     }
-    
-    res.status(statusCode).json({
-      success: false,
-      message,
-      error: getErrorMessage(error),
-    });
+  } catch (e) {
+    log.warn('Failed to parse state', { error: getErrorMessage(e) });
   }
-};
+  
+  return frontendURL;
+}
+
+// ============================================
+// GOOGLE OAuth
+// ============================================
 
 /**
- * Verify OTP sent to user's email
+ * Initiate Google OAuth flow
+ * Returns the Google OAuth URL for frontend to redirect to
  */
-export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
+export const googleAuthInit = async (_req: Request, res: Response): Promise<void> => {
   try {
-    const { email, otp }: VerifyOTPRequest = req.body;
-
-    log.info('OTP verification request', { email: sanitizeEmail(email) });
-
-    if (!email || !otp) {
-      res.status(400).json({
-        success: false,
-        message: 'Email and OTP are required',
-      });
-      return;
-    }
-
-    // Find OTP record for this email
-    const otpRecord = await OTPVerificationModel.findByEmail(email);
-
-    if (!otpRecord) {
-      log.warn('No OTP found for email', { email: sanitizeEmail(email) });
-      res.status(400).json({
-        success: false,
-        message: 'Invalid or expired verification code. Please request a new one.',
-      });
-      return;
-    }
-
-    // Check if OTP has expired
-    if (new Date() > otpRecord.expiresAt) {
-      log.warn('OTP has expired', { email: sanitizeEmail(email) });
-      await OTPVerificationModel.markAsUsed(email); // Clean up expired OTP
-      res.status(400).json({
-        success: false,
-        message: 'Verification code has expired. Please request a new one.',
-      });
-      return;
-    }
-
-    // Verify OTP hash
-    const isValid = verifyOTPHash(otp, otpRecord.otpHash);
-
-    if (!isValid) {
-      log.warn('Invalid OTP provided', { email: sanitizeEmail(email) });
-      res.status(400).json({
-        success: false,
-        message: 'Invalid verification code. Please check and try again.',
-      });
-      return;
-    }
-
-    // OTP is valid - mark as used (single-use)
-    await OTPVerificationModel.markAsUsed(email);
-    log.info('OTP verified successfully', { email: sanitizeEmail(email) });
-
-    // Get user and update verification status
-    const user = await userService.getUserByEmail(email);
-    
-    if (!user) {
-      res.status(404).json({
-        success: false,
-        message: 'User not found',
-      });
-      return;
-    }
-
-    // Update email verification status
-    await userService.updateUser(user.uid, { emailVerified: true } as any);
-    log.info('Email verified for user', { email: sanitizeEmail(email) });
-
-    // Generate JWT tokens for the verified user
-    const accessToken = generateAccessToken({
-      userId: user.uid,
-      email: user.email,
-      role: user.role,
-    });
-    const refreshToken = generateRefreshToken({
-      userId: user.uid,
-      email: user.email,
-      role: user.role,
-    });
-
-    // Get updated user data
-    const updatedUser = await userService.getUserByEmail(email);
-    const { firstName, lastName } = parseDisplayName(updatedUser?.displayName);
-
+    const clientID = process.env.GOOGLE_CLIENT_ID;
+    const backendURL = process.env.BACKEND_URL || 'http://localhost:5000';
+    const callbackURL = process.env.GOOGLE_CALLBACK_URL || `${backendURL}/api/auth/google/callback`;
     const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
+
+    if (!clientID) {
+      res.status(500).json({
+        success: false,
+        message: 'Google OAuth is not configured',
+      });
+      return;
+    }
+
+    const scopes = ['profile', 'email'];
+    const state = Buffer.from(JSON.stringify({ returnUrl: frontendURL })).toString('base64');
     
+    const googleAuthUrl = 
+      `https://accounts.google.com/o/oauth2/v2/auth?` +
+      `client_id=${encodeURIComponent(clientID)}` +
+      `&redirect_uri=${encodeURIComponent(callbackURL)}` +
+      `&response_type=code` +
+      `&scope=${encodeURIComponent(scopes.join(' '))}` +
+      `&state=${state}` +
+      `&access_type=offline` +
+      `&prompt=consent`;
+
+    log.info('Google OAuth URL generated');
+
     res.status(200).json({
       success: true,
-      message: 'Email verified successfully. You can now access your account.',
-      redirect: `${frontendURL}/dashboard`,
-      data: {
-        uid: user.uid,
-        email: user.email,
-        firstName,
-        lastName,
-        displayName: updatedUser?.displayName,
-        emailVerified: true,
-        token: accessToken,
-        refreshToken: refreshToken,
-      },
+      data: { url: googleAuthUrl },
     });
   } catch (error) {
-    log.error('OTP verification error', { error: getErrorMessage(error) });
+    log.error('Google OAuth init error', { error: getErrorMessage(error) });
     res.status(500).json({
       success: false,
-      message: 'Failed to verify code. Please try again.',
+      message: 'Failed to initialize Google authentication',
       error: getErrorMessage(error),
     });
   }
 };
 
 /**
- * Helper function to send OTP to user's email
+ * Handle Google OAuth callback
  */
-async function sendOTPToUser(email: string, actionName: string): Promise<{
-  success: boolean;
-  statusCode: number;
-  message: string;
-  error?: string;
-}> {
+export const googleAuthCallback = [
+  passport.authenticate('google', { session: false }),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const user = req.user as OAuthUser | undefined;
+      const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
+
+      if (!user) {
+        log.error('No user found after Google auth');
+        res.redirect(`${frontendURL}/login?error=auth_failed`);
+        return;
+      }
+
+      log.info('Google OAuth successful', { email: sanitizeEmail(user.email) });
+
+      const accessToken = generateAccessToken({
+        userId: user.uid,
+        email: user.email,
+        role: user.role || 'student',
+      });
+      const refreshToken = generateRefreshToken({
+        userId: user.uid,
+        email: user.email,
+        role: user.role || 'student',
+      });
+
+      const returnUrl = validateReturnUrl(req.query.state as string, frontendURL);
+      setOAuthCookies(res, accessToken, refreshToken, frontendURL);
+      
+      const redirectUrl = generateOAuthRedirectUrl(user, accessToken, refreshToken, returnUrl, 'google');
+      
+      log.info('Redirecting user to frontend', { provider: 'google' });
+      res.redirect(redirectUrl);
+    } catch (error) {
+      log.error('Google callback error', { error: getErrorMessage(error) });
+      const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
+      res.redirect(`${frontendURL}/login?error=auth_callback_failed`);
+    }
+  }
+];
+
+// ============================================
+// MICROSOFT OAuth
+// ============================================
+
+/**
+ * Initiate Microsoft OAuth flow
+ * Returns the Microsoft OAuth URL for frontend to redirect to
+ */
+export const microsoftAuthInit = async (_req: Request, res: Response): Promise<void> => {
   try {
-    log.info(`${actionName} OTP request`, { email: sanitizeEmail(email) });
+    const clientID = process.env.MICROSOFT_CLIENT_ID;
+    const tenantId = process.env.MICROSOFT_TENANT_ID || 'common';
+    const backendURL = process.env.BACKEND_URL || 'http://localhost:5000';
+    const callbackURL = process.env.MICROSOFT_CALLBACK_URL || `${backendURL}/api/auth/microsoft/callback`;
+    const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
 
-    // Get user data
-    const user = await userService.getUserByEmail(email);
-    
-    if (!user) {
-      return {
+    if (!clientID) {
+      res.status(500).json({
         success: false,
-        statusCode: 404,
-        message: 'User not found. Please sign up first.',
-      };
+        message: 'Microsoft OAuth is not configured',
+      });
+      return;
     }
 
-    // Check if already verified
-    if (user.emailVerified) {
-      return {
-        success: false,
-        statusCode: 400,
-        message: 'Email is already verified. You can proceed to login.',
-      };
-    }
-
-    // Generate and store new OTP
-    const firstName = user.displayName?.split(' ')[0] || 'User';
-    const otp = generateOTP();
-    const otpHash = hashOTP(otp);
-    await OTPVerificationModel.store(email, otpHash);
+    const scopes = ['openid', 'profile', 'email', 'User.Read'];
+    const state = Buffer.from(JSON.stringify({ returnUrl: frontendURL })).toString('base64');
     
-    // Send OTP email
-    const emailSent = await sendOTPEmail(email, otp, firstName);
+    const microsoftAuthUrl = 
+      `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?` +
+      `client_id=${encodeURIComponent(clientID)}` +
+      `&redirect_uri=${encodeURIComponent(callbackURL)}` +
+      `&response_type=code` +
+      `&scope=${encodeURIComponent(scopes.join(' '))}` +
+      `&state=${state}` +
+      `&response_mode=query`;
 
-    if (!emailSent) {
-      log.warn('Email service not available', { email: sanitizeEmail(email) });
-      // Still return success since OTP is stored and can be used in dev mode
-      return {
-        success: true,
-        statusCode: 200,
-        message: 'Verification code generated. If email service is configured, please check your inbox.',
-      };
-    }
+    log.info('Microsoft OAuth URL generated');
 
-    log.info(`Verification OTP ${actionName.toLowerCase()} successfully`, { email: sanitizeEmail(email) });
-
-    return {
+    res.status(200).json({
       success: true,
-      statusCode: 200,
-      message: 'Verification code sent successfully. Please check your email.',
-    };
+      data: { url: microsoftAuthUrl },
+    });
   } catch (error) {
-    log.error(`${actionName} OTP error`, { error: getErrorMessage(error) });
-    return {
+    log.error('Microsoft OAuth init error', { error: getErrorMessage(error) });
+    res.status(500).json({
       success: false,
-      statusCode: 500,
-      message: 'Failed to send verification code. Please try again.',
+      message: 'Failed to initialize Microsoft authentication',
       error: getErrorMessage(error),
-    };
-  }
-}
-
-/**
- * Send OTP to user's email (for standalone OTP sending)
- */
-export const sendOTP = async (req: Request, res: Response): Promise<void> => {
-  const { email }: ResendOTPRequest = req.body;
-
-  if (!email) {
-    res.status(400).json({
-      success: false,
-      message: 'Email is required',
     });
-    return;
   }
-
-  const result = await sendOTPToUser(email, 'Send');
-  res.status(result.statusCode).json({
-    success: result.success,
-    message: result.message,
-    ...(result.error && { error: result.error }),
-  });
 };
 
 /**
- * Resend OTP to user's email (alias for sendOTP for backwards compatibility)
+ * Handle Microsoft OAuth callback
  */
-export const resendOTP = async (req: Request, res: Response): Promise<void> => {
-  const { email }: ResendOTPRequest = req.body;
+export const microsoftAuthCallback = [
+  passport.authenticate('microsoft', { session: false }),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const user = req.user as OAuthUser | undefined;
+      const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
 
-  if (!email) {
-    res.status(400).json({
-      success: false,
-      message: 'Email is required',
-    });
-    return;
+      if (!user) {
+        log.error('No user found after Microsoft auth');
+        res.redirect(`${frontendURL}/login?error=auth_failed`);
+        return;
+      }
+
+      log.info('Microsoft OAuth successful', { email: sanitizeEmail(user.email) });
+
+      const accessToken = generateAccessToken({
+        userId: user.uid,
+        email: user.email,
+        role: user.role || 'student',
+      });
+      const refreshToken = generateRefreshToken({
+        userId: user.uid,
+        email: user.email,
+        role: user.role || 'student',
+      });
+
+      const returnUrl = validateReturnUrl(req.query.state as string, frontendURL);
+      setOAuthCookies(res, accessToken, refreshToken, frontendURL);
+      
+      const redirectUrl = generateOAuthRedirectUrl(user, accessToken, refreshToken, returnUrl, 'microsoft');
+      
+      log.info('Redirecting user to frontend', { provider: 'microsoft' });
+      res.redirect(redirectUrl);
+    } catch (error) {
+      log.error('Microsoft callback error', { error: getErrorMessage(error) });
+      const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
+      res.redirect(`${frontendURL}/login?error=auth_callback_failed`);
+    }
   }
+];
 
-  const result = await sendOTPToUser(email, 'Resend');
-  res.status(result.statusCode).json({
-    success: result.success,
-    message: result.message,
-    ...(result.error && { error: result.error }),
-  });
+// ============================================
+// GITHUB OAuth (placeholder - no env vars yet)
+// ============================================
+
+/**
+ * Initiate GitHub OAuth flow
+ * Returns the GitHub OAuth URL for frontend to redirect to
+ * Note: GitHub OAuth is not yet configured - env vars needed
+ */
+export const githubAuthInit = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const clientID = process.env.GITHUB_CLIENT_ID;
+
+    // GitHub OAuth requires environment variables to be configured
+    if (!clientID) {
+      log.warn('GitHub OAuth init attempted but not configured');
+      res.status(503).json({
+        success: false,
+        message: 'GitHub sign-in is not yet available. Please use Google or Microsoft to sign in.',
+        error: 'GITHUB_NOT_CONFIGURED',
+      });
+      return;
+    }
+
+    const backendURL = process.env.BACKEND_URL || 'http://localhost:5000';
+    const callbackURL = process.env.GITHUB_CALLBACK_URL || `${backendURL}/api/auth/github/callback`;
+    const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
+
+    const scopes = ['user:email', 'read:user'];
+    const state = Buffer.from(JSON.stringify({ returnUrl: frontendURL })).toString('base64');
+    
+    const githubAuthUrl = 
+      `https://github.com/login/oauth/authorize?` +
+      `client_id=${encodeURIComponent(clientID)}` +
+      `&redirect_uri=${encodeURIComponent(callbackURL)}` +
+      `&scope=${encodeURIComponent(scopes.join(' '))}` +
+      `&state=${state}`;
+
+    log.info('GitHub OAuth URL generated');
+
+    res.status(200).json({
+      success: true,
+      data: { url: githubAuthUrl },
+    });
+  } catch (error) {
+    log.error('GitHub OAuth init error', { error: getErrorMessage(error) });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to initialize GitHub authentication',
+      error: getErrorMessage(error),
+    });
+  }
 };
+
+/**
+ * Handle GitHub OAuth callback
+ * Note: This is a placeholder - full implementation requires GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET
+ * When GitHub OAuth is configured, this should use passport.authenticate('github')
+ */
+export const githubAuthCallback = async (_req: Request, res: Response): Promise<void> => {
+  const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
+  
+  // GitHub OAuth is not yet fully implemented
+  // When configured, this endpoint will receive the OAuth callback from GitHub
+  log.warn('GitHub OAuth callback received but GitHub OAuth is not fully configured');
+  
+  // Redirect to login with appropriate error message
+  res.redirect(`${frontendURL}/login?error=github_not_configured`);
+};
+
+// ============================================
+// User & Token Management
+// ============================================
 
 /**
  * Get current user data
  */
 export const getCurrentUser = async (req: Request, res: Response): Promise<void> => {
   try {
-    // User is attached to request by auth middleware
     const userId = req.user?.userId;
 
     log.info('Get current user request', { userId });
@@ -538,13 +420,13 @@ export const getCurrentUser = async (req: Request, res: Response): Promise<void>
 /**
  * Refresh access token
  */
-export const refreshToken = async (req: Request, res: Response): Promise<void> => {
+export const refreshTokenHandler = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { refreshToken } = req.body;
+    const { refreshToken: providedRefreshToken } = req.body;
 
     log.info('Token refresh request');
 
-    if (!refreshToken) {
+    if (!providedRefreshToken) {
       res.status(400).json({
         success: false,
         message: 'Refresh token is required',
@@ -552,11 +434,8 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    // Verify and decode refresh token
-    const { verifyToken, generateAccessToken } = await import('../utils/jwt');
-    const decoded = verifyToken(refreshToken);
+    const decoded = verifyToken(providedRefreshToken);
 
-    // Generate new access token
     const newAccessToken = generateAccessToken({
       userId: decoded.userId,
       email: decoded.email,
@@ -582,182 +461,43 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
 };
 
 /**
- * Initiate Google OAuth flow
- * Returns the Google OAuth URL for frontend to redirect to
+ * Logout user (clear cookies)
  */
-export const googleAuthInit = async (_req: Request, res: Response): Promise<void> => {
+export const logout = async (_req: Request, res: Response): Promise<void> => {
   try {
-    const clientID = process.env.GOOGLE_CLIENT_ID;
-    const backendURL = process.env.BACKEND_URL || 'http://localhost:5000';
-    const callbackURL = process.env.GOOGLE_CALLBACK_URL || `${backendURL}/api/auth/google/callback`;
+    const isProduction = process.env.NODE_ENV === 'production';
     const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
-
-    if (!clientID) {
-      res.status(500).json({
-        success: false,
-        message: 'Google OAuth is not configured',
-      });
-      return;
+    
+    let cookieDomain: string | undefined = undefined;
+    if (isProduction && frontendURL) {
+      try {
+        const hostname = new URL(frontendURL).hostname;
+        cookieDomain = hostname.startsWith('www.') ? hostname.replace(/^www/, '') : `.${hostname}`;
+      } catch { /* ignore */ }
     }
 
-    // Generate Google OAuth URL
-    const scopes = ['profile', 'email'];
-    const state = Buffer.from(JSON.stringify({ returnUrl: frontendURL })).toString('base64');
-    
-    const googleAuthUrl = 
-      `https://accounts.google.com/o/oauth2/v2/auth?` +
-      `client_id=${encodeURIComponent(clientID)}` +
-      `&redirect_uri=${encodeURIComponent(callbackURL)}` +
-      `&response_type=code` +
-      `&scope=${encodeURIComponent(scopes.join(' '))}` +
-      `&state=${state}` +
-      `&access_type=offline` +
-      `&prompt=consent`;
+    const clearCookieOptions = {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'lax' as const,
+      domain: cookieDomain,
+    };
 
-    log.info('Google OAuth URL generated');
+    res.clearCookie('aurikrex_token', clearCookieOptions);
+    res.clearCookie('aurikrex_refresh_token', clearCookieOptions);
+
+    log.info('User logged out successfully');
 
     res.status(200).json({
       success: true,
-      data: {
-        url: googleAuthUrl,
-      },
+      message: 'Logged out successfully',
     });
   } catch (error) {
-    log.error('Google OAuth init error', { error: getErrorMessage(error) });
+    log.error('Logout error', { error: getErrorMessage(error) });
     res.status(500).json({
       success: false,
-      message: 'Failed to initialize Google authentication',
+      message: 'Failed to logout',
       error: getErrorMessage(error),
     });
   }
 };
-
-/**
- * Handle Google OAuth callback
- * This is called by Google after user authorizes
- */
-export const googleAuthCallback = [
-  passport.authenticate('google', { session: false }),
-  async (req: Request, res: Response): Promise<void> => {
-    try {
-      // Type assertion with better typing
-      interface OAuthUser {
-        userId: string;
-        email: string;
-        role: 'student' | 'instructor' | 'admin';
-        uid: string;
-        displayName?: string;
-      }
-      
-      const user = req.user as OAuthUser | undefined;
-
-      if (!user) {
-        log.error('No user found after Google auth');
-        const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
-        res.redirect(`${frontendURL}/login?error=auth_failed`);
-        return;
-      }
-
-      log.info('Google OAuth successful', { email: sanitizeEmail(user.email) });
-
-      // Generate JWT tokens
-      const accessToken = generateAccessToken({
-        userId: user.uid,
-        email: user.email,
-        role: user.role || 'student',
-      });
-      const refreshToken = generateRefreshToken({
-        userId: user.uid,
-        email: user.email,
-        role: user.role || 'student',
-      });
-
-      // Get frontend URL from state or environment
-      const state = req.query.state as string;
-      let frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
-      let returnUrl = frontendURL;
-      
-      if (state) {
-        try {
-          const stateData = JSON.parse(Buffer.from(state, 'base64').toString());
-          if (stateData.returnUrl) {
-            // Validate returnUrl - only allow same origin or whitelisted domains
-            // Get allowed origins from environment or use defaults
-            const allowedOriginsEnv = process.env.ALLOWED_ORIGINS || 'https://aurikrex.tech,https://www.aurikrex.tech';
-            // Use Set to deduplicate origins
-            const allowedOrigins = [...new Set([frontendURL, ...allowedOriginsEnv.split(',').map(o => o.trim())])];
-            
-            // Use URL parsing to validate hostname (prevents subdomain attacks)
-            try {
-              const returnUrlObj = new URL(stateData.returnUrl);
-              const isAllowed = allowedOrigins.some(origin => {
-                const allowedUrlObj = new URL(origin);
-                return returnUrlObj.hostname === allowedUrlObj.hostname;
-              });
-              if (isAllowed) {
-                returnUrl = stateData.returnUrl;
-              } else {
-                log.warn('Rejected returnUrl with invalid hostname', { hostname: returnUrlObj.hostname });
-              }
-            } catch (urlError) {
-              log.warn('Failed to parse returnUrl', { error: getErrorMessage(urlError) });
-            }
-          }
-        } catch (e) {
-          log.warn('Failed to parse state', { error: getErrorMessage(e) });
-        }
-      }
-
-      // Set secure httpOnly cookies for tokens
-      const isProduction = process.env.NODE_ENV === 'production';
-      // Extract domain from FRONTEND_URL for cookie domain setting
-      let cookieDomain: string | undefined = undefined;
-      if (isProduction && frontendURL) {
-        try {
-          const hostname = new URL(frontendURL).hostname;
-          // For www subdomain, set to parent domain with leading dot
-          // For other domains, set with leading dot to allow all subdomains
-          cookieDomain = hostname.startsWith('www.') ? hostname.replace(/^www/, '') : `.${hostname}`;
-        } catch (urlError) {
-          log.warn('Failed to parse FRONTEND_URL for cookie domain', { error: getErrorMessage(urlError) });
-          // Fallback to no domain restriction
-          cookieDomain = undefined;
-        }
-      }
-      
-      const cookieOptions = {
-        httpOnly: true,
-        secure: isProduction,
-        sameSite: 'lax' as const,
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-        domain: cookieDomain,
-      };
-
-      res.cookie('aurikrex_token', accessToken, cookieOptions);
-      res.cookie('aurikrex_refresh_token', refreshToken, cookieOptions);
-
-      // Redirect to frontend with user info only (tokens are in httpOnly cookies)
-      // For backwards compatibility with client-side storage, include tokens
-      // TODO: Remove token parameters once frontend fully migrates to cookie-based auth
-      const redirectUrl = `${returnUrl}/auth/callback?` +
-        `token=${encodeURIComponent(accessToken)}` +
-        `&refreshToken=${encodeURIComponent(refreshToken)}` +
-        `&email=${encodeURIComponent(user.email)}` +
-        `&displayName=${encodeURIComponent(user.displayName || '')}` +
-        `&uid=${encodeURIComponent(user.uid)}`;
-
-      // Log redirect with sanitized information (avoid exposing tokens)
-      try {
-        const redirectUrlObj = new URL(redirectUrl);
-        log.info('Redirecting user', { destination: `${redirectUrlObj.origin}${redirectUrlObj.pathname}` });
-      } catch {
-        log.info('Redirecting user to frontend');
-      }
-      res.redirect(redirectUrl);
-    } catch (error) {
-      log.error('Google callback error', { error: getErrorMessage(error) });
-      const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
-      res.redirect(`${frontendURL}/login?error=auth_callback_failed`);
-    }
-  }
-];

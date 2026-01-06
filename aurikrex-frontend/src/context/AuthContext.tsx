@@ -13,27 +13,25 @@ if (!API_URL) {
   console.warn('⚠️ VITE_API_URL is not set. Authentication will fail. Please configure your environment variables.');
 }
 
-// LocalStorage keys for pending verification data
-const PENDING_EMAIL_KEY = 'pending-verification-email';
-const PENDING_FIRSTNAME_KEY = 'pending-verification-firstName';
+// Supported OAuth providers
+type OAuthProvider = 'google' | 'microsoft' | 'github';
 
 interface User {
   uid: string;
   email: string;
-  firstName: string;
+  firstName?: string;
   lastName?: string;
   displayName?: string;
   phone?: string;
   photoURL?: string;
   emailVerified?: boolean;
+  provider?: OAuthProvider;
 }
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  signup: (firstName: string, lastName: string, email: string, phone: string, password: string) => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
+  signInWithProvider: (provider: OAuthProvider) => Promise<void>;
   logout: () => void;
 }
 
@@ -56,39 +54,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           // Token is invalid or expired, clear storage
           localStorage.removeItem('aurikrex-user');
           localStorage.removeItem('aurikrex-token');
+          localStorage.removeItem('aurikrex-refresh-token');
         }
       } catch (error) {
         console.error('Error parsing stored user:', error);
         localStorage.removeItem('aurikrex-user');
         localStorage.removeItem('aurikrex-token');
+        localStorage.removeItem('aurikrex-refresh-token');
       }
     }
     setLoading(false);
   }, []);
 
-  const login = async (email: string, password: string) => {
-    // Login logic is handled in Login.tsx component
-    // This is a placeholder
-    console.log('Login called with:', email);
-  };
-
-  const signup = async (firstName: string, lastName: string, email: string, phone: string, password: string) => {
-    // Signup logic is handled in Signup.tsx component
-    // This is a placeholder
-    console.log('Signup called with:', firstName, lastName, email);
-  };
-
-  const signInWithGoogle = async () => {
+  /**
+   * Sign in with OAuth provider (Google, Microsoft, or GitHub)
+   */
+  const signInWithProvider = async (provider: OAuthProvider) => {
     try {
-      console.log('🔐 Initiating Google OAuth flow...');
+      console.log(`🔐 Initiating ${provider} OAuth flow...`);
       
       // Check if API URL is configured
       if (!API_URL) {
         throw new Error('Backend API URL is not configured. Please contact support.');
       }
       
-      // Step 1: Get Google OAuth URL from backend
-      const urlResponse = await fetch(`${API_URL}/auth/google/url`, {
+      // Get OAuth URL from backend
+      const urlResponse = await fetch(`${API_URL}/auth/${provider}/url`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -97,23 +88,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (!urlResponse.ok) {
         const errorData = await urlResponse.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to get Google OAuth URL');
+        throw new Error(errorData.message || `Failed to get ${provider} OAuth URL`);
       }
 
       const responseData = await urlResponse.json();
       
       if (!responseData.success || !responseData.data?.url) {
-        throw new Error('Invalid response from authentication server');
+        throw new Error(responseData.message || 'Invalid response from authentication server');
       }
 
-      const googleAuthUrl = responseData.data.url;
-      console.log('✅ Got Google OAuth URL, redirecting...');
+      const oauthUrl = responseData.data.url;
+      console.log(`✅ Got ${provider} OAuth URL, redirecting...`);
 
-      // Step 2: Redirect to Google OAuth
-      // Google will redirect back to /auth/callback with tokens
-      window.location.href = googleAuthUrl;
+      // Redirect to OAuth provider
+      window.location.href = oauthUrl;
     } catch (error) {
-      console.error('❌ Error signing in with Google:', error);
+      console.error(`❌ Error signing in with ${provider}:`, error);
       throw error;
     }
   };
@@ -122,12 +112,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
     localStorage.removeItem('aurikrex-user');
     localStorage.removeItem('aurikrex-token');
-    localStorage.removeItem(PENDING_EMAIL_KEY);
-    localStorage.removeItem(PENDING_FIRSTNAME_KEY);
+    localStorage.removeItem('aurikrex-refresh-token');
+    
+    // Also call backend logout to clear cookies
+    if (API_URL) {
+      fetch(`${API_URL}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      }).catch(console.error);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, signInWithGoogle, logout }}>
+    <AuthContext.Provider value={{ user, loading, signInWithProvider, logout }}>
       {children}
     </AuthContext.Provider>
   );
