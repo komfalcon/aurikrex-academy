@@ -3,10 +3,13 @@ import { getDB } from '../config/mongodb.js';
 import { log } from '../utils/logger.js';
 import bcrypt from 'bcryptjs';
 
+// Supported OAuth providers - extensible for future providers like Apple
+export type OAuthProvider = 'google' | 'microsoft' | 'github';
+
 export interface UserDocument {
   _id?: ObjectId;
   email: string;
-  password: string; // Hashed password
+  password: string; // Hashed password (random for OAuth users)
   displayName?: string;
   role: 'student' | 'instructor' | 'admin';
   disabled: boolean;
@@ -15,6 +18,9 @@ export interface UserDocument {
   lastLogin: Date | null;
   emailVerified: boolean;
   photoURL?: string;
+  // OAuth provider fields for normalized user storage
+  provider?: OAuthProvider;
+  providerUserId?: string;
   preferences: {
     [key: string]: any;
   };
@@ -311,6 +317,139 @@ export class UserModel {
   }
 
   /**
+   * Find user by OAuth provider and provider user ID
+   */
+  static async findByProvider(provider: OAuthProvider, providerUserId: string): Promise<UserDocument | null> {
+    try {
+      const collection = this.getCollection();
+      const user = await collection.findOne({ provider, providerUserId });
+      
+      if (user) {
+        log.info('✅ User found by OAuth provider', { provider, providerUserId });
+      }
+      
+      return user;
+    } catch (error) {
+      log.error('❌ Error finding user by provider', { 
+        error: error instanceof Error ? error.message : String(error),
+        provider,
+        providerUserId 
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Find or create user from OAuth provider
+   * This normalizes users from different OAuth providers into a single user table
+   */
+  static async findOrCreateFromOAuth(oauthData: {
+    provider: OAuthProvider;
+    providerUserId: string;
+    email: string;
+    displayName?: string;
+    photoURL?: string;
+  }): Promise<UserDocument> {
+    try {
+      const collection = this.getCollection();
+      const { provider, providerUserId, email, displayName, photoURL } = oauthData;
+
+      // First, try to find user by provider + providerUserId
+      let user = await this.findByProvider(provider, providerUserId);
+
+      if (user) {
+        // Update last login and any changed OAuth data
+        const updateData: Partial<UserDocument> = {
+          lastLogin: new Date(),
+          updatedAt: new Date(),
+        };
+        if (displayName && displayName !== user.displayName) {
+          updateData.displayName = displayName;
+        }
+        if (photoURL && photoURL !== user.photoURL) {
+          updateData.photoURL = photoURL;
+        }
+        
+        user = await this.update(user._id!, updateData);
+        log.info('✅ Existing OAuth user updated', { email, provider });
+        return user!;
+      }
+
+      // Check if user exists with same email (possibly from another provider)
+      const existingEmailUser = await this.findByEmail(email);
+      
+      if (existingEmailUser) {
+        // Link this provider to existing account if it's their first OAuth login
+        // or if the account doesn't have a provider set yet
+        if (!existingEmailUser.provider) {
+          const updatedUser = await this.update(existingEmailUser._id!, {
+            provider,
+            providerUserId,
+            emailVerified: true, // OAuth emails are verified
+            photoURL: photoURL || existingEmailUser.photoURL,
+            displayName: displayName || existingEmailUser.displayName,
+            lastLogin: new Date(),
+          });
+          log.info('✅ Linked OAuth provider to existing user', { email, provider });
+          return updatedUser!;
+        }
+        
+        // User exists with different provider - allow login if email matches
+        // This enables users who previously used one provider to use another
+        log.info('✅ OAuth login for existing user with different provider', { email, provider });
+        const updatedUser = await this.update(existingEmailUser._id!, {
+          lastLogin: new Date(),
+        });
+        return updatedUser!;
+      }
+
+      // Create new user from OAuth data
+      const now = new Date();
+      // Generate random password for OAuth users (they authenticate via OAuth, not password)
+      const randomPassword = await bcrypt.hash(
+        Math.random().toString(36) + Date.now().toString(36),
+        10
+      );
+
+      const newUser: UserDocument = {
+        email,
+        password: randomPassword,
+        displayName: displayName || email.split('@')[0],
+        role: 'student',
+        disabled: false,
+        createdAt: now,
+        updatedAt: now,
+        lastLogin: now,
+        emailVerified: true, // OAuth emails are verified by the provider
+        photoURL,
+        provider,
+        providerUserId,
+        preferences: {},
+        progress: {
+          completedLessons: 0,
+          totalTimeSpent: 0
+        }
+      };
+
+      const result = await collection.insertOne(newUser);
+      log.info('✅ New OAuth user created', { 
+        userId: result.insertedId,
+        email,
+        provider 
+      });
+
+      return { ...newUser, _id: result.insertedId };
+    } catch (error) {
+      log.error('❌ Error in findOrCreateFromOAuth', { 
+        error: error instanceof Error ? error.message : String(error),
+        email: oauthData.email,
+        provider: oauthData.provider 
+      });
+      throw error;
+    }
+  }
+
+  /**
    * Create indexes for optimal performance
    */
   static async createIndexes(): Promise<void> {
@@ -321,7 +460,9 @@ export class UserModel {
         collection.createIndex({ email: 1 }, { unique: true }),
         collection.createIndex({ role: 1 }),
         collection.createIndex({ createdAt: -1 }),
-        collection.createIndex({ disabled: 1 })
+        collection.createIndex({ disabled: 1 }),
+        // Index for OAuth provider lookups
+        collection.createIndex({ provider: 1, providerUserId: 1 })
       ]);
 
       log.info('✅ User indexes created successfully');
