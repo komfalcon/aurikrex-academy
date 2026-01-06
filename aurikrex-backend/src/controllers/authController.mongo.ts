@@ -349,19 +349,73 @@ export const githubAuthInit = async (_req: Request, res: Response): Promise<void
 
 /**
  * Handle GitHub OAuth callback
- * Note: This is a placeholder - full implementation requires GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET
- * When GitHub OAuth is configured, this should use passport.authenticate('github')
+ * Uses passport-github2 strategy when configured
  */
-export const githubAuthCallback = async (_req: Request, res: Response): Promise<void> => {
-  const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
-  
-  // GitHub OAuth is not yet fully implemented
-  // When configured, this endpoint will receive the OAuth callback from GitHub
-  log.warn('GitHub OAuth callback received but GitHub OAuth is not fully configured');
-  
-  // Redirect to login with appropriate error message
-  res.redirect(`${frontendURL}/login?error=github_not_configured`);
-};
+export const githubAuthCallback = [
+  // Conditional middleware: only use passport if GitHub is configured
+  (req: Request, res: Response, next: any) => {
+    const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
+    
+    if (!process.env.GITHUB_CLIENT_ID || !process.env.GITHUB_CLIENT_SECRET) {
+      log.warn('GitHub OAuth callback received but GitHub OAuth is not configured');
+      res.redirect(`${frontendURL}/login?error=github_not_configured`);
+      return;
+    }
+    
+    // Use passport authentication
+    passport.authenticate('github', { session: false }, (err: Error | null, user: OAuthUser | undefined) => {
+      if (err) {
+        log.error('GitHub OAuth authentication error', { error: getErrorMessage(err) });
+        res.redirect(`${frontendURL}/login?error=auth_failed`);
+        return;
+      }
+      if (!user) {
+        log.error('No user found after GitHub auth');
+        res.redirect(`${frontendURL}/login?error=auth_failed`);
+        return;
+      }
+      req.user = user;
+      next();
+    })(req, res, next);
+  },
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const user = req.user as OAuthUser | undefined;
+      const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
+
+      if (!user) {
+        log.error('No user found after GitHub auth');
+        res.redirect(`${frontendURL}/login?error=auth_failed`);
+        return;
+      }
+
+      log.info('GitHub OAuth successful', { email: sanitizeEmail(user.email) });
+
+      const accessToken = generateAccessToken({
+        userId: user.uid,
+        email: user.email,
+        role: user.role || 'student',
+      });
+      const refreshToken = generateRefreshToken({
+        userId: user.uid,
+        email: user.email,
+        role: user.role || 'student',
+      });
+
+      const returnUrl = validateReturnUrl(req.query.state as string, frontendURL);
+      setOAuthCookies(res, accessToken, refreshToken, frontendURL);
+      
+      const redirectUrl = generateOAuthRedirectUrl(user, accessToken, refreshToken, returnUrl, 'github');
+      
+      log.info('Redirecting user to frontend', { provider: 'github' });
+      res.redirect(redirectUrl);
+    } catch (error) {
+      log.error('GitHub callback error', { error: getErrorMessage(error) });
+      const frontendURL = process.env.FRONTEND_URL || 'https://aurikrex.tech';
+      res.redirect(`${frontendURL}/login?error=auth_callback_failed`);
+    }
+  }
+];
 
 // ============================================
 // User & Token Management
