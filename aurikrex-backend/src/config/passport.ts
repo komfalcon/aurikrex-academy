@@ -155,6 +155,26 @@ interface GitHubEmail {
   verified?: boolean;
 }
 
+/**
+ * Safely extract primary email from GitHub profile emails
+ * GitHub's API may return emails with primary/verified flags not in passport types
+ */
+function extractGitHubPrimaryEmail(emails: Array<{ value: string; type?: string }> | undefined): string | undefined {
+  if (!emails || emails.length === 0) return undefined;
+  
+  // Cast to GitHubEmail[] to access potential primary/verified fields
+  const typedEmails = emails as GitHubEmail[];
+  
+  // Priority: primary > verified > first available
+  const primaryEmail = typedEmails.find((e) => e.primary === true);
+  if (primaryEmail?.value) return primaryEmail.value;
+  
+  const verifiedEmail = typedEmails.find((e) => e.verified === true);
+  if (verifiedEmail?.value) return verifiedEmail.value;
+  
+  return emails[0]?.value;
+}
+
 // Only register GitHub strategy if credentials are configured
 if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
   passport.use(
@@ -173,12 +193,8 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
         done: (error: Error | null, user?: unknown) => void
       ) => {
         try {
-          // GitHub may return multiple emails, get the primary or first verified email
-          // Cast to GitHubEmail[] since GitHub's actual API includes primary/verified fields
-          const emails = (profile.emails || []) as GitHubEmail[];
-          const primaryEmail = emails.find((e) => e.primary)?.value 
-            || emails.find((e) => e.verified)?.value 
-            || emails[0]?.value;
+          // Extract primary email using helper function
+          const primaryEmail = extractGitHubPrimaryEmail(profile.emails);
           const providerUserId = profile.id;
           const displayName = profile.displayName || profile.username || '';
           const photoURL = profile.photos?.[0]?.value || '';
