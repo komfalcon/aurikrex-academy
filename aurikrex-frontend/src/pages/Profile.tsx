@@ -18,7 +18,7 @@
  * - School/Institution: User's educational institution
  * - Course/Program: User's enrolled program
  * - Field of Interest: User's academic/professional interests
- * - Course Offered: Multi-select of available university courses
+ * - Courses Offered: Multi-select of available university courses
  * - Preferred Learning Style: How the user prefers to learn
  * - Skills: User's skills (multi-select/tags)
  * - Languages Spoken: Multi-select of world languages
@@ -34,8 +34,8 @@
  * - Both support search/filter functionality
  */
 
-import { useState, useRef, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   User,

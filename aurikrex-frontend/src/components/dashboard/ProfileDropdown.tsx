@@ -45,8 +45,9 @@ export function ProfileDropdown({ userName, userAvatar }: ProfileDropdownProps) 
   };
 
   const handleNavigateToSettings = () => {
-    // For now, settings navigates to profile page settings section
-    navigate("/profile?tab=settings");
+    // Navigate to profile page - profile settings are managed there
+    // TODO: Future enhancement could add a dedicated settings page or tab within profile
+    navigate("/profile");
   };
 
   const handleSignOut = () => {
