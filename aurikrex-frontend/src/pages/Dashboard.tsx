@@ -58,6 +58,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { ProfileDropdown } from "@/components/dashboard/ProfileDropdown";
 
 // ============================================================================
 // THEME HOOK
@@ -441,13 +442,11 @@ function Header({ onToggleSidebar, isSidebarCollapsed, onToggleMobileSidebar }: 
             </AnimatePresence>
           </div>
 
-          {/* User Avatar */}
-          <Avatar className="w-9 h-9 cursor-pointer hover:ring-2 hover:ring-primary transition-all">
-            <AvatarImage src={mockData.user.avatar} alt={user?.name || mockData.user.name} />
-            <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
-              {(user?.name || mockData.user.name).charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
+          {/* User Avatar with Profile Dropdown */}
+          <ProfileDropdown 
+            userName={user?.displayName || user?.firstName || mockData.user.name}
+            userAvatar={user?.photoURL || mockData.user.avatar}
+          />
         </div>
       </div>
     </motion.header>
