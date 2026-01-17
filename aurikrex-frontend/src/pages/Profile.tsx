@@ -359,7 +359,6 @@ interface ProfileFormData {
 // ============================================================================
 export default function Profile() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const shouldReduceMotion = useReducedMotion();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -547,9 +546,9 @@ export default function Profile() {
                 className="relative cursor-pointer group"
                 onClick={handleProfilePictureClick}
               >
-                <Avatar className="w-32 h-32 border-4 border-primary/20">
-                  <AvatarImage src={formData.profilePicture || ""} alt={displayName} />
-                  <AvatarFallback className="bg-primary text-primary-foreground text-4xl font-bold">
+                <Avatar className="w-32 h-32 ring-4 ring-primary/30 ring-offset-4 ring-offset-background shadow-lg">
+                  <AvatarImage src={formData.profilePicture || ""} alt={displayName} className="object-cover" />
+                  <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-primary-foreground text-4xl font-bold">
                     {displayName.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
@@ -568,6 +567,51 @@ export default function Profile() {
               <p className="text-sm text-muted-foreground">
                 Supported formats: JPEG, PNG, GIF (max 5MB)
               </p>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Username / Display Name Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.05 }}
+        >
+          <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="w-5 h-5 text-primary" />
+                Display Name
+              </CardTitle>
+              <CardDescription>
+                This is the name that FalkeAI and other users will see. Choose a unique username.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Label htmlFor="username-main" className="flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  Username
+                  <Badge variant="outline" className="text-xs text-primary border-primary/30">Required</Badge>
+                </Label>
+                <Input
+                  id="username-main"
+                  placeholder="Choose a username (e.g., alex_johnson)"
+                  value={formData.username}
+                  onChange={(e) => updateField("username", e.target.value)}
+                  className={`text-lg ${errors.username ? "border-destructive focus:ring-destructive" : ""}`}
+                />
+                {errors.username ? (
+                  <p className="text-sm text-destructive flex items-center gap-1">
+                    <span className="w-1 h-1 rounded-full bg-destructive" />
+                    {errors.username}
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Only letters, numbers, and underscores allowed. 3-30 characters.
+                  </p>
+                )}
+              </div>
             </CardContent>
           </Card>
         </motion.div>

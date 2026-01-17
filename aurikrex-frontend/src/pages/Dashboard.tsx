@@ -20,7 +20,7 @@
  * ============================================================================
  */
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
@@ -51,14 +51,40 @@ import {
   Lightbulb,
   MessageSquare,
   Rocket,
+  Upload,
+  Send,
+  FileText,
+  Filter,
+  Calendar,
+  Users,
+  Activity,
+  Eye,
+  TrendingDown,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/context/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ProfileDropdown } from "@/components/dashboard/ProfileDropdown";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line,
+} from "recharts";
 
 // ============================================================================
 // THEME HOOK
@@ -154,6 +180,11 @@ function Sidebar({ activePanel, setActivePanel, isCollapsed, setIsCollapsed, isM
   const handleLogout = () => {
     logout();
     navigate("/");
+  };
+
+  const handleNavigateToFalkeAI = () => {
+    setActivePanel("falkeai");
+    if (isMobile) setIsMobileOpen(false);
   };
 
   const handleNavigation = useCallback((itemId: string) => {
@@ -287,7 +318,10 @@ function Sidebar({ activePanel, setActivePanel, isCollapsed, setIsCollapsed, isM
             {!isCollapsed && (
               <p className="text-xs text-muted-foreground mb-3">Get instant help from AI</p>
             )}
-            <button className="w-full px-3 py-2 bg-gradient-primary text-white rounded-2xl text-sm font-medium hover:shadow-glow hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm">
+            <button 
+              onClick={handleNavigateToFalkeAI}
+              className="w-full px-3 py-2 bg-gradient-primary text-white rounded-2xl text-sm font-medium hover:shadow-glow hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm"
+            >
               {isCollapsed ? <Sparkles className="w-4 h-4 mx-auto" /> : "Ask FalkeAI"}
             </button>
           </motion.div>
@@ -777,97 +811,1653 @@ function FalkeAITutorCard() {
 // ============================================================================
 
 function LessonsPanel() {
+  const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string; timestamp: Date }>>([]);
+  const [inputMessage, setInputMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const chatEndRef = React.useRef<HTMLDivElement>(null);
+  const shouldReduceMotion = useReducedMotion();
+
+  const ACCEPTED_FILE_TYPES = ".txt,.pdf,.docx,.doc,.png,.jpg,.jpeg";
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      const validFiles = Array.from(files).filter(file => {
+        const ext = file.name.split('.').pop()?.toLowerCase();
+        return ['txt', 'pdf', 'docx', 'doc', 'png', 'jpg', 'jpeg'].includes(ext || '');
+      });
+      setUploadedFiles(prev => [...prev, ...validFiles]);
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const removeFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSendMessage = async () => {
+    if (!inputMessage.trim() && uploadedFiles.length === 0) return;
+    
+    const userMessage = {
+      role: 'user' as const,
+      content: inputMessage + (uploadedFiles.length > 0 ? `\n\n📎 Attached files: ${uploadedFiles.map(f => f.name).join(', ')}` : ''),
+      timestamp: new Date()
+    };
+    
+    setChatMessages(prev => [...prev, userMessage]);
+    setInputMessage("");
+    setUploadedFiles([]);
+    setIsLoading(true);
+
+    // Simulate AI response (placeholder for FalkeAI integration)
+    setTimeout(() => {
+      const assistantMessage = {
+        role: 'assistant' as const,
+        content: "🤖 Thank you for your question! FalkeAI is being connected and will provide personalized lesson assistance here. In the meantime, I'm a placeholder response. Once integrated, I'll be able to:\n\n• Generate custom lessons based on your learning style\n• Explain complex concepts in simple terms\n• Analyze uploaded documents and create study materials\n• Provide practice problems and quizzes",
+        timestamp: new Date()
+      };
+      setChatMessages(prev => [...prev, assistantMessage]);
+      setIsLoading(false);
+    }, 1500);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  // Auto-scroll to bottom when new messages arrive
+  React.useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6"
     >
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Smart Lessons</h1>
-        <p className="text-muted-foreground">AI-generated lessons tailored to your learning style</p>
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
+            Smart Lessons
+          </h1>
+          <p className="text-muted-foreground">AI-powered lessons tailored to your learning style</p>
+        </div>
+        <Badge className="w-fit flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary/20 to-accent/20 border border-primary/30">
+          <Brain className="w-4 h-4 text-primary" />
+          <span>Powered by FalkeAI</span>
+        </Badge>
       </div>
 
-      <Card className="border-dashed border-2 border-primary/30 bg-primary/5 p-12 text-center rounded-2xl">
-        <Rocket className="w-16 h-16 text-primary mx-auto mb-4" aria-hidden="true" />
-        <h3 className="text-xl font-bold mb-2">FalkeAI Lesson Generator</h3>
-        <p className="text-muted-foreground mb-6">
-          This feature will automatically create personalized lessons based on your progress, interests, and learning goals.
-        </p>
-        <Badge className="bg-accent text-accent-foreground">Coming with FalkeAI v1.0</Badge>
+      {/* Instructions Card */}
+      <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Lightbulb className="w-5 h-5 text-primary" />
+            How to Use Smart Lessons
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-background/50">
+              <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                <MessageSquare className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="font-medium">Ask Questions</p>
+                <p className="text-muted-foreground text-xs">Type any topic or concept you want to learn</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-background/50">
+              <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                <Upload className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="font-medium">Upload Files</p>
+                <p className="text-muted-foreground text-xs">Share documents, images, or notes for analysis</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-background/50">
+              <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="font-medium">Get AI Lessons</p>
+                <p className="text-muted-foreground text-xs">Receive personalized explanations and materials</p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
       </Card>
+
+      {/* Main Chat Area */}
+      <Card className="border-border bg-card/50 backdrop-blur-sm overflow-hidden">
+        <CardHeader className="border-b border-border bg-secondary/20">
+          <CardTitle className="text-xl flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Brain className="w-5 h-5 text-primary" />
+              FalkeAI Lesson Assistant
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              <span className="text-xs text-muted-foreground font-normal">Ready</span>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        
+        {/* Chat Messages */}
+        <CardContent className="p-0">
+          <div className="h-[400px] overflow-y-auto p-4 space-y-4">
+            {chatMessages.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-center p-8">
+                <div className="p-4 rounded-full bg-primary/10 mb-4">
+                  <MessageSquare className="w-8 h-8 text-primary" />
+                </div>
+                <h3 className="font-semibold text-lg mb-2">Start a Learning Conversation</h3>
+                <p className="text-muted-foreground text-sm max-w-md">
+                  Ask FalkeAI about any topic, request explanations, or upload documents for AI-powered analysis and lesson generation.
+                </p>
+                <div className="flex flex-wrap gap-2 mt-4 justify-center">
+                  {["Explain quantum physics", "Help me with calculus", "Create a study guide"].map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      onClick={() => setInputMessage(suggestion)}
+                      className="px-3 py-1.5 text-xs rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              chatMessages.map((msg, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div className={`max-w-[80%] p-4 rounded-2xl ${
+                    msg.role === 'user' 
+                      ? 'bg-primary text-primary-foreground rounded-br-md' 
+                      : 'bg-secondary rounded-bl-md'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      {msg.role === 'assistant' ? (
+                        <Brain className="w-4 h-4 text-primary" />
+                      ) : (
+                        <User className="w-4 h-4" />
+                      )}
+                      <span className="text-xs opacity-70">
+                        {msg.role === 'user' ? 'You' : 'FalkeAI'} • {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+                  </div>
+                </motion.div>
+              ))
+            )}
+            
+            {/* Loading Indicator */}
+            {isLoading && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex justify-start"
+              >
+                <div className="bg-secondary p-4 rounded-2xl rounded-bl-md">
+                  <div className="flex items-center gap-2">
+                    <Brain className="w-4 h-4 text-primary animate-pulse" />
+                    <span className="text-xs text-muted-foreground">FalkeAI is thinking</span>
+                    <div className="flex gap-1">
+                      <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* File Upload Preview */}
+          {uploadedFiles.length > 0 && (
+            <div className="px-4 py-2 border-t border-border bg-secondary/30">
+              <p className="text-xs text-muted-foreground mb-2">Attached files:</p>
+              <div className="flex flex-wrap gap-2">
+                {uploadedFiles.map((file, index) => (
+                  <div key={index} className="flex items-center gap-2 px-3 py-1.5 bg-background rounded-lg border border-border">
+                    <FileText className="w-3 h-3 text-muted-foreground" />
+                    <span className="text-xs truncate max-w-[150px]">{file.name}</span>
+                    <button
+                      onClick={() => removeFile(index)}
+                      className="text-muted-foreground hover:text-destructive transition-colors"
+                      aria-label={`Remove ${file.name}`}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Input Area */}
+          <div className="p-4 border-t border-border bg-background/50">
+            <div className="flex items-end gap-3">
+              <div className="flex-1 relative">
+                <textarea
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  onKeyDown={handleKeyPress}
+                  placeholder="Ask FalkeAI anything about your lessons..."
+                  className="w-full min-h-[60px] max-h-[150px] p-3 pr-12 rounded-2xl bg-secondary/50 border border-border focus:outline-none focus:ring-2 focus:ring-primary resize-none text-sm"
+                  aria-label="Message input"
+                />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={ACCEPTED_FILE_TYPES}
+                  multiple
+                  className="hidden"
+                  onChange={handleFileUpload}
+                  aria-label="Upload files"
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute right-3 bottom-3 p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                  aria-label="Upload file"
+                  title="Upload files (.txt, .pdf, .docx, .png, .jpg)"
+                >
+                  <Upload className="w-5 h-5" />
+                </button>
+              </div>
+              <button
+                onClick={handleSendMessage}
+                disabled={isLoading || (!inputMessage.trim() && uploadedFiles.length === 0)}
+                className="p-3 rounded-2xl bg-gradient-primary text-white disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-glow transition-all"
+                aria-label="Send message"
+              >
+                {isLoading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <Send className="w-5 h-5" />
+                )}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2 text-center">
+              Supported files: .txt, .pdf, .docx, .png, .jpg • Press Enter to send, Shift+Enter for new line
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <motion.div whileHover={!shouldReduceMotion ? { scale: 1.02 } : {}}>
+          <Card className="cursor-pointer hover:border-primary/50 transition-colors">
+            <CardContent className="p-6 flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-blue-500/10">
+                <BookOpen className="w-6 h-6 text-blue-500" />
+              </div>
+              <div>
+                <h4 className="font-semibold">Browse Lesson Library</h4>
+                <p className="text-sm text-muted-foreground">Access pre-made lessons on various topics</p>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+        <motion.div whileHover={!shouldReduceMotion ? { scale: 1.02 } : {}}>
+          <Card className="cursor-pointer hover:border-primary/50 transition-colors">
+            <CardContent className="p-6 flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-purple-500/10">
+                <Sparkles className="w-6 h-6 text-purple-500" />
+              </div>
+              <div>
+                <h4 className="font-semibold">Generate New Lesson</h4>
+                <p className="text-sm text-muted-foreground">Create a custom AI lesson on any topic</p>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
     </motion.div>
   );
 }
 
 function AssignmentsPanel() {
+  const [assignmentText, setAssignmentText] = useState("");
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [selectedAssignment, setSelectedAssignment] = useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const shouldReduceMotion = useReducedMotion();
+
+  const ACCEPTED_FILE_TYPES = ".txt,.pdf,.docx,.doc,.png,.jpg,.jpeg,.ppt,.pptx,.xlsx,.xls";
+
+  const mockAssignments = [
+    { id: '1', title: 'Calculus Problem Set', subject: 'Mathematics', dueDate: 'Tomorrow', status: 'pending' },
+    { id: '2', title: 'Newton\'s Laws Lab Report', subject: 'Physics', dueDate: '3 days', status: 'in-progress' },
+    { id: '3', title: 'Periodic Table Quiz', subject: 'Chemistry', dueDate: '1 week', status: 'not-started' },
+  ];
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      const validFiles = Array.from(files).filter(file => {
+        const ext = file.name.split('.').pop()?.toLowerCase();
+        return ['txt', 'pdf', 'docx', 'doc', 'png', 'jpg', 'jpeg', 'ppt', 'pptx', 'xlsx', 'xls'].includes(ext || '');
+      });
+      setUploadedFiles(prev => [...prev, ...validFiles]);
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const removeFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const getFileIcon = (fileName: string) => {
+    const ext = fileName.split('.').pop()?.toLowerCase();
+    if (['png', 'jpg', 'jpeg'].includes(ext || '')) return '🖼️';
+    if (['pdf'].includes(ext || '')) return '📄';
+    if (['docx', 'doc'].includes(ext || '')) return '📝';
+    if (['ppt', 'pptx'].includes(ext || '')) return '📊';
+    if (['xlsx', 'xls'].includes(ext || '')) return '📈';
+    return '📎';
+  };
+
+  const handleSubmit = async () => {
+    if (!assignmentText.trim() && uploadedFiles.length === 0) return;
+    
+    setIsSubmitting(true);
+    setSubmitStatus('idle');
+
+    // Simulate submission (placeholder for backend integration)
+    setTimeout(() => {
+      setIsSubmitting(false);
+      setSubmitStatus('success');
+      // Reset after showing success
+      setTimeout(() => {
+        setAssignmentText("");
+        setUploadedFiles([]);
+        setSubmitStatus('idle');
+        setSelectedAssignment(null);
+      }, 3000);
+    }, 2000);
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6"
     >
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Assignment Review</h1>
-        <p className="text-muted-foreground">Upload assignments for AI-powered feedback</p>
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
+            Assignments
+          </h1>
+          <p className="text-muted-foreground">Submit assignments and get AI-powered feedback</p>
+        </div>
+        <Badge className="w-fit flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500/20 to-primary/20 border border-orange-500/30">
+          <ClipboardCheck className="w-4 h-4 text-orange-500" />
+          <span>{mockAssignments.length} Active Assignments</span>
+        </Badge>
       </div>
 
-      <Card className="border-dashed border-2 border-primary/30 bg-primary/5 p-12 text-center rounded-2xl">
-        <ClipboardCheck className="w-16 h-16 text-primary mx-auto mb-4" aria-hidden="true" />
-        <h3 className="text-xl font-bold mb-2">FalkeAI Assignment Reviewer</h3>
-        <p className="text-muted-foreground mb-6">
-          Upload your work and get instant, detailed feedback with suggestions for improvement powered by advanced AI.
-        </p>
-        <Badge className="bg-accent text-accent-foreground">Coming with FalkeAI v1.0</Badge>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left: Assignment List */}
+        <div className="lg:col-span-1 space-y-4">
+          <Card className="border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Clock className="w-5 h-5 text-orange-500" />
+                Pending Assignments
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {mockAssignments.map((assignment) => {
+                const statusColors = {
+                  'pending': 'border-l-orange-500 bg-orange-500/5',
+                  'in-progress': 'border-l-blue-500 bg-blue-500/5',
+                  'not-started': 'border-l-gray-500 bg-gray-500/5',
+                };
+                const isSelected = selectedAssignment === assignment.id;
+                
+                return (
+                  <motion.div
+                    key={assignment.id}
+                    whileHover={!shouldReduceMotion ? { x: 4 } : {}}
+                    onClick={() => setSelectedAssignment(assignment.id)}
+                    className={`p-4 rounded-xl border-l-4 cursor-pointer transition-all ${statusColors[assignment.status as keyof typeof statusColors]} ${isSelected ? 'ring-2 ring-primary' : ''}`}
+                  >
+                    <h4 className="font-semibold text-sm mb-1">{assignment.title}</h4>
+                    <p className="text-xs text-muted-foreground">{assignment.subject}</p>
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="text-xs text-muted-foreground">Due: {assignment.dueDate}</span>
+                      <Badge variant="outline" className="text-xs capitalize">{assignment.status.replace('-', ' ')}</Badge>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right: Submission Area */}
+        <div className="lg:col-span-2">
+          <Card className="border-border h-full">
+            <CardHeader className="border-b border-border">
+              <CardTitle className="text-xl flex items-center gap-2">
+                <Upload className="w-5 h-5 text-primary" />
+                Submit Assignment
+                {selectedAssignment && (
+                  <Badge className="ml-2 bg-primary/20 text-primary">
+                    {mockAssignments.find(a => a.id === selectedAssignment)?.title}
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 space-y-6">
+              {/* Text Input Area */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  Write Your Answer
+                </label>
+                <textarea
+                  value={assignmentText}
+                  onChange={(e) => setAssignmentText(e.target.value)}
+                  placeholder="Type your assignment response here. You can include explanations, solutions, or any text content..."
+                  className="w-full min-h-[200px] p-4 rounded-xl bg-secondary/30 border border-border focus:outline-none focus:ring-2 focus:ring-primary resize-y text-sm"
+                  aria-label="Assignment text input"
+                />
+                <p className="text-xs text-muted-foreground text-right">
+                  {assignmentText.length} characters
+                </p>
+              </div>
+
+              {/* File Upload Area */}
+              <div className="space-y-3">
+                <label className="text-sm font-medium flex items-center gap-2">
+                  <Upload className="w-4 h-4" />
+                  Upload Files
+                </label>
+                
+                {/* Drop Zone */}
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all"
+                >
+                  <Upload className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-sm font-medium">Click to upload files</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Supports: .txt, .pdf, .docx, .png, .jpg, .ppt, .xlsx
+                  </p>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={ACCEPTED_FILE_TYPES}
+                  multiple
+                  className="hidden"
+                  onChange={handleFileUpload}
+                  aria-label="Upload assignment files"
+                />
+
+                {/* Uploaded Files Preview */}
+                {uploadedFiles.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">Uploaded files ({uploadedFiles.length}):</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {uploadedFiles.map((file, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg border border-border">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <span className="text-lg">{getFileIcon(file.name)}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{file.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {(file.size / 1024).toFixed(1)} KB
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => removeFile(index)}
+                            className="p-1 text-muted-foreground hover:text-destructive transition-colors"
+                            aria-label={`Remove ${file.name}`}
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Status Feedback */}
+              {submitStatus !== 'idle' && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`p-4 rounded-xl flex items-center gap-3 ${
+                    submitStatus === 'success' 
+                      ? 'bg-green-500/10 border border-green-500/30 text-green-600' 
+                      : 'bg-destructive/10 border border-destructive/30 text-destructive'
+                  }`}
+                >
+                  {submitStatus === 'success' ? (
+                    <>
+                      <CheckCircle className="w-5 h-5" />
+                      <div>
+                        <p className="font-medium">Assignment Submitted Successfully!</p>
+                        <p className="text-sm opacity-80">FalkeAI will analyze your work and provide feedback shortly.</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="w-5 h-5" />
+                      <div>
+                        <p className="font-medium">Submission Failed</p>
+                        <p className="text-sm opacity-80">Please try again or contact support.</p>
+                      </div>
+                    </>
+                  )}
+                </motion.div>
+              )}
+
+              {/* Submit Button */}
+              <div className="flex items-center justify-between pt-4 border-t border-border">
+                <p className="text-xs text-muted-foreground">
+                  {assignmentText.trim() || uploadedFiles.length > 0 
+                    ? `Ready to submit: ${assignmentText.trim() ? '1 text response' : ''}${assignmentText.trim() && uploadedFiles.length > 0 ? ' + ' : ''}${uploadedFiles.length > 0 ? `${uploadedFiles.length} file(s)` : ''}`
+                    : 'Add text or files to submit'}
+                </p>
+                <button
+                  onClick={handleSubmit}
+                  disabled={isSubmitting || (!assignmentText.trim() && uploadedFiles.length === 0)}
+                  className="px-6 py-3 rounded-xl bg-gradient-primary text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-glow transition-all flex items-center gap-2"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      Submit Assignment
+                    </>
+                  )}
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* AI Review Info */}
+      <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5">
+        <CardContent className="p-6">
+          <div className="flex items-start gap-4">
+            <div className="p-3 rounded-xl bg-primary/10">
+              <Brain className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h4 className="font-semibold mb-1">AI-Powered Review</h4>
+              <p className="text-sm text-muted-foreground">
+                After submission, FalkeAI will analyze your work and provide detailed feedback including:
+              </p>
+              <div className="flex flex-wrap gap-2 mt-3">
+                <Badge variant="outline">Accuracy Check</Badge>
+                <Badge variant="outline">Improvement Tips</Badge>
+                <Badge variant="outline">Score Prediction</Badge>
+                <Badge variant="outline">Similar Examples</Badge>
+              </div>
+            </div>
+          </div>
+        </CardContent>
       </Card>
     </motion.div>
   );
 }
 
 function AnalyticsPanel() {
+  const [dateRange, setDateRange] = useState("7d");
+  const [lessonType, setLessonType] = useState("all");
+  const [userGroup, setUserGroup] = useState("personal");
+  const shouldReduceMotion = useReducedMotion();
+
+  // Mock analytics data
+  const learningProgressData = [
+    { day: 'Mon', lessons: 4, time: 45, score: 85 },
+    { day: 'Tue', lessons: 3, time: 30, score: 78 },
+    { day: 'Wed', lessons: 5, time: 60, score: 92 },
+    { day: 'Thu', lessons: 2, time: 25, score: 70 },
+    { day: 'Fri', lessons: 6, time: 75, score: 88 },
+    { day: 'Sat', lessons: 4, time: 50, score: 95 },
+    { day: 'Sun', lessons: 3, time: 35, score: 82 },
+  ];
+
+  const subjectDistribution = [
+    { name: 'Mathematics', value: 35, color: '#3B82F6' },
+    { name: 'Physics', value: 25, color: '#8B5CF6' },
+    { name: 'Chemistry', value: 20, color: '#10B981' },
+    { name: 'Biology', value: 20, color: '#F59E0B' },
+  ];
+
+  const engagementData = [
+    { week: 'W1', views: 120, interactions: 45, completions: 30 },
+    { week: 'W2', views: 150, interactions: 60, completions: 42 },
+    { week: 'W3', views: 180, interactions: 75, completions: 55 },
+    { week: 'W4', views: 200, interactions: 90, completions: 68 },
+  ];
+
+  const assignmentStats = [
+    { status: 'Completed', count: 15, color: '#10B981' },
+    { status: 'In Progress', count: 5, color: '#3B82F6' },
+    { status: 'Pending', count: 3, color: '#F59E0B' },
+    { status: 'Overdue', count: 1, color: '#EF4444' },
+  ];
+
+  const kpiCards = [
+    { title: 'Total Learning Time', value: '42h 30m', change: '+12%', trend: 'up', icon: Clock, color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
+    { title: 'Lessons Completed', value: '24', change: '+8%', trend: 'up', icon: BookOpen, color: 'text-green-500', bgColor: 'bg-green-500/10' },
+    { title: 'Average Score', value: '87%', change: '+5%', trend: 'up', icon: Target, color: 'text-purple-500', bgColor: 'bg-purple-500/10' },
+    { title: 'Active Streak', value: '12 days', change: '+3', trend: 'up', icon: Zap, color: 'text-orange-500', bgColor: 'bg-orange-500/10' },
+  ];
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6"
     >
-      <div>
-        <h1 className="text-3xl font-bold mb-2">AI Analytics</h1>
-        <p className="text-muted-foreground">Deep insights into your learning patterns</p>
+      {/* Header with Filters */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
+            FalkeAI Analytics
+          </h1>
+          <p className="text-muted-foreground">Deep insights into your learning patterns and progress</p>
+        </div>
+        
+        {/* Filters */}
+        <div className="flex flex-wrap gap-3">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-muted-foreground" />
+            <Select value={dateRange} onValueChange={setDateRange}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Date Range" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7d">Last 7 days</SelectItem>
+                <SelectItem value="30d">Last 30 days</SelectItem>
+                <SelectItem value="90d">Last 90 days</SelectItem>
+                <SelectItem value="1y">Last year</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <BookOpen className="w-4 h-4 text-muted-foreground" />
+            <Select value={lessonType} onValueChange={setLessonType}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Lesson Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Lessons</SelectItem>
+                <SelectItem value="math">Mathematics</SelectItem>
+                <SelectItem value="physics">Physics</SelectItem>
+                <SelectItem value="chemistry">Chemistry</SelectItem>
+                <SelectItem value="biology">Biology</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-muted-foreground" />
+            <Select value={userGroup} onValueChange={setUserGroup}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="User Group" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="personal">Personal</SelectItem>
+                <SelectItem value="class">My Class</SelectItem>
+                <SelectItem value="school">My School</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </div>
 
-      <Card className="border-dashed border-2 border-primary/30 bg-primary/5 p-12 text-center rounded-2xl">
-        <BarChart3 className="w-16 h-16 text-primary mx-auto mb-4" aria-hidden="true" />
-        <h3 className="text-xl font-bold mb-2">FalkeAI Analytics Dashboard</h3>
-        <p className="text-muted-foreground mb-6">
-          Visualize your strengths, weaknesses, learning velocity, and get personalized recommendations for improvement.
-        </p>
-        <Badge className="bg-accent text-accent-foreground">Coming with FalkeAI v1.0</Badge>
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        {kpiCards.map((kpi, index) => {
+          const Icon = kpi.icon;
+          return (
+            <motion.div
+              key={kpi.title}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: index * 0.1 }}
+              whileHover={!shouldReduceMotion ? { scale: 1.02, y: -4 } : {}}
+            >
+              <Card className="border-border bg-card/50 backdrop-blur-sm hover:shadow-lg transition-all">
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground font-medium">{kpi.title}</p>
+                      <h3 className="text-3xl font-bold mt-2">{kpi.value}</h3>
+                      <div className="flex items-center gap-1 mt-2">
+                        {kpi.trend === 'up' ? (
+                          <TrendingUp className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <TrendingDown className="w-4 h-4 text-red-500" />
+                        )}
+                        <span className={`text-sm font-medium ${kpi.trend === 'up' ? 'text-green-500' : 'text-red-500'}`}>
+                          {kpi.change}
+                        </span>
+                        <span className="text-xs text-muted-foreground">vs last period</span>
+                      </div>
+                    </div>
+                    <div className={`p-3 rounded-xl ${kpi.bgColor}`}>
+                      <Icon className={`w-6 h-6 ${kpi.color}`} />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          );
+        })}
+      </div>
+
+      {/* Charts Row 1 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Learning Progress Chart */}
+        <Card className="border-border bg-card/50 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Activity className="w-5 h-5 text-primary" />
+              Learning Activity
+            </CardTitle>
+            <CardDescription>Daily lessons, time spent, and scores</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={250}>
+              <AreaChart data={learningProgressData}>
+                <defs>
+                  <linearGradient id="colorLessons" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="day" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                <RechartsTooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--card))', 
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px'
+                  }}
+                />
+                <Area type="monotone" dataKey="lessons" stroke="#3B82F6" fillOpacity={1} fill="url(#colorLessons)" name="Lessons" />
+                <Area type="monotone" dataKey="score" stroke="#10B981" fillOpacity={1} fill="url(#colorScore)" name="Score %" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Subject Distribution */}
+        <Card className="border-border bg-card/50 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Target className="w-5 h-5 text-primary" />
+              Subject Distribution
+            </CardTitle>
+            <CardDescription>Time spent by subject</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-center">
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie
+                    data={subjectDistribution}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {subjectDistribution.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--card))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="grid grid-cols-2 gap-2 mt-4">
+              {subjectDistribution.map((subject) => (
+                <div key={subject.name} className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: subject.color }} />
+                  <span className="text-sm">{subject.name}</span>
+                  <span className="text-sm text-muted-foreground ml-auto">{subject.value}%</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Charts Row 2 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Engagement Metrics */}
+        <Card className="border-border bg-card/50 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Eye className="w-5 h-5 text-primary" />
+              Engagement Metrics
+            </CardTitle>
+            <CardDescription>Views, interactions, and completions over time</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={engagementData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="week" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                <RechartsTooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--card))', 
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px'
+                  }}
+                />
+                <Bar dataKey="views" fill="#3B82F6" radius={[4, 4, 0, 0]} name="Views" />
+                <Bar dataKey="interactions" fill="#8B5CF6" radius={[4, 4, 0, 0]} name="Interactions" />
+                <Bar dataKey="completions" fill="#10B981" radius={[4, 4, 0, 0]} name="Completions" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Assignment Stats */}
+        <Card className="border-border bg-card/50 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <ClipboardCheck className="w-5 h-5 text-primary" />
+              Assignment Statistics
+            </CardTitle>
+            <CardDescription>Current assignment status breakdown</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {assignmentStats.map((stat, index) => (
+                <motion.div
+                  key={stat.status}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: index * 0.1 }}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: stat.color }} />
+                      <span className="text-sm font-medium">{stat.status}</span>
+                    </div>
+                    <span className="text-sm text-muted-foreground">{stat.count} assignments</span>
+                  </div>
+                  <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(stat.count / 24) * 100}%` }}
+                      transition={{ duration: 1, delay: 0.5 + index * 0.1 }}
+                      className="h-full rounded-full"
+                      style={{ backgroundColor: stat.color }}
+                    />
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+            <div className="mt-6 p-4 rounded-xl bg-secondary/50">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Total Assignments</span>
+                <span className="text-2xl font-bold">{assignmentStats.reduce((a, b) => a + b.count, 0)}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* AI Insights */}
+      <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Brain className="w-5 h-5 text-primary" />
+            FalkeAI Learning Insights
+          </CardTitle>
+          <CardDescription>Personalized recommendations based on your data</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 rounded-xl bg-background/50 border border-green-500/20">
+              <div className="flex items-center gap-2 mb-2">
+                <Award className="w-5 h-5 text-green-500" />
+                <span className="font-medium text-green-500">Strength</span>
+              </div>
+              <p className="text-sm">Your performance in Mathematics is excellent! Consider tackling advanced calculus topics.</p>
+            </div>
+            <div className="p-4 rounded-xl bg-background/50 border border-orange-500/20">
+              <div className="flex items-center gap-2 mb-2">
+                <Target className="w-5 h-5 text-orange-500" />
+                <span className="font-medium text-orange-500">Focus Area</span>
+              </div>
+              <p className="text-sm">Chemistry scores could improve. Try the organic chemistry review module this week.</p>
+            </div>
+            <div className="p-4 rounded-xl bg-background/50 border border-blue-500/20">
+              <div className="flex items-center gap-2 mb-2">
+                <Lightbulb className="w-5 h-5 text-blue-500" />
+                <span className="font-medium text-blue-500">Recommendation</span>
+              </div>
+              <p className="text-sm">Based on your learning style, try video-based lessons for better retention.</p>
+            </div>
+          </div>
+        </CardContent>
       </Card>
     </motion.div>
   );
 }
 
 function SettingsPanel() {
+  const { user } = useAuth();
+  const shouldReduceMotion = useReducedMotion();
+  
+  // Settings state
+  const [settings, setSettings] = useState({
+    // Notifications
+    emailNotifications: true,
+    pushNotifications: true,
+    assignmentReminders: true,
+    lessonUpdates: false,
+    weeklyReport: true,
+    
+    // Appearance
+    darkMode: false,
+    compactMode: false,
+    animationsEnabled: true,
+    
+    // Privacy
+    profileVisible: true,
+    showProgress: true,
+    shareAnalytics: false,
+    
+    // AI Features
+    aiSuggestions: true,
+    personalizedLessons: true,
+    autoGrading: true,
+    
+    // Account
+    language: 'en',
+    timezone: 'auto',
+  });
+  
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [hasChanges, setHasChanges] = useState(false);
+
+  // Track changes
+  const updateSetting = <K extends keyof typeof settings>(key: K, value: typeof settings[K]) => {
+    setSettings(prev => ({ ...prev, [key]: value }));
+    setHasChanges(true);
+    setSaveStatus('idle');
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setIsSaving(false);
+    setSaveStatus('success');
+    setHasChanges(false);
+    setTimeout(() => setSaveStatus('idle'), 3000);
+  };
+
+  const handleCancel = () => {
+    // Reset to defaults (in real app, would reset to saved values)
+    setHasChanges(false);
+    setSaveStatus('idle');
+  };
+
+  // Initialize dark mode from document
+  React.useEffect(() => {
+    setSettings(prev => ({
+      ...prev,
+      darkMode: document.documentElement.classList.contains('dark')
+    }));
+  }, []);
+
+  // Toggle dark mode
+  const toggleDarkMode = (enabled: boolean) => {
+    updateSetting('darkMode', enabled);
+    if (enabled) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('aurikrex-theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('aurikrex-theme', 'light');
+    }
+  };
+
+  // Custom Switch component since we need it
+  const SettingsSwitch = ({ 
+    id, 
+    checked, 
+    onCheckedChange, 
+    disabled = false 
+  }: { 
+    id: string; 
+    checked: boolean; 
+    onCheckedChange: (checked: boolean) => void; 
+    disabled?: boolean;
+  }) => (
+    <button
+      id={id}
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onCheckedChange(!checked)}
+      className={`
+        relative inline-flex h-6 w-11 items-center rounded-full transition-colors
+        focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2
+        ${checked ? 'bg-primary' : 'bg-secondary'}
+        ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+      `}
+    >
+      <span
+        className={`
+          inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform
+          ${checked ? 'translate-x-6' : 'translate-x-1'}
+        `}
+      />
+    </button>
+  );
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-6"
+      className="space-y-6 max-w-4xl"
     >
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Settings</h1>
-        <p className="text-muted-foreground">Customize your learning experience</p>
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
+            Settings
+          </h1>
+          <p className="text-muted-foreground">Manage your account preferences and privacy</p>
+        </div>
+        
+        {/* Save Status */}
+        {saveStatus !== 'idle' && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl ${
+              saveStatus === 'success' ? 'bg-green-500/10 text-green-500' : 'bg-destructive/10 text-destructive'
+            }`}
+          >
+            {saveStatus === 'success' ? (
+              <>
+                <CheckCircle className="w-4 h-4" />
+                <span className="text-sm font-medium">Settings saved!</span>
+              </>
+            ) : (
+              <>
+                <AlertCircle className="w-4 h-4" />
+                <span className="text-sm font-medium">Failed to save</span>
+              </>
+            )}
+          </motion.div>
+        )}
       </div>
 
-      <Card>
+      {/* Profile Info Card */}
+      <Card className="border-border bg-card/50">
         <CardHeader>
-          <CardTitle>Account Settings</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <User className="w-5 h-5 text-primary" />
+            Profile Information
+          </CardTitle>
+          <CardDescription>Your account details from authentication provider</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">Settings panel coming soon...</p>
+          <div className="flex items-center gap-4">
+            <Avatar className="w-16 h-16 ring-2 ring-primary/20">
+              <AvatarImage src={user?.photoURL || ""} />
+              <AvatarFallback className="bg-primary text-primary-foreground text-xl font-bold">
+                {(user?.displayName || user?.firstName || 'U').charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <p className="font-semibold text-lg">{user?.displayName || user?.firstName || 'Student'}</p>
+              <p className="text-sm text-muted-foreground">{user?.email || 'student@aurikrex.com'}</p>
+              <Badge variant="secondary" className="mt-1">
+                {user?.provider ? user.provider.charAt(0).toUpperCase() + user.provider.slice(1) : 'Email'} Account
+              </Badge>
+            </div>
+          </div>
         </CardContent>
       </Card>
+
+      {/* Notifications Settings */}
+      <Card className="border-border bg-card/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="w-5 h-5 text-primary" />
+            Notifications
+          </CardTitle>
+          <CardDescription>Control how you receive updates and reminders</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <label htmlFor="email-notif" className="font-medium">Email Notifications</label>
+              <p className="text-sm text-muted-foreground">Receive important updates via email</p>
+            </div>
+            <SettingsSwitch
+              id="email-notif"
+              checked={settings.emailNotifications}
+              onCheckedChange={(v) => updateSetting('emailNotifications', v)}
+            />
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div>
+              <label htmlFor="push-notif" className="font-medium">Push Notifications</label>
+              <p className="text-sm text-muted-foreground">Get browser push notifications</p>
+            </div>
+            <SettingsSwitch
+              id="push-notif"
+              checked={settings.pushNotifications}
+              onCheckedChange={(v) => updateSetting('pushNotifications', v)}
+            />
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div>
+              <label htmlFor="assignment-remind" className="font-medium">Assignment Reminders</label>
+              <p className="text-sm text-muted-foreground">Get notified about upcoming deadlines</p>
+            </div>
+            <SettingsSwitch
+              id="assignment-remind"
+              checked={settings.assignmentReminders}
+              onCheckedChange={(v) => updateSetting('assignmentReminders', v)}
+            />
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div>
+              <label htmlFor="weekly-report" className="font-medium">Weekly Progress Report</label>
+              <p className="text-sm text-muted-foreground">Receive weekly summary of your learning</p>
+            </div>
+            <SettingsSwitch
+              id="weekly-report"
+              checked={settings.weeklyReport}
+              onCheckedChange={(v) => updateSetting('weeklyReport', v)}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Appearance Settings */}
+      <Card className="border-border bg-card/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            {settings.darkMode ? <Moon className="w-5 h-5 text-primary" /> : <Sun className="w-5 h-5 text-primary" />}
+            Appearance
+          </CardTitle>
+          <CardDescription>Customize the look and feel of your dashboard</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <label htmlFor="dark-mode" className="font-medium">Dark Mode</label>
+              <p className="text-sm text-muted-foreground">Switch between light and dark theme</p>
+            </div>
+            <SettingsSwitch
+              id="dark-mode"
+              checked={settings.darkMode}
+              onCheckedChange={toggleDarkMode}
+            />
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div>
+              <label htmlFor="animations" className="font-medium">Animations</label>
+              <p className="text-sm text-muted-foreground">Enable smooth transitions and effects</p>
+            </div>
+            <SettingsSwitch
+              id="animations"
+              checked={settings.animationsEnabled}
+              onCheckedChange={(v) => updateSetting('animationsEnabled', v)}
+            />
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div>
+              <label htmlFor="compact" className="font-medium">Compact Mode</label>
+              <p className="text-sm text-muted-foreground">Reduce spacing for more content</p>
+            </div>
+            <SettingsSwitch
+              id="compact"
+              checked={settings.compactMode}
+              onCheckedChange={(v) => updateSetting('compactMode', v)}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Privacy Settings */}
+      <Card className="border-border bg-card/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Eye className="w-5 h-5 text-primary" />
+            Privacy
+          </CardTitle>
+          <CardDescription>Control your data and visibility settings</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <label htmlFor="profile-visible" className="font-medium">Public Profile</label>
+              <p className="text-sm text-muted-foreground">Allow others to see your profile</p>
+            </div>
+            <SettingsSwitch
+              id="profile-visible"
+              checked={settings.profileVisible}
+              onCheckedChange={(v) => updateSetting('profileVisible', v)}
+            />
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div>
+              <label htmlFor="show-progress" className="font-medium">Show Learning Progress</label>
+              <p className="text-sm text-muted-foreground">Display progress on leaderboards</p>
+            </div>
+            <SettingsSwitch
+              id="show-progress"
+              checked={settings.showProgress}
+              onCheckedChange={(v) => updateSetting('showProgress', v)}
+            />
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div>
+              <label htmlFor="share-analytics" className="font-medium">Share Analytics</label>
+              <p className="text-sm text-muted-foreground">Help improve FalkeAI with usage data</p>
+            </div>
+            <SettingsSwitch
+              id="share-analytics"
+              checked={settings.shareAnalytics}
+              onCheckedChange={(v) => updateSetting('shareAnalytics', v)}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* AI Features */}
+      <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Brain className="w-5 h-5 text-primary" />
+            AI Features
+          </CardTitle>
+          <CardDescription>Control FalkeAI-powered learning tools</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <label htmlFor="ai-suggest" className="font-medium">AI Suggestions</label>
+              <p className="text-sm text-muted-foreground">Get personalized learning recommendations</p>
+            </div>
+            <SettingsSwitch
+              id="ai-suggest"
+              checked={settings.aiSuggestions}
+              onCheckedChange={(v) => updateSetting('aiSuggestions', v)}
+            />
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div>
+              <label htmlFor="personalized" className="font-medium">Personalized Lessons</label>
+              <p className="text-sm text-muted-foreground">Let AI customize lesson content for you</p>
+            </div>
+            <SettingsSwitch
+              id="personalized"
+              checked={settings.personalizedLessons}
+              onCheckedChange={(v) => updateSetting('personalizedLessons', v)}
+            />
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div>
+              <label htmlFor="auto-grade" className="font-medium">AI Auto-Grading</label>
+              <p className="text-sm text-muted-foreground">Enable instant AI feedback on assignments</p>
+            </div>
+            <SettingsSwitch
+              id="auto-grade"
+              checked={settings.autoGrading}
+              onCheckedChange={(v) => updateSetting('autoGrading', v)}
+            />
+          </div>
+          
+          <div className="p-4 rounded-xl bg-background/50 border border-primary/20">
+            <div className="flex items-start gap-3">
+              <Sparkles className="w-5 h-5 text-primary mt-0.5" />
+              <div>
+                <p className="font-medium text-sm">FalkeAI Status: Ready</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  All AI features are operational. FalkeAI endpoints (/chat, /conversation) are available for integration.
+                </p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Save/Cancel Buttons */}
+      <div className="flex items-center justify-end gap-3 pt-4 border-t border-border sticky bottom-0 bg-background/80 backdrop-blur-sm p-4 -mx-4 md:-mx-6 lg:-mx-8">
+        <button
+          onClick={handleCancel}
+          disabled={!hasChanges || isSaving}
+          className="px-6 py-2.5 rounded-xl border border-border hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={!hasChanges || isSaving}
+          className="px-6 py-2.5 rounded-xl bg-gradient-primary text-white font-medium hover:shadow-glow transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+        >
+          {isSaving ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <CheckCircle className="w-4 h-4" />
+              Save Changes
+            </>
+          )}
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+// ============================================================================
+// FALKEAI CHAT PANEL (Dedicated AI Chat Interface)
+// ============================================================================
+
+function FalkeAIPanel() {
+  const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant' | 'system'; content: string; timestamp: Date }>>([
+    {
+      role: 'system',
+      content: '👋 Welcome to FalkeAI! I\'m your intelligent learning companion. Ask me anything about your studies, request explanations, or get help with assignments. How can I assist you today?',
+      timestamp: new Date()
+    }
+  ]);
+  const [inputMessage, setInputMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [conversationId] = useState(() => `conv_${Date.now()}`);
+  const chatEndRef = React.useRef<HTMLDivElement>(null);
+  const shouldReduceMotion = useReducedMotion();
+
+  // Auto-scroll to bottom when new messages arrive
+  React.useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSendMessage = async () => {
+    if (!inputMessage.trim()) return;
+    
+    const userMessage = {
+      role: 'user' as const,
+      content: inputMessage,
+      timestamp: new Date()
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    setInputMessage("");
+    setIsLoading(true);
+
+    // Simulate AI response (placeholder for FalkeAI /chat endpoint integration)
+    setTimeout(() => {
+      const responses = [
+        "That's a great question! Let me explain this concept in detail. The key points to understand are:\n\n1. **Foundation**: Start with the basic principles\n2. **Application**: See how it applies in practice\n3. **Practice**: Try solving related problems\n\nWould you like me to elaborate on any of these points?",
+        "I'd be happy to help you with that! Here's a step-by-step breakdown:\n\n• First, identify the main components\n• Then, analyze how they interact\n• Finally, synthesize your understanding\n\nShall I provide some practice questions?",
+        "Excellent topic! This is one of my favorite subjects to explain. The core idea is actually simpler than it might seem at first. Let me walk you through it with an example that relates to everyday life...",
+        "I understand you want to learn more about this. Let me give you a comprehensive overview that covers both the theoretical foundation and practical applications. Feel free to interrupt with questions at any point!",
+      ];
+      
+      const assistantMessage = {
+        role: 'assistant' as const,
+        content: responses[Math.floor(Math.random() * responses.length)],
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, assistantMessage]);
+      setIsLoading(false);
+    }, 1500 + Math.random() * 1000);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  const quickPrompts = [
+    "Explain the concept of...",
+    "Help me understand...",
+    "Create a study guide for...",
+    "Quiz me on...",
+    "Summarize this topic...",
+    "Give me practice problems for...",
+  ];
+
+  const handleNewConversation = () => {
+    setMessages([{
+      role: 'system',
+      content: '👋 New conversation started! How can I help you learn today?',
+      timestamp: new Date()
+    }]);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="h-[calc(100vh-120px)] flex flex-col"
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2 flex items-center gap-3">
+            <Brain className="w-8 h-8 text-primary" />
+            FalkeAI Chat
+          </h1>
+          <p className="text-muted-foreground">Your intelligent learning companion — ask anything!</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Badge className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 border-green-500/30 text-green-600">
+            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+            Online
+          </Badge>
+          <button
+            onClick={handleNewConversation}
+            className="px-4 py-2 rounded-xl bg-secondary hover:bg-secondary/80 transition-colors text-sm font-medium flex items-center gap-2"
+          >
+            <MessageSquare className="w-4 h-4" />
+            New Chat
+          </button>
+        </div>
+      </div>
+
+      {/* Chat Container */}
+      <Card className="flex-1 flex flex-col border-border bg-card/50 backdrop-blur-sm overflow-hidden">
+        {/* Chat Messages */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          {messages.map((msg, index) => (
+            <motion.div
+              key={index}
+              initial={!shouldReduceMotion ? { opacity: 0, y: 10 } : {}}
+              animate={{ opacity: 1, y: 0 }}
+              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            >
+              <div className={`max-w-[80%] ${msg.role === 'user' ? 'order-2' : ''}`}>
+                <div className={`flex items-start gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                  {/* Avatar */}
+                  <div className={`p-2 rounded-xl flex-shrink-0 ${
+                    msg.role === 'user' ? 'bg-primary/20' : 
+                    msg.role === 'system' ? 'bg-accent/20' : 'bg-primary/10'
+                  }`}>
+                    {msg.role === 'user' ? (
+                      <User className="w-5 h-5 text-primary" />
+                    ) : (
+                      <Brain className="w-5 h-5 text-primary" />
+                    )}
+                  </div>
+                  
+                  {/* Message Content */}
+                  <div className={`p-4 rounded-2xl ${
+                    msg.role === 'user' 
+                      ? 'bg-primary text-primary-foreground rounded-br-md' 
+                      : msg.role === 'system'
+                        ? 'bg-accent/10 border border-accent/30 rounded-bl-md'
+                        : 'bg-secondary rounded-bl-md'
+                  }`}>
+                    <p className="text-xs opacity-70 mb-2">
+                      {msg.role === 'user' ? 'You' : 'FalkeAI'} • {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.content}</p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+          
+          {/* Loading Indicator */}
+          {isLoading && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex justify-start"
+            >
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-xl bg-primary/10">
+                  <Brain className="w-5 h-5 text-primary animate-pulse" />
+                </div>
+                <div className="bg-secondary p-4 rounded-2xl rounded-bl-md">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">FalkeAI is thinking</span>
+                    <div className="flex gap-1">
+                      <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+          <div ref={chatEndRef} />
+        </div>
+
+        {/* Quick Prompts */}
+        <div className="px-6 py-3 border-t border-border bg-secondary/20">
+          <p className="text-xs text-muted-foreground mb-2">Quick prompts:</p>
+          <div className="flex flex-wrap gap-2">
+            {quickPrompts.map((prompt, index) => (
+              <button
+                key={index}
+                onClick={() => setInputMessage(prompt)}
+                className="px-3 py-1.5 text-xs rounded-full bg-background hover:bg-secondary transition-colors border border-border"
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Input Area */}
+        <div className="p-4 border-t border-border bg-background/50">
+          <div className="flex items-end gap-3">
+            <div className="flex-1 relative">
+              <textarea
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                onKeyDown={handleKeyPress}
+                placeholder="Ask FalkeAI anything about your learning..."
+                className="w-full min-h-[60px] max-h-[150px] p-4 pr-4 rounded-2xl bg-secondary/50 border border-border focus:outline-none focus:ring-2 focus:ring-primary resize-none text-sm"
+                aria-label="Message input"
+              />
+            </div>
+            <button
+              onClick={handleSendMessage}
+              disabled={isLoading || !inputMessage.trim()}
+              className="p-4 rounded-2xl bg-gradient-primary text-white disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-glow transition-all"
+              aria-label="Send message"
+            >
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <Send className="w-5 h-5" />
+              )}
+            </button>
+          </div>
+          <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
+            <span>Press Enter to send, Shift+Enter for new line</span>
+            <span>Conversation ID: {conversationId}</span>
+          </div>
+        </div>
+      </Card>
+
+      {/* API Info */}
+      <div className="mt-4 p-4 rounded-xl bg-primary/5 border border-primary/20">
+        <div className="flex items-start gap-3">
+          <Sparkles className="w-5 h-5 text-primary mt-0.5" />
+          <div>
+            <p className="font-medium text-sm">FalkeAI Backend Integration</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Ready to connect to <code className="px-1.5 py-0.5 bg-secondary rounded text-primary">/chat</code> and <code className="px-1.5 py-0.5 bg-secondary rounded text-primary">/conversation</code> endpoints. The AI tutor will provide personalized learning assistance once fully integrated.
+            </p>
+          </div>
+        </div>
+      </div>
     </motion.div>
   );
 }
@@ -894,6 +2484,8 @@ export default function Dashboard() {
         return <AnalyticsPanel />;
       case "settings":
         return <SettingsPanel />;
+      case "falkeai":
+        return <FalkeAIPanel />;
       default:
         return <DashboardPanel />;
     }
