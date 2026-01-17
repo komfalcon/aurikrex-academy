@@ -20,7 +20,7 @@
  * ============================================================================
  */
 
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
@@ -815,8 +815,8 @@ function LessonsPanel() {
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const chatEndRef = React.useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
   const shouldReduceMotion = useReducedMotion();
 
   const ACCEPTED_FILE_TYPES = ".txt,.pdf,.docx,.doc,.png,.jpg,.jpeg";
@@ -871,7 +871,7 @@ function LessonsPanel() {
   };
 
   // Auto-scroll to bottom when new messages arrive
-  React.useEffect(() => {
+  useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
 
@@ -1138,7 +1138,7 @@ function AssignmentsPanel() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [selectedAssignment, setSelectedAssignment] = useState<string | null>(null);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const shouldReduceMotion = useReducedMotion();
 
   const ACCEPTED_FILE_TYPES = ".txt,.pdf,.docx,.doc,.png,.jpg,.jpeg,.ppt,.pptx,.xlsx,.xls";
@@ -1851,7 +1851,7 @@ function SettingsPanel() {
   };
 
   // Initialize dark mode from document
-  React.useEffect(() => {
+  useEffect(() => {
     setSettings(prev => ({
       ...prev,
       darkMode: document.documentElement.classList.contains('dark')
@@ -2233,11 +2233,11 @@ function FalkeAIPanel() {
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [conversationId] = useState(() => `conv_${Date.now()}`);
-  const chatEndRef = React.useRef<HTMLDivElement>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
   const shouldReduceMotion = useReducedMotion();
 
   // Auto-scroll to bottom when new messages arrive
-  React.useEffect(() => {
+  useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
