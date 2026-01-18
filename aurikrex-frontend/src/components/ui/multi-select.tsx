@@ -117,10 +117,10 @@ export function MultiSelect({
         </button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] min-w-[200px] p-0" align="start">
-        <Command>
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] min-w-[200px] max-w-[calc(100vw-2rem)] p-0 bg-card border border-border shadow-xl" align="start">
+        <Command className="bg-card">
           <CommandInput placeholder={searchPlaceholder} />
-          <CommandList>
+          <CommandList className="max-h-[min(300px,50vh)]">
             <CommandEmpty>{emptyMessage}</CommandEmpty>
             <CommandGroup>
               <ScrollArea className="h-auto" style={{ maxHeight: `${maxHeight}px` }}>
