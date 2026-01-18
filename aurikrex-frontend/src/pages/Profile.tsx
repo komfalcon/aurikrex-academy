@@ -29,9 +29,10 @@
  * For handling multi-select dropdowns (courses and languages):
  * - Uses the custom MultiSelect component
  * - Stores selected values as string arrays
- * - Course dropdown includes all major university courses worldwide
- * - Language dropdown includes all spoken languages in the world
- * - Both support search/filter functionality
+ * - Course dropdown includes 400+ courses (primary/secondary/university/professional)
+ * - Language dropdown includes 300+ languages (global, African, Nigerian, sign languages)
+ * - Skills dropdown includes 200+ digital skills (programming, design, marketing, etc.)
+ * - All support search/filter functionality
  */
 
 import { useState, useRef } from "react";
@@ -43,7 +44,6 @@ import {
   School,
   BookOpen,
   GraduationCap,
-  Globe,
   Lightbulb,
   FileText,
   Save,
@@ -66,220 +66,12 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MultiSelect, MultiSelectOption } from "@/components/ui/multi-select";
+import { MultiSelect } from "@/components/ui/multi-select";
 
-// ============================================================================
-// DATA: World Languages (comprehensive list)
-// ============================================================================
-const WORLD_LANGUAGES: MultiSelectOption[] = [
-  { value: "en", label: "English" },
-  { value: "zh", label: "Chinese (Mandarin)" },
-  { value: "hi", label: "Hindi" },
-  { value: "es", label: "Spanish" },
-  { value: "fr", label: "French" },
-  { value: "ar", label: "Arabic" },
-  { value: "bn", label: "Bengali" },
-  { value: "pt", label: "Portuguese" },
-  { value: "ru", label: "Russian" },
-  { value: "ja", label: "Japanese" },
-  { value: "de", label: "German" },
-  { value: "ko", label: "Korean" },
-  { value: "it", label: "Italian" },
-  { value: "tr", label: "Turkish" },
-  { value: "vi", label: "Vietnamese" },
-  { value: "th", label: "Thai" },
-  { value: "pl", label: "Polish" },
-  { value: "uk", label: "Ukrainian" },
-  { value: "nl", label: "Dutch" },
-  { value: "el", label: "Greek" },
-  { value: "he", label: "Hebrew" },
-  { value: "sv", label: "Swedish" },
-  { value: "no", label: "Norwegian" },
-  { value: "da", label: "Danish" },
-  { value: "fi", label: "Finnish" },
-  { value: "cs", label: "Czech" },
-  { value: "ro", label: "Romanian" },
-  { value: "hu", label: "Hungarian" },
-  { value: "id", label: "Indonesian" },
-  { value: "ms", label: "Malay" },
-  { value: "tl", label: "Filipino (Tagalog)" },
-  { value: "sw", label: "Swahili" },
-  { value: "fa", label: "Persian (Farsi)" },
-  { value: "ur", label: "Urdu" },
-  { value: "ta", label: "Tamil" },
-  { value: "te", label: "Telugu" },
-  { value: "mr", label: "Marathi" },
-  { value: "gu", label: "Gujarati" },
-  { value: "kn", label: "Kannada" },
-  { value: "ml", label: "Malayalam" },
-  { value: "pa", label: "Punjabi" },
-  { value: "ne", label: "Nepali" },
-  { value: "si", label: "Sinhala" },
-  { value: "my", label: "Burmese" },
-  { value: "km", label: "Khmer" },
-  { value: "lo", label: "Lao" },
-  { value: "am", label: "Amharic" },
-  { value: "yo", label: "Yoruba" },
-  { value: "ig", label: "Igbo" },
-  { value: "ha", label: "Hausa" },
-  { value: "zu", label: "Zulu" },
-  { value: "xh", label: "Xhosa" },
-  { value: "af", label: "Afrikaans" },
-  { value: "ca", label: "Catalan" },
-  { value: "eu", label: "Basque" },
-  { value: "gl", label: "Galician" },
-  { value: "cy", label: "Welsh" },
-  { value: "ga", label: "Irish" },
-  { value: "gd", label: "Scottish Gaelic" },
-  { value: "is", label: "Icelandic" },
-  { value: "lv", label: "Latvian" },
-  { value: "lt", label: "Lithuanian" },
-  { value: "et", label: "Estonian" },
-  { value: "mt", label: "Maltese" },
-  { value: "sq", label: "Albanian" },
-  { value: "mk", label: "Macedonian" },
-  { value: "bg", label: "Bulgarian" },
-  { value: "sr", label: "Serbian" },
-  { value: "hr", label: "Croatian" },
-  { value: "bs", label: "Bosnian" },
-  { value: "sl", label: "Slovenian" },
-  { value: "sk", label: "Slovak" },
-  { value: "be", label: "Belarusian" },
-  { value: "ka", label: "Georgian" },
-  { value: "hy", label: "Armenian" },
-  { value: "az", label: "Azerbaijani" },
-  { value: "kk", label: "Kazakh" },
-  { value: "uz", label: "Uzbek" },
-  { value: "ky", label: "Kyrgyz" },
-  { value: "tg", label: "Tajik" },
-  { value: "tk", label: "Turkmen" },
-  { value: "mn", label: "Mongolian" },
-  { value: "bo", label: "Tibetan" },
-  { value: "dz", label: "Dzongkha" },
-  { value: "ps", label: "Pashto" },
-  { value: "ku", label: "Kurdish" },
-].sort((a, b) => a.label.localeCompare(b.label));
-
-// ============================================================================
-// DATA: University Courses (comprehensive worldwide list with strength info)
-// ============================================================================
-const UNIVERSITY_COURSES: MultiSelectOption[] = [
-  // Engineering & Technology
-  { value: "comp-sci", label: "Computer Science", description: "High demand" },
-  { value: "software-eng", label: "Software Engineering", description: "High demand" },
-  { value: "data-science", label: "Data Science", description: "High demand" },
-  { value: "ai-ml", label: "Artificial Intelligence & ML", description: "Very high demand" },
-  { value: "cybersecurity", label: "Cybersecurity", description: "High demand" },
-  { value: "elec-eng", label: "Electrical Engineering", description: "Moderate demand" },
-  { value: "mech-eng", label: "Mechanical Engineering", description: "Moderate demand" },
-  { value: "civil-eng", label: "Civil Engineering", description: "Moderate demand" },
-  { value: "chem-eng", label: "Chemical Engineering", description: "Moderate demand" },
-  { value: "aero-eng", label: "Aerospace Engineering", description: "Moderate demand" },
-  { value: "biomed-eng", label: "Biomedical Engineering", description: "High demand" },
-  { value: "env-eng", label: "Environmental Engineering", description: "Growing demand" },
-  { value: "ind-eng", label: "Industrial Engineering", description: "Moderate demand" },
-  { value: "materials-eng", label: "Materials Engineering", description: "Moderate demand" },
-  { value: "nuclear-eng", label: "Nuclear Engineering", description: "Specialized" },
-  { value: "robotics", label: "Robotics Engineering", description: "High demand" },
-  
-  // Sciences
-  { value: "physics", label: "Physics", description: "Research focused" },
-  { value: "chemistry", label: "Chemistry", description: "Research focused" },
-  { value: "biology", label: "Biology", description: "Moderate demand" },
-  { value: "math", label: "Mathematics", description: "Research focused" },
-  { value: "statistics", label: "Statistics", description: "High demand" },
-  { value: "biochemistry", label: "Biochemistry", description: "Research focused" },
-  { value: "microbiology", label: "Microbiology", description: "Research focused" },
-  { value: "genetics", label: "Genetics", description: "Research focused" },
-  { value: "neuroscience", label: "Neuroscience", description: "Research focused" },
-  { value: "astronomy", label: "Astronomy", description: "Research focused" },
-  { value: "geology", label: "Geology", description: "Moderate demand" },
-  { value: "env-science", label: "Environmental Science", description: "Growing demand" },
-  { value: "marine-bio", label: "Marine Biology", description: "Specialized" },
-  
-  // Medical & Health
-  { value: "medicine", label: "Medicine (MBBS/MD)", description: "Very high demand" },
-  { value: "nursing", label: "Nursing", description: "High demand" },
-  { value: "pharmacy", label: "Pharmacy", description: "Moderate demand" },
-  { value: "dentistry", label: "Dentistry", description: "High demand" },
-  { value: "veterinary", label: "Veterinary Medicine", description: "Moderate demand" },
-  { value: "public-health", label: "Public Health", description: "Growing demand" },
-  { value: "physiotherapy", label: "Physiotherapy", description: "Moderate demand" },
-  { value: "psychology", label: "Psychology", description: "High demand" },
-  { value: "nutrition", label: "Nutrition & Dietetics", description: "Growing demand" },
-  { value: "optometry", label: "Optometry", description: "Moderate demand" },
-  
-  // Business & Economics
-  { value: "business-admin", label: "Business Administration", description: "High demand" },
-  { value: "finance", label: "Finance", description: "High demand" },
-  { value: "accounting", label: "Accounting", description: "Moderate demand" },
-  { value: "economics", label: "Economics", description: "Moderate demand" },
-  { value: "marketing", label: "Marketing", description: "Moderate demand" },
-  { value: "management", label: "Management", description: "Moderate demand" },
-  { value: "int-business", label: "International Business", description: "Moderate demand" },
-  { value: "entrepreneurship", label: "Entrepreneurship", description: "Growing demand" },
-  { value: "hr", label: "Human Resources", description: "Moderate demand" },
-  { value: "supply-chain", label: "Supply Chain Management", description: "Growing demand" },
-  
-  // Law & Political Science
-  { value: "law", label: "Law (LLB/JD)", description: "Moderate demand" },
-  { value: "pol-sci", label: "Political Science", description: "Moderate demand" },
-  { value: "int-relations", label: "International Relations", description: "Moderate demand" },
-  { value: "public-admin", label: "Public Administration", description: "Moderate demand" },
-  
-  // Arts & Humanities
-  { value: "english-lit", label: "English Literature", description: "Moderate demand" },
-  { value: "history", label: "History", description: "Moderate demand" },
-  { value: "philosophy", label: "Philosophy", description: "Moderate demand" },
-  { value: "linguistics", label: "Linguistics", description: "Moderate demand" },
-  { value: "sociology", label: "Sociology", description: "Moderate demand" },
-  { value: "anthropology", label: "Anthropology", description: "Moderate demand" },
-  { value: "archaeology", label: "Archaeology", description: "Specialized" },
-  { value: "religious-studies", label: "Religious Studies", description: "Specialized" },
-  { value: "classics", label: "Classics", description: "Specialized" },
-  
-  // Creative Arts & Design
-  { value: "fine-arts", label: "Fine Arts", description: "Moderate demand" },
-  { value: "graphic-design", label: "Graphic Design", description: "High demand" },
-  { value: "ux-design", label: "UX/UI Design", description: "Very high demand" },
-  { value: "animation", label: "Animation", description: "High demand" },
-  { value: "fashion-design", label: "Fashion Design", description: "Moderate demand" },
-  { value: "interior-design", label: "Interior Design", description: "Moderate demand" },
-  { value: "architecture", label: "Architecture", description: "Moderate demand" },
-  { value: "film-studies", label: "Film & Media Studies", description: "Moderate demand" },
-  { value: "photography", label: "Photography", description: "Moderate demand" },
-  { value: "music", label: "Music", description: "Moderate demand" },
-  { value: "theatre", label: "Theatre & Drama", description: "Moderate demand" },
-  { value: "game-design", label: "Game Design", description: "High demand" },
-  
-  // Communication & Media
-  { value: "journalism", label: "Journalism", description: "Moderate demand" },
-  { value: "mass-comm", label: "Mass Communication", description: "Moderate demand" },
-  { value: "public-relations", label: "Public Relations", description: "Moderate demand" },
-  { value: "advertising", label: "Advertising", description: "Moderate demand" },
-  { value: "digital-media", label: "Digital Media", description: "High demand" },
-  
-  // Education
-  { value: "education", label: "Education", description: "Moderate demand" },
-  { value: "early-childhood", label: "Early Childhood Education", description: "Moderate demand" },
-  { value: "special-ed", label: "Special Education", description: "High demand" },
-  { value: "edu-tech", label: "Educational Technology", description: "Growing demand" },
-  
-  // Agriculture & Environment
-  { value: "agriculture", label: "Agriculture", description: "Moderate demand" },
-  { value: "agri-business", label: "Agribusiness", description: "Moderate demand" },
-  { value: "forestry", label: "Forestry", description: "Moderate demand" },
-  { value: "food-science", label: "Food Science", description: "Moderate demand" },
-  { value: "horticulture", label: "Horticulture", description: "Specialized" },
-  
-  // Other
-  { value: "hospitality", label: "Hospitality Management", description: "Moderate demand" },
-  { value: "tourism", label: "Tourism Management", description: "Moderate demand" },
-  { value: "sports-science", label: "Sports Science", description: "Growing demand" },
-  { value: "social-work", label: "Social Work", description: "Moderate demand" },
-  { value: "library-science", label: "Library Science", description: "Specialized" },
-  { value: "urban-planning", label: "Urban Planning", description: "Moderate demand" },
-].sort((a, b) => a.label.localeCompare(b.label));
+// Import comprehensive data from data files
+import { WORLD_LANGUAGES } from "@/data/languages";
+import { COURSES as UNIVERSITY_COURSES } from "@/data/courses";
+import { SKILLS } from "@/data/skills";
 
 // ============================================================================
 // DATA: Learning Styles
@@ -291,47 +83,6 @@ const LEARNING_STYLES = [
   { value: "kinesthetic", label: "Kinesthetic (learn by doing)" },
   { value: "multimodal", label: "Multimodal (combination of styles)" },
 ];
-
-// ============================================================================
-// DATA: Skills (comprehensive list)
-// ============================================================================
-const SKILLS: MultiSelectOption[] = [
-  // Technical Skills
-  { value: "programming", label: "Programming" },
-  { value: "web-dev", label: "Web Development" },
-  { value: "mobile-dev", label: "Mobile Development" },
-  { value: "database", label: "Database Management" },
-  { value: "cloud", label: "Cloud Computing" },
-  { value: "devops", label: "DevOps" },
-  { value: "ml", label: "Machine Learning" },
-  { value: "data-analysis", label: "Data Analysis" },
-  { value: "ui-ux", label: "UI/UX Design" },
-  { value: "graphic-design", label: "Graphic Design" },
-  { value: "video-editing", label: "Video Editing" },
-  { value: "3d-modeling", label: "3D Modeling" },
-  { value: "cad", label: "CAD Design" },
-  { value: "excel", label: "Advanced Excel" },
-  { value: "seo", label: "SEO" },
-  { value: "digital-marketing", label: "Digital Marketing" },
-  
-  // Soft Skills
-  { value: "communication", label: "Communication" },
-  { value: "leadership", label: "Leadership" },
-  { value: "teamwork", label: "Teamwork" },
-  { value: "problem-solving", label: "Problem Solving" },
-  { value: "critical-thinking", label: "Critical Thinking" },
-  { value: "time-management", label: "Time Management" },
-  { value: "project-management", label: "Project Management" },
-  { value: "presentation", label: "Presentation Skills" },
-  { value: "negotiation", label: "Negotiation" },
-  { value: "research", label: "Research" },
-  { value: "writing", label: "Technical Writing" },
-  { value: "creative-writing", label: "Creative Writing" },
-  { value: "public-speaking", label: "Public Speaking" },
-  { value: "mentoring", label: "Mentoring" },
-  { value: "adaptability", label: "Adaptability" },
-  { value: "emotional-intel", label: "Emotional Intelligence" },
-].sort((a, b) => a.label.localeCompare(b.label));
 
 // ============================================================================
 // PROFILE FORM INTERFACE
