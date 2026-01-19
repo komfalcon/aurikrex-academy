@@ -85,8 +85,15 @@ export class UserModel {
 
       return { ...user, _id: result.insertedId };
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes('E11000') && message.includes('username')) {
+        throw new Error('Username already in use');
+      }
+      if (message.includes('E11000') && message.includes('email')) {
+        throw new Error('Email already in use');
+      }
       log.error('❌ Error creating user', { 
-        error: error instanceof Error ? error.message : String(error),
+        error: message,
         email: userData.email 
       });
       throw error;
@@ -148,10 +155,7 @@ export class UserModel {
       const escapedUsername = username.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const usernamePattern = new RegExp(`^${escapedUsername}$`, 'i');
       const filter: Filter<UserDocument> = {
-        $or: [
-          { username: { $regex: usernamePattern } },
-          { displayName: { $regex: usernamePattern } }
-        ]
+        username: { $regex: usernamePattern }
       };
 
       if (excludeUserId) {
@@ -213,8 +217,12 @@ export class UserModel {
 
       return result || null;
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes('E11000') && message.includes('username')) {
+        throw new Error('Username already in use');
+      }
       log.error('❌ Error updating user', { 
-        error: error instanceof Error ? error.message : String(error),
+        error: message,
         userId 
       });
       throw error;

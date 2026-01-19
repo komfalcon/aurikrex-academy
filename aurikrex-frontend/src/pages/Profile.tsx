@@ -205,7 +205,7 @@ export default function Profile() {
     }
 
     let isActive = true;
-    const timeout = window.setTimeout(async () => {
+    const timeoutId = window.setTimeout(async () => {
       try {
         const params = new URLSearchParams({ username: trimmedUsername });
         if (user?.uid) {
@@ -221,9 +221,16 @@ export default function Profile() {
         }
 
         const data = await response.json();
-        if (isActive && data?.success) {
-          setUsernameStatus(data.data?.available ? "available" : "unavailable");
+        if (!isActive) {
+          return;
         }
+
+        if (data?.success) {
+          setUsernameStatus(data.data?.available ? "available" : "unavailable");
+          return;
+        }
+
+        setUsernameStatus("idle");
       } catch {
         if (isActive) {
           setUsernameStatus("idle");
@@ -233,7 +240,7 @@ export default function Profile() {
 
     return () => {
       isActive = false;
-      window.clearTimeout(timeout);
+      window.clearTimeout(timeoutId);
     };
   }, [formData.username, user?.uid]);
 
