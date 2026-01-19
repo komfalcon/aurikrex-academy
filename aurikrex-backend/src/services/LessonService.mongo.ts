@@ -11,26 +11,45 @@ import {
 } from '../types/lesson.types.js';
 
 class LessonService {
-  private openai: OpenAI;
+  private openai: OpenAI | null = null;
   private readonly VERSION = '1.0.0';
+  private openAIEnabled: boolean = false;
 
   constructor() {
     if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY is not set in environment variables');
+      console.warn('⚠️  OPENAI_API_KEY not set. OpenAI features disabled. Using FalkeAI as alternative.');
+      this.openAIEnabled = false;
+    } else {
+      this.openAIEnabled = true;
+      this.openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY
+      });
     }
+  }
 
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
-    });
+  /**
+   * Check if OpenAI is available and configured
+   * @returns boolean indicating if OpenAI features are available
+   */
+  private checkOpenAIAvailable(): boolean {
+    if (!this.openAIEnabled || !this.openai) {
+      console.warn('OpenAI feature called but OpenAI is not configured');
+      return false;
+    }
+    return true;
   }
 
   private async generateWithOpenAI(input: LessonInput): Promise<GeneratedLesson> {
+    if (!this.checkOpenAIAvailable()) {
+      throw new Error('OpenAI is not configured. Please set OPENAI_API_KEY or use FalkeAI for lesson generation.');
+    }
+
     try {
       const prompt = this.constructPrompt(input);
       
       console.log('🤖 Calling OpenAI API for lesson generation...');
       
-      const response = await this.openai.chat.completions.create({
+      const response = await this.openai!.chat.completions.create({
         model: "gpt-4-turbo-preview",
         messages: [
           {
