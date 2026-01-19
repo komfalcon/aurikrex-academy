@@ -5,6 +5,7 @@ import analyticsRoutes from "./analyticsRoutes.mongo.js";
 import userRoutes from "./userRoutes.mongo.js";
 import testRoutes from "./testRoutes.js";
 import healthRoutes from "./healthRoutes.js";
+import aiRoutes from "./aiRoutes.js";
 
 const router = Router();
 
@@ -25,5 +26,8 @@ router.use("/test", testRoutes);
 
 // Health routes
 router.use("/health", healthRoutes);
+
+// AI routes (FalkeAI integration)
+router.use("/ai", aiRoutes);
 
 export default router;

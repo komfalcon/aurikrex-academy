@@ -89,3 +89,43 @@ export interface RateLimitConfig {
   maxRequests: number;
   provider: AIModel;
 }
+
+// ============================================
+// FalkeAI Chat Types
+// ============================================
+
+/**
+ * Context information for the FalkeAI chat request
+ * Used to provide contextual information about where the chat is being used
+ */
+export interface FalkeAIChatContext {
+  page: 'Smart Lessons' | 'Assignment' | 'Dashboard' | 'Ask FalkeAI';
+  course?: string;
+  username: string;
+  userId: string;
+}
+
+/**
+ * Request body for the internal AI chat endpoint
+ */
+export interface FalkeAIChatRequest {
+  message: string;
+  context: FalkeAIChatContext;
+}
+
+/**
+ * Response from the internal AI chat endpoint
+ */
+export interface FalkeAIChatResponse {
+  reply: string;
+  timestamp: string;
+}
+
+/**
+ * Error response from the AI chat endpoint
+ */
+export interface FalkeAIErrorResponse {
+  status: 'error';
+  message: string;
+  code?: string;
+}
