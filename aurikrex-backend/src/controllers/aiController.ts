@@ -6,27 +6,20 @@
  * 
  * Endpoints:
  * - POST /api/ai/chat - Send a chat message to FalkeAI
+ * 
+ * Note: Input validation is handled by express-validator middleware in aiRoutes.ts
  */
 
 import { Request, Response } from 'express';
 import { log } from '../utils/logger.js';
 import { falkeAIService } from '../services/FalkeAIService.js';
-import { FalkeAIChatRequest, FalkeAIChatContext } from '../types/ai.types.js';
-
-/**
- * Valid page values for the chat context
- */
-const VALID_PAGES: FalkeAIChatContext['page'][] = [
-  'Smart Lessons',
-  'Assignment',
-  'Dashboard',
-  'Ask FalkeAI',
-];
+import { FalkeAIChatRequest } from '../types/ai.types.js';
 
 /**
  * POST /api/ai/chat
  * 
  * Send a chat message to FalkeAI and receive a response.
+ * Input validation is handled by express-validator middleware.
  * 
  * Request body:
  * {
@@ -47,52 +40,8 @@ const VALID_PAGES: FalkeAIChatContext['page'][] = [
  */
 export const sendChatMessage = async (req: Request, res: Response): Promise<void> => {
   try {
+    // Request body is already validated by express-validator middleware
     const { message, context } = req.body as FalkeAIChatRequest;
-
-    // Validate message
-    if (!message || typeof message !== 'string' || message.trim().length === 0) {
-      res.status(400).json({
-        status: 'error',
-        message: 'Message is required and must be a non-empty string',
-      });
-      return;
-    }
-
-    // Validate context
-    if (!context || typeof context !== 'object') {
-      res.status(400).json({
-        status: 'error',
-        message: 'Context object is required',
-      });
-      return;
-    }
-
-    // Validate context.page
-    if (!context.page || !VALID_PAGES.includes(context.page)) {
-      res.status(400).json({
-        status: 'error',
-        message: `Invalid page value. Must be one of: ${VALID_PAGES.join(', ')}`,
-      });
-      return;
-    }
-
-    // Validate context.username
-    if (!context.username || typeof context.username !== 'string') {
-      res.status(400).json({
-        status: 'error',
-        message: 'Context username is required',
-      });
-      return;
-    }
-
-    // Validate context.userId
-    if (!context.userId || typeof context.userId !== 'string') {
-      res.status(400).json({
-        status: 'error',
-        message: 'Context userId is required',
-      });
-      return;
-    }
 
     // Check if FalkeAI service is configured
     if (!falkeAIService.isConfigured()) {

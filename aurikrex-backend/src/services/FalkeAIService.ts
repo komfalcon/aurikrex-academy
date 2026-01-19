@@ -23,6 +23,23 @@ const MAX_RETRIES = 2;
 const RETRY_DELAY = 1000; // 1 second
 
 /**
+ * Custom error class that carries HTTP status code information
+ * Used to determine if an error is retryable based on status code
+ */
+class FalkeAIError extends Error {
+  public readonly statusCode?: number;
+  public readonly isRetryable: boolean;
+
+  constructor(message: string, statusCode?: number) {
+    super(message);
+    this.name = 'FalkeAIError';
+    this.statusCode = statusCode;
+    // Client errors (4xx) are not retryable, server errors (5xx) are retryable
+    this.isRetryable = statusCode === undefined || statusCode >= 500;
+  }
+}
+
+/**
  * FalkeAI Service class
  * Handles all communication with the FalkeAI backend
  */
@@ -98,8 +115,8 @@ class FalkeAIService {
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
         
-        // Don't retry for client errors (4xx)
-        if (this.isClientError(lastError)) {
+        // Don't retry for non-retryable errors (client errors 4xx)
+        if (error instanceof FalkeAIError && !error.isRetryable) {
           throw lastError;
         }
 
@@ -163,7 +180,8 @@ class FalkeAIService {
       // Handle non-OK responses
       if (!response.ok) {
         const errorMessage = await this.parseErrorResponse(response);
-        throw new Error(errorMessage);
+        // Throw FalkeAIError with status code for proper retry logic
+        throw new FalkeAIError(errorMessage, response.status);
       }
 
       // Parse response
@@ -171,7 +189,7 @@ class FalkeAIService {
 
       // Validate response structure
       if (!data || typeof data.reply !== 'string') {
-        throw new Error('Invalid response from AI service');
+        throw new FalkeAIError('Invalid response from AI service');
       }
 
       return {
@@ -183,7 +201,7 @@ class FalkeAIService {
 
       // Handle abort (timeout)
       if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('AI service request timed out. Please try again.');
+        throw new FalkeAIError('AI service request timed out. Please try again.');
       }
 
       // Re-throw other errors
@@ -202,14 +220,6 @@ class FalkeAIService {
       // If we can't parse the error response, return a generic message
       return `AI service error (${response.status})`;
     }
-  }
-
-  /**
-   * Check if the error is a client error (4xx)
-   */
-  private isClientError(error: Error): boolean {
-    // Client errors typically shouldn't be retried
-    return error.message.includes('(4');
   }
 
   /**
