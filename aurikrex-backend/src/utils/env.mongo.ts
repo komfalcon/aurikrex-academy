@@ -80,9 +80,9 @@ const envVars = {
 
   // AI Service Configuration
   OPENAI_API_KEY: {
-    required: true,
-    validate: (value: string) => value.startsWith('sk-'),
-    message: 'OPENAI_API_KEY must be a valid OpenAI API key starting with sk-'
+    required: false,
+    validate: (value: string) => !value || value.startsWith('sk-'),
+    message: 'OPENAI_API_KEY must be a valid OpenAI API key starting with sk- when provided'
   },
   GEMINI_API_KEY: {
     required: false,

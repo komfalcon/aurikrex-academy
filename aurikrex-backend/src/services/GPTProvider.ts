@@ -9,21 +9,40 @@ import {
 import { LessonInput, Lesson } from '../types/lesson.types.js';
 
 export class GPTProvider extends BaseAIProvider {
-  private openai: OpenAI;
+  private openai: OpenAI | null = null;
+  private openAIEnabled: boolean = false;
   
   constructor(config: AIServiceConfig) {
     super(config);
     
     if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY is required for GPTProvider');
+      console.warn('⚠️  OPENAI_API_KEY not set. GPTProvider features disabled.');
+      this.openAIEnabled = false;
+    } else {
+      this.openAIEnabled = true;
+      this.openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY
+      });
     }
-    
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
-    });
+  }
+
+  /**
+   * Check if OpenAI is available and configured
+   * @returns boolean indicating if OpenAI features are available
+   */
+  private checkOpenAIAvailable(): boolean {
+    if (!this.openAIEnabled || !this.openai) {
+      console.warn('GPTProvider called but OpenAI is not configured');
+      return false;
+    }
+    return true;
   }
 
   async generateLesson(input: LessonInput): Promise<AIResponse<Lesson>> {
+    if (!this.checkOpenAIAvailable()) {
+      throw new Error('OpenAI is not configured. Please set OPENAI_API_KEY or use FalkeAI for lesson generation.');
+    }
+
     const cacheKey = `lesson:${JSON.stringify(input)}`;
     const cached = await this.cache.get(cacheKey);
     if (cached) {
@@ -33,7 +52,7 @@ export class GPTProvider extends BaseAIProvider {
     const response = await this.withRetry(async () => {
       const prompt = this.constructLessonPrompt(input);
       
-      const completion = await this.openai.chat.completions.create({
+      const completion = await this.openai!.chat.completions.create({
         model: this.config.model === 'gpt-4' ? 'gpt-4-turbo-preview' : 'gpt-3.5-turbo',
         messages: [
           {
@@ -68,8 +87,12 @@ export class GPTProvider extends BaseAIProvider {
   }
 
   async validateContent(content: string): Promise<AIResponse<ContentValidation>> {
+    if (!this.checkOpenAIAvailable()) {
+      throw new Error('OpenAI is not configured. Please set OPENAI_API_KEY to use content validation.');
+    }
+
     const response = await this.withRetry(async () => {
-      const completion = await this.openai.chat.completions.create({
+      const completion = await this.openai!.chat.completions.create({
         model: 'gpt-3.5-turbo',
         messages: [
           {
@@ -103,6 +126,10 @@ export class GPTProvider extends BaseAIProvider {
   }
 
   async generateExplanation(query: string, context?: string): Promise<AIResponse<string>> {
+    if (!this.checkOpenAIAvailable()) {
+      throw new Error('OpenAI is not configured. Please set OPENAI_API_KEY to use explanation generation.');
+    }
+
     const response = await this.withRetry(async () => {
       const messages = [
         {
@@ -117,7 +144,7 @@ export class GPTProvider extends BaseAIProvider {
         }
       ];
 
-      const completion = await this.openai.chat.completions.create({
+      const completion = await this.openai!.chat.completions.create({
         model: this.config.model === 'gpt-4' ? 'gpt-4-turbo-preview' : 'gpt-3.5-turbo',
         messages,
         temperature: 0.5,
