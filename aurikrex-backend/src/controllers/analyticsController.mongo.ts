@@ -7,7 +7,7 @@ import { log } from '../utils/logger.js';
  */
 export const trackCompletion = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id: lessonId } = req.params;
+    const lessonId = req.params.id as string;
     const userId = req.user?.userId;
     const { timeSpent, rating, struggledSections } = req.body;
 
@@ -49,7 +49,8 @@ export const trackCompletion = async (req: Request, res: Response): Promise<void
  */
 export const trackExercise = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id: lessonId, exerciseId } = req.params;
+    const lessonId = req.params.id as string;
+    const exerciseId = req.params.exerciseId as string;
     const userId = req.user?.userId;
     const { correct, timeSpent, attempts } = req.body;
 
@@ -91,7 +92,7 @@ export const trackExercise = async (req: Request, res: Response): Promise<void> 
  */
 export const getLessonAnalytics = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id: lessonId } = req.params;
+    const lessonId = req.params.id as string;
 
     console.log('📊 Getting lesson analytics:', lessonId);
 
@@ -127,7 +128,7 @@ export const getLessonAnalytics = async (req: Request, res: Response): Promise<v
  */
 export const getUserEngagement = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id: lessonId } = req.params;
+    const lessonId = req.params.id as string;
     const userId = req.user?.userId;
 
     if (!userId) {
