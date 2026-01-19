@@ -26,11 +26,31 @@ interface ApiError extends Error {
   code?: string;
 }
 
-// Middleware
-app.use(cors({
+// ============================================
+// CORS CONFIGURATION
+// ============================================
+// Configure CORS to allow cross-origin requests from the frontend.
+// This is required for OAuth endpoints (/api/auth/github/url, /api/auth/microsoft/url)
+// to work without "TypeError: Failed to fetch" errors in the browser.
+// Configuration:
+//   - origin: Allowed frontend origins (set via ALLOWED_ORIGINS env var)
+//   - methods: HTTP methods allowed (GET, POST, OPTIONS for OAuth flows)
+//   - allowedHeaders: Headers the frontend can send (Content-Type, Authorization)
+//   - credentials: Allow cookies and auth headers
+// NOTE: After changes, restart backend using PM2: pm2 restart aurikrex-backend
+const corsOptions = {
   origin: ALLOWED_ORIGINS,
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
-}));
+};
+
+// Apply CORS middleware to all routes
+app.use(cors(corsOptions));
+
+// Handle preflight OPTIONS requests for all routes
+// This ensures browsers can perform CORS preflight checks before actual requests
+app.options("*", cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(compression());  // Enable compression
