@@ -169,6 +169,20 @@ const envVars = {
     default: '',
     validate: (_value: string) => true, // Optional - empty or any value is valid
     message: 'GMAIL_APP_PASSWORD is optional'
+  },
+
+  // FalkeAI Configuration
+  FALKEAI_API_BASE_URL: {
+    required: false,
+    default: '',
+    validate: (value: string) => !value || value.startsWith('http://') || value.startsWith('https://'),
+    message: 'FALKEAI_API_BASE_URL must be a valid URL when provided'
+  },
+  FALKEAI_API_KEY: {
+    required: false,
+    default: '',
+    validate: (_value: string) => true, // Optional - empty or any value is valid
+    message: 'FALKEAI_API_KEY is optional'
   }
 } as const;
 
