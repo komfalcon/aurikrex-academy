@@ -49,35 +49,14 @@ class RedisCache implements AICache {
   }
 }
 
+/**
+ * SmartTaskRouter - Routes AI tasks to the appropriate model
+ * Note: With FalkeAI-only architecture, all tasks are routed to FalkeAI
+ */
 class SmartTaskRouter implements TaskRouter {
-  async route(taskType: TaskType, input: unknown): Promise<AIModel> {
-    switch (taskType) {
-      case 'lesson_generation':
-        return this.routeLessonGeneration(input as LessonInput);
-      case 'content_review':
-        return this.routeContentReview(input as string);
-      case 'multimodal_content':
-        return 'gemini-pro';
-      default:
-        return 'gpt-3.5-turbo';
-    }
-  }
-
-  private async routeLessonGeneration(input: LessonInput): Promise<AIModel> {
-    // Use GPT-4 for complex lessons or advanced topics
-    if (input.targetGrade >= 9 || input.difficulty === 'advanced') {
-      return 'gpt-4';
-    }
-    // Use GPT-3.5 for simpler lessons
-    return 'gpt-3.5-turbo';
-  }
-
-  private async routeContentReview(_content: string): Promise<AIModel> {
-    // Use Claude for ethical content review (when available)
-    if (process.env.CLAUDE_API_KEY) {
-      return 'claude-3';
-    }
-    return 'gpt-3.5-turbo';
+  async route(_taskType: TaskType, _input: unknown): Promise<AIModel> {
+    // All tasks are now handled by FalkeAI
+    return 'falkeai';
   }
 }
 
@@ -154,7 +133,7 @@ abstract class BaseAIProvider implements AIProvider {
 }
 
 const defaultConfig: AIServiceConfig = {
-  model: 'gpt-3.5-turbo',
+  model: 'falkeai',
   maxRetries: 3,
   timeout: 30000,
   temperature: 0.7,

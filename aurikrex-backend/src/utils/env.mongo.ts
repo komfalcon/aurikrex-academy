@@ -78,24 +78,6 @@ const envVars = {
     message: 'RATE_LIMIT_MAX must be a positive number'
   },
 
-  // AI Service Configuration
-  OPENAI_API_KEY: {
-    required: false,
-    validate: (value: string) => !value || value.startsWith('sk-'),
-    message: 'OPENAI_API_KEY must be a valid OpenAI API key starting with sk- when provided'
-  },
-  GEMINI_API_KEY: {
-    required: false,
-    validate: (value: string) => value.length > 0,
-    message: 'GEMINI_API_KEY must be a non-empty string'
-  },
-  CLAUDE_API_KEY: {
-    required: false,
-    validate: (value: string) => value.length > 0,
-    message: 'CLAUDE_API_KEY must be a non-empty string when provided'
-  },
-
-  // Optional Redis for caching (empty string disables Redis)
   REDIS_URL: {
     required: false,
     default: '',
@@ -171,18 +153,16 @@ const envVars = {
     message: 'GMAIL_APP_PASSWORD is optional'
   },
 
-  // FalkeAI Configuration
+  // FalkeAI Configuration (required for AI features)
   FALKEAI_API_BASE_URL: {
-    required: false,
-    default: '',
-    validate: (value: string) => !value || value.startsWith('http://') || value.startsWith('https://'),
-    message: 'FALKEAI_API_BASE_URL must be a valid URL when provided'
+    required: true,
+    validate: (value: string) => value.startsWith('http://') || value.startsWith('https://'),
+    message: 'FALKEAI_API_BASE_URL is required and must be a valid URL'
   },
   FALKEAI_API_KEY: {
-    required: false,
-    default: '',
-    validate: (_value: string) => true, // Optional - empty or any value is valid
-    message: 'FALKEAI_API_KEY is optional'
+    required: true,
+    validate: (value: string) => value.length > 0,
+    message: 'FALKEAI_API_KEY is required and must be a non-empty string'
   }
 } as const;
 

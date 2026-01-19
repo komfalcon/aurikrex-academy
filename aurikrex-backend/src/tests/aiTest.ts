@@ -1,6 +1,4 @@
-import { GPTProvider } from '../services/GPTProvider.js';
-import { GeminiProvider } from '../services/GeminiProvider.js';
-import { defaultConfig } from '../services/BaseAIService.js';
+import { falkeAIService } from '../services/FalkeAIService.js';
 import { log } from '../utils/logger.js';
 import validateEnv from '../utils/env.mongo.js';
 
@@ -8,45 +6,38 @@ async function testAIProviders() {
   // Validate environment variables
   validateEnv();
 
-  const testInput = {
-    subject: 'Mathematics',
-    topic: 'Introduction to Algebra',
-    targetGrade: 7,
-    lessonLength: 'medium' as const,
-    difficulty: 'intermediate' as const
-  };
-
-  // Test GPT Provider
+  // Test FalkeAI Service
   try {
-    log.info('Testing GPT Provider...');
-    const gptProvider = new GPTProvider({
-      ...defaultConfig,
-      model: 'gpt-3.5-turbo'
-    });
-    const gptResult = await gptProvider.generateLesson(testInput);
-    log.info('GPT Provider test successful', { 
-      model: gptResult.model,
-      cached: gptResult.cached,
-      usage: gptResult.usage
-    });
-  } catch (error) {
-    log.error('GPT Provider test failed', { error });
-  }
+    log.info('Testing FalkeAI Service...');
+    
+    if (!falkeAIService.isConfigured()) {
+      log.warn('FalkeAI Service is not configured. Skipping test.');
+      log.warn('Set FALKEAI_API_BASE_URL and FALKEAI_API_KEY to enable FalkeAI features.');
+      return;
+    }
 
-  // Test Gemini Provider
-  try {
-    log.info('Testing Gemini Provider...');
-    const geminiProvider = new GeminiProvider({
-      ...defaultConfig,
-      model: 'gemini-pro'
+    const testMessage = 'Hello, FalkeAI! Can you help me understand basic algebra?';
+    
+    const response = await falkeAIService.sendChatMessage({
+      message: testMessage,
+      context: {
+        page: 'Smart Lessons',
+        username: 'test-user',
+        userId: 'test-user-id'
+      }
     });
-    const geminiResult = await geminiProvider.generateLesson(testInput);
-    log.info('Gemini Provider test successful', {
-      model: geminiResult.model,
-      cached: geminiResult.cached
+
+    log.info('FalkeAI Service test successful', { 
+      replyLength: response.reply.length,
+      timestamp: response.timestamp
     });
+    
+    console.log('\n✅ FalkeAI test passed!');
+    console.log('Response preview:', response.reply.substring(0, 200) + '...');
+    
   } catch (error) {
-    log.error('Gemini Provider test failed', { error });
+    log.error('FalkeAI Service test failed', { error });
+    console.error('\n❌ FalkeAI test failed:', error);
   }
 }
 

@@ -1,6 +1,7 @@
 import { Lesson, LessonInput } from './lesson.types.js';
 
-export type AIModel = 'gpt-4' | 'gpt-3.5-turbo' | 'gemini-pro' | 'claude-3';
+// FalkeAI is now the only supported AI model
+export type AIModel = 'falkeai';
 
 export interface AIServiceConfig {
   model: AIModel;
