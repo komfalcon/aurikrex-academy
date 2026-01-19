@@ -68,6 +68,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { apiRequest } from "@/utils/api";
+import { USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH, USERNAME_PATTERN, isUsernameValid } from "@/utils/username";
 
 // Import comprehensive data from data files
 import { WORLD_LANGUAGES } from "@/data/languages";
@@ -84,6 +85,9 @@ const LEARNING_STYLES = [
   { value: "kinesthetic", label: "Kinesthetic (learn by doing)" },
   { value: "multimodal", label: "Multimodal (combination of styles)" },
 ];
+
+const USERNAME_DEBOUNCE_DELAY = 400;
+
 
 // ============================================================================
 // PROFILE FORM INTERFACE
@@ -114,6 +118,8 @@ export default function Profile() {
   const { user } = useAuth();
   const shouldReduceMotion = useReducedMotion();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const usernameTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
+  const usernameRequestRef = useRef(0);
   const [isSaving, setIsSaving] = useState(false);
   const [usernameStatus, setUsernameStatus] = useState<"idle" | "available" | "unavailable">("idle");
 
@@ -193,19 +199,22 @@ export default function Profile() {
   };
 
   useEffect(() => {
+    const requestId = ++usernameRequestRef.current;
     const trimmedUsername = formData.username.trim();
-    const isValidUsername =
-      trimmedUsername.length >= 3 &&
-      trimmedUsername.length <= 30 &&
-      /^[a-zA-Z0-9_]+$/.test(trimmedUsername);
+    const isValidUsername = isUsernameValid(trimmedUsername);
 
     if (!trimmedUsername || !isValidUsername) {
+      if (usernameTimeoutRef.current !== null) {
+        window.clearTimeout(usernameTimeoutRef.current);
+        usernameTimeoutRef.current = null;
+      }
       setUsernameStatus("idle");
       return;
     }
 
-    let isActive = true;
-    const timeoutId = window.setTimeout(async () => {
+    const isCurrentRequest = () => requestId === usernameRequestRef.current;
+
+    const checkAvailability = async () => {
       try {
         const params = new URLSearchParams({ username: trimmedUsername });
         if (user?.uid) {
@@ -213,15 +222,16 @@ export default function Profile() {
         }
 
         const response = await apiRequest(`/users/check-username?${params.toString()}`);
+        if (!isCurrentRequest()) {
+          return;
+        }
         if (!response.ok) {
-          if (isActive) {
-            setUsernameStatus("idle");
-          }
+          setUsernameStatus("idle");
           return;
         }
 
         const data = await response.json();
-        if (!isActive) {
+        if (!isCurrentRequest()) {
           return;
         }
 
@@ -232,15 +242,22 @@ export default function Profile() {
 
         setUsernameStatus("idle");
       } catch {
-        if (isActive) {
+        if (isCurrentRequest()) {
           setUsernameStatus("idle");
         }
       }
-    }, 400);
+    };
+
+    const timeoutId = window.setTimeout(() => {
+      void checkAvailability();
+    }, USERNAME_DEBOUNCE_DELAY);
+    usernameTimeoutRef.current = timeoutId;
 
     return () => {
-      isActive = false;
-      window.clearTimeout(timeoutId);
+      if (usernameTimeoutRef.current !== null) {
+        window.clearTimeout(usernameTimeoutRef.current);
+        usernameTimeoutRef.current = null;
+      }
     };
   }, [formData.username, user?.uid]);
 
@@ -248,15 +265,15 @@ export default function Profile() {
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<keyof ProfileFormData, string>> = {};
 
-    if (formData.username && formData.username.length < 3) {
-      newErrors.username = "Username must be at least 3 characters";
+    if (formData.username && formData.username.length < USERNAME_MIN_LENGTH) {
+      newErrors.username = `Username must be at least ${USERNAME_MIN_LENGTH} characters`;
     }
 
-    if (formData.username && formData.username.length > 30) {
-      newErrors.username = "Username must be less than 30 characters";
+    if (formData.username && formData.username.length > USERNAME_MAX_LENGTH) {
+      newErrors.username = `Username must be less than ${USERNAME_MAX_LENGTH} characters`;
     }
 
-    if (formData.username && !/^[a-zA-Z0-9_]+$/.test(formData.username)) {
+    if (formData.username && !USERNAME_PATTERN.test(formData.username)) {
       newErrors.username = "Username can only contain letters, numbers, and underscores";
     }
 

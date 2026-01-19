@@ -1,6 +1,8 @@
 import { Collection, ObjectId, Filter, UpdateFilter } from 'mongodb';
 import { getDB } from '../config/mongodb.js';
 import { log } from '../utils/logger.js';
+import { escapeRegex } from '../utils/regex.js';
+import { USERNAME_PATTERN } from '../utils/username.js';
 import bcrypt from 'bcryptjs';
 
 // Supported OAuth providers - extensible for future providers like Apple
@@ -152,18 +154,18 @@ export class UserModel {
   static async findByUsername(username: string, excludeUserId?: string): Promise<UserDocument | null> {
     try {
       const collection = this.getCollection();
-      const escapedUsername = username.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const escapedUsername = escapeRegex(username);
       const usernamePattern = new RegExp(`^${escapedUsername}$`, 'i');
       const filter: Filter<UserDocument> = {
         username: { $regex: usernamePattern }
       };
 
       if (excludeUserId) {
-        try {
-          filter._id = { $ne: new ObjectId(excludeUserId) };
-        } catch {
+        if (!ObjectId.isValid(excludeUserId)) {
           log.warn('⚠️ Invalid excludeUserId provided for username lookup', { excludeUserId });
+          throw new Error('Invalid user id');
         }
+        filter._id = { $ne: new ObjectId(excludeUserId) };
       }
 
       const user = await collection.findOne(filter);
@@ -506,7 +508,13 @@ export class UserModel {
       
       await Promise.all([
         collection.createIndex({ email: 1 }, { unique: true }),
-        collection.createIndex({ username: 1 }, { unique: true, sparse: true }),
+        collection.createIndex(
+          { username: 1 },
+          {
+            unique: true,
+            partialFilterExpression: { username: { $type: 'string', $regex: USERNAME_PATTERN.source } }
+          }
+        ),
         collection.createIndex({ role: 1 }),
         collection.createIndex({ createdAt: -1 }),
         collection.createIndex({ disabled: 1 }),

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { UserModel } from '../models/User.model.js';
 import { getErrorMessage } from '../utils/errors.js';
 import { log } from '../utils/logger.js';
+import { isUsernameValid, USERNAME_VALIDATION_MESSAGE } from '../utils/username.js';
 
 export const checkUsernameAvailability = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -16,13 +17,10 @@ export const checkUsernameAvailability = async (req: Request, res: Response): Pr
       return;
     }
 
-    const isValidLength = rawUsername.length >= 3 && rawUsername.length <= 30;
-    const isValidPattern = /^[a-zA-Z0-9_]+$/.test(rawUsername);
-
-    if (!isValidLength || !isValidPattern) {
+    if (!isUsernameValid(rawUsername)) {
       res.status(400).json({
         success: false,
-        message: 'Username must be 3-30 characters and contain only letters, numbers, and underscores'
+        message: USERNAME_VALIDATION_MESSAGE
       });
       return;
     }
@@ -37,11 +35,19 @@ export const checkUsernameAvailability = async (req: Request, res: Response): Pr
       }
     });
   } catch (error) {
-    log.error('Username availability check failed', { error: getErrorMessage(error) });
+    const message = getErrorMessage(error);
+    if (message.includes('Invalid user id')) {
+      res.status(400).json({
+        success: false,
+        message
+      });
+      return;
+    }
+
+    log.error('Username availability check failed', { error: message });
     res.status(500).json({
       success: false,
-      message: 'Failed to check username availability',
-      error: getErrorMessage(error)
+      message: 'Failed to check username availability'
     });
   }
 };
