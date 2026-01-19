@@ -67,7 +67,7 @@ export const generateLesson = async (req: Request, res: Response): Promise<void>
  */
 export const getLesson = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const userId = req.user?.userId;
 
     console.log('🔍 Getting lesson:', id);
@@ -137,7 +137,7 @@ export const listLessons = async (req: Request, res: Response): Promise<void> =>
  */
 export const updateLesson = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const updateData = req.body;
 
     console.log('📝 Updating lesson:', id);
@@ -167,7 +167,7 @@ export const updateLesson = async (req: Request, res: Response): Promise<void> =
  */
 export const deleteLesson = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     console.log('🗑️ Deleting lesson:', id);
 
@@ -195,7 +195,7 @@ export const deleteLesson = async (req: Request, res: Response): Promise<void> =
  */
 export const updateProgress = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const userId = req.user?.userId;
     const progressData = req.body;
 
@@ -234,7 +234,7 @@ export const updateProgress = async (req: Request, res: Response): Promise<void>
  */
 export const getProgress = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const userId = req.user?.userId;
 
     if (!userId) {
