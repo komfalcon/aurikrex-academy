@@ -32,6 +32,13 @@ export default function Login() {
         errorMessage = 'Pop-up blocked. Please enable pop-ups for this site';
       } else if (error.message?.includes('not configured')) {
         errorMessage = error.message;
+      } else if (error.message?.includes('Failed to fetch') || error.message?.includes('Unable to connect')) {
+        // Network/CORS error - provide helpful message
+        errorMessage = 'Unable to connect to authentication server. Please check your internet connection and try again.';
+        // Log detailed error for debugging
+        console.error('Network error details - check browser Network tab for CORS issues:', error);
+      } else if (error.message?.includes('CORS')) {
+        errorMessage = 'Connection blocked by security settings. Please contact support.';
       }
       
       setError(errorMessage);
