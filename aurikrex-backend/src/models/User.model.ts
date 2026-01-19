@@ -1,6 +1,8 @@
 import { Collection, ObjectId, Filter, UpdateFilter } from 'mongodb';
 import { getDB } from '../config/mongodb.js';
 import { log } from '../utils/logger.js';
+import { escapeRegex } from '../utils/regex.js';
+import { USERNAME_PATTERN } from '../utils/username.js';
 import bcrypt from 'bcryptjs';
 
 // Supported OAuth providers - extensible for future providers like Apple
@@ -11,6 +13,7 @@ export interface UserDocument {
   email: string;
   password: string; // Hashed password (random for OAuth users)
   displayName?: string;
+  username?: string;
   role: 'student' | 'instructor' | 'admin';
   disabled: boolean;
   createdAt: Date;
@@ -84,8 +87,15 @@ export class UserModel {
 
       return { ...user, _id: result.insertedId };
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes('E11000') && message.includes('username')) {
+        throw new Error('Username already in use');
+      }
+      if (message.includes('E11000') && message.includes('email')) {
+        throw new Error('Email already in use');
+      }
       log.error('❌ Error creating user', { 
-        error: error instanceof Error ? error.message : String(error),
+        error: message,
         email: userData.email 
       });
       throw error;
@@ -139,6 +149,42 @@ export class UserModel {
   }
 
   /**
+   * Find user by username (case-insensitive)
+   */
+  static async findByUsername(username: string, excludeUserId?: string): Promise<UserDocument | null> {
+    try {
+      const collection = this.getCollection();
+      const escapedUsername = escapeRegex(username);
+      const usernamePattern = new RegExp(`^${escapedUsername}$`, 'i');
+      const filter: Filter<UserDocument> = {
+        username: { $regex: usernamePattern }
+      };
+
+      if (excludeUserId) {
+        if (!ObjectId.isValid(excludeUserId)) {
+          log.warn('⚠️ Invalid excludeUserId provided for username lookup', { excludeUserId });
+          throw new Error('Invalid user id');
+        }
+        filter._id = { $ne: new ObjectId(excludeUserId) };
+      }
+
+      const user = await collection.findOne(filter);
+
+      if (user) {
+        log.info('✅ User found by username', { username });
+      }
+
+      return user;
+    } catch (error) {
+      log.error('❌ Error finding user by username', { 
+        error: error instanceof Error ? error.message : String(error),
+        username 
+      });
+      throw error;
+    }
+  }
+
+  /**
    * Update user
    */
   static async update(
@@ -173,8 +219,12 @@ export class UserModel {
 
       return result || null;
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes('E11000') && message.includes('username')) {
+        throw new Error('Username already in use');
+      }
       log.error('❌ Error updating user', { 
-        error: error instanceof Error ? error.message : String(error),
+        error: message,
         userId 
       });
       throw error;
@@ -458,6 +508,13 @@ export class UserModel {
       
       await Promise.all([
         collection.createIndex({ email: 1 }, { unique: true }),
+        collection.createIndex(
+          { username: 1 },
+          {
+            unique: true,
+            partialFilterExpression: { username: { $type: 'string', $regex: USERNAME_PATTERN.source } }
+          }
+        ),
         collection.createIndex({ role: 1 }),
         collection.createIndex({ createdAt: -1 }),
         collection.createIndex({ disabled: 1 }),
