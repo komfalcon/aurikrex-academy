@@ -11,6 +11,7 @@ export interface UserDocument {
   email: string;
   password: string; // Hashed password (random for OAuth users)
   displayName?: string;
+  username?: string;
   role: 'student' | 'instructor' | 'admin';
   disabled: boolean;
   createdAt: Date;
@@ -133,6 +134,45 @@ export class UserModel {
       log.error('❌ Error finding user by email', { 
         error: error instanceof Error ? error.message : String(error),
         email 
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Find user by username (case-insensitive)
+   */
+  static async findByUsername(username: string, excludeUserId?: string): Promise<UserDocument | null> {
+    try {
+      const collection = this.getCollection();
+      const escapedUsername = username.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const usernamePattern = new RegExp(`^${escapedUsername}$`, 'i');
+      const filter: Filter<UserDocument> = {
+        $or: [
+          { username: { $regex: usernamePattern } },
+          { displayName: { $regex: usernamePattern } }
+        ]
+      };
+
+      if (excludeUserId) {
+        try {
+          filter._id = { $ne: new ObjectId(excludeUserId) };
+        } catch {
+          log.warn('⚠️ Invalid excludeUserId provided for username lookup', { excludeUserId });
+        }
+      }
+
+      const user = await collection.findOne(filter);
+
+      if (user) {
+        log.info('✅ User found by username', { username });
+      }
+
+      return user;
+    } catch (error) {
+      log.error('❌ Error finding user by username', { 
+        error: error instanceof Error ? error.message : String(error),
+        username 
       });
       throw error;
     }
@@ -458,6 +498,7 @@ export class UserModel {
       
       await Promise.all([
         collection.createIndex({ email: 1 }, { unique: true }),
+        collection.createIndex({ username: 1 }, { unique: true, sparse: true }),
         collection.createIndex({ role: 1 }),
         collection.createIndex({ createdAt: -1 }),
         collection.createIndex({ disabled: 1 }),

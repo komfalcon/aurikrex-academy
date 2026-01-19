@@ -35,7 +35,7 @@
  * - All support search/filter functionality
  */
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import {
@@ -67,6 +67,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { apiRequest } from "@/utils/api";
 
 // Import comprehensive data from data files
 import { WORLD_LANGUAGES } from "@/data/languages";
@@ -114,6 +115,7 @@ export default function Profile() {
   const shouldReduceMotion = useReducedMotion();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [usernameStatus, setUsernameStatus] = useState<"idle" | "available" | "unavailable">("idle");
 
   // Form state - editable fields
   const [formData, setFormData] = useState<ProfileFormData>({
@@ -190,6 +192,51 @@ export default function Profile() {
     }
   };
 
+  useEffect(() => {
+    const trimmedUsername = formData.username.trim();
+    const isValidUsername =
+      trimmedUsername.length >= 3 &&
+      trimmedUsername.length <= 30 &&
+      /^[a-zA-Z0-9_]+$/.test(trimmedUsername);
+
+    if (!trimmedUsername || !isValidUsername) {
+      setUsernameStatus("idle");
+      return;
+    }
+
+    let isActive = true;
+    const timeout = window.setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({ username: trimmedUsername });
+        if (user?.uid) {
+          params.append("excludeUserId", user.uid);
+        }
+
+        const response = await apiRequest(`/users/check-username?${params.toString()}`);
+        if (!response.ok) {
+          if (isActive) {
+            setUsernameStatus("idle");
+          }
+          return;
+        }
+
+        const data = await response.json();
+        if (isActive && data?.success) {
+          setUsernameStatus(data.data?.available ? "available" : "unavailable");
+        }
+      } catch {
+        if (isActive) {
+          setUsernameStatus("idle");
+        }
+      }
+    }, 400);
+
+    return () => {
+      isActive = false;
+      window.clearTimeout(timeout);
+    };
+  }, [formData.username, user?.uid]);
+
   // Validate form
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<keyof ProfileFormData, string>> = {};
@@ -238,6 +285,15 @@ export default function Profile() {
 
   // Get display name for avatar
   const displayName = user?.displayName || user?.firstName || "User";
+  const renderUsernameAvailability = () => {
+    if (usernameStatus === "available") {
+      return <p className="text-sm text-emerald-600">Username available</p>;
+    }
+    if (usernameStatus === "unavailable") {
+      return <p className="text-sm text-destructive">Username not available</p>;
+    }
+    return null;
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -345,6 +401,7 @@ export default function Profile() {
                   Username
                   <Badge variant="outline" className="text-xs text-primary border-primary/30">Required</Badge>
                 </Label>
+                {renderUsernameAvailability()}
                 <Input
                   id="username-main"
                   placeholder="Choose a username (e.g., alex_johnson)"
@@ -453,6 +510,7 @@ export default function Profile() {
                   <User className="w-4 h-4" />
                   Username
                 </Label>
+                {renderUsernameAvailability()}
                 <Input
                   id="username"
                   placeholder="Choose a username"
