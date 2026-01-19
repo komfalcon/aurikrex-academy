@@ -103,7 +103,7 @@ export const apiRequest = async (
     return response;
   } catch (error) {
     // Handle network-level errors
-    const err = error as Error;
+    const err = error instanceof Error ? error : new Error(String(error));
     console.error('❌ Network Error:', {
       url,
       errorMessage: err.message,

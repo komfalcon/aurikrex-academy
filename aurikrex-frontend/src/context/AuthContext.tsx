@@ -132,17 +132,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         },
         credentials: 'include', // Required for cookies/sessions
         mode: 'cors', // Explicitly enable CORS
-      }).catch((networkError: Error) => {
+      }).catch((networkError: unknown) => {
         // Handle network-level errors (CORS, DNS, connection refused, etc.)
+        const err = networkError instanceof Error ? networkError : new Error(String(networkError));
         console.error('❌ Network error during OAuth:', {
           requestUrl,
-          error: networkError.message,
-          name: networkError.name,
-          stack: networkError.stack,
+          error: err.message,
+          name: err.name,
+          stack: err.stack,
         });
         
         // Provide helpful error messages for common issues
-        if (networkError.message === 'Failed to fetch') {
+        if (err.message === 'Failed to fetch') {
           throw new Error(
             `Unable to connect to authentication server. This may be due to:\n` +
             `• Network connectivity issues\n` +
@@ -152,7 +153,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             `Please check browser console for details.`
           );
         }
-        throw networkError;
+        throw err;
       });
 
       console.log(`📥 Response received:`, {
@@ -201,7 +202,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       window.location.href = oauthUrl;
     } catch (error) {
       // Comprehensive error logging for debugging
-      const err = error as Error;
+      const err = error instanceof Error ? error : new Error(String(error));
       console.error(`❌ Error signing in with ${provider}:`, {
         requestUrl,
         errorMessage: err.message,
