@@ -81,21 +81,16 @@ const envVars = {
     message: 'RATE_LIMIT_MAX must be a positive number'
   },
 
-  // AI Service Configuration
-  OPENAI_API_KEY: {
-    required: false,
-    validate: (value: string) => !value || value.startsWith('sk-'),
-    message: 'OPENAI_API_KEY must be a valid OpenAI API key starting with sk- when provided'
+  // FalkeAI Configuration (required for AI features)
+  FALKEAI_API_BASE_URL: {
+    required: true,
+    validate: (value: string) => value.startsWith('http://') || value.startsWith('https://'),
+    message: 'FALKEAI_API_BASE_URL is required and must be a valid URL'
   },
-  GEMINI_API_KEY: {
+  FALKEAI_API_KEY: {
     required: true,
     validate: (value: string) => value.length > 0,
-    message: 'GEMINI_API_KEY must be a non-empty string'
-  },
-  CLAUDE_API_KEY: {
-    required: false,
-    validate: (value: string) => value.length > 0,
-    message: 'CLAUDE_API_KEY must be a non-empty string when provided'
+    message: 'FALKEAI_API_KEY is required and must be a non-empty string'
   },
   REDIS_URL: {
     required: false,

@@ -1,6 +1,6 @@
-import OpenAI from 'openai';
 import { LessonModel, LessonDocument, LessonProgressModel } from '../models/Lesson.model.js';
 import { getErrorMessage } from '../utils/errors.js';
+import { falkeAIService } from './FalkeAIService.js';
 import {
   Lesson,
   LessonInput,
@@ -11,77 +11,142 @@ import {
 } from '../types/lesson.types.js';
 
 class LessonService {
-  private openai: OpenAI | null = null;
   private readonly VERSION = '1.0.0';
-  private openAIEnabled: boolean = false;
 
   constructor() {
-    if (!process.env.OPENAI_API_KEY) {
-      console.warn('⚠️  OPENAI_API_KEY not set. OpenAI features disabled. Using FalkeAI as alternative.');
-      this.openAIEnabled = false;
-    } else {
-      this.openAIEnabled = true;
-      this.openai = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY
-      });
+    // FalkeAI service is configured via environment variables
+    if (!falkeAIService.isConfigured()) {
+      console.warn('⚠️  FalkeAI not configured. AI lesson generation features disabled.');
     }
   }
 
   /**
-   * Check if OpenAI is available and configured
-   * @returns boolean indicating if OpenAI features are available
+   * Check if FalkeAI is available and configured
+   * @returns boolean indicating if AI features are available
    */
-  private checkOpenAIAvailable(): boolean {
-    if (!this.openAIEnabled || !this.openai) {
-      console.warn('OpenAI feature called but OpenAI is not configured');
+  private checkAIAvailable(): boolean {
+    if (!falkeAIService.isConfigured()) {
+      console.warn('FalkeAI feature called but FalkeAI is not configured');
       return false;
     }
     return true;
   }
 
-  private async generateWithOpenAI(input: LessonInput): Promise<GeneratedLesson> {
-    if (!this.checkOpenAIAvailable()) {
-      throw new Error('OpenAI is not configured. Please set OPENAI_API_KEY or use FalkeAI for lesson generation.');
+  private async generateWithFalkeAI(input: LessonInput): Promise<GeneratedLesson> {
+    if (!this.checkAIAvailable()) {
+      throw new Error('AI service is not configured. Please set FALKEAI_API_KEY and FALKEAI_API_BASE_URL for lesson generation.');
     }
 
     try {
       const prompt = this.constructPrompt(input);
       
-      console.log('🤖 Calling OpenAI API for lesson generation...');
+      console.log('🤖 Calling FalkeAI API for lesson generation...');
       
-      const response = await this.openai!.chat.completions.create({
-        model: "gpt-4-turbo-preview",
-        messages: [
-          {
-            role: "system",
-            content: "You are an expert educational content creator specializing in creating structured, engaging lessons for students."
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        temperature: 0.7,
-        response_format: { type: "json_object" }
+      // Use FalkeAI chat service for lesson generation
+      const response = await falkeAIService.sendChatMessage({
+        message: prompt,
+        context: {
+          page: 'Smart Lessons',
+          username: 'system',
+          userId: 'system-lesson-generator'
+        }
       });
 
-      const result = JSON.parse(response.choices[0].message.content || '{}');
+      // Parse the response - FalkeAI returns JSON in the reply
+      let result: GeneratedLesson;
+      try {
+        // Try to find and extract the outermost JSON object
+        // Look for properly balanced braces to avoid matching partial JSON
+        const jsonStart = response.reply.indexOf('{');
+        if (jsonStart === -1) {
+          throw new Error('No JSON found in response');
+        }
+        
+        // Find the matching closing brace
+        let braceCount = 0;
+        let jsonEnd = -1;
+        for (let i = jsonStart; i < response.reply.length; i++) {
+          if (response.reply[i] === '{') braceCount++;
+          if (response.reply[i] === '}') braceCount--;
+          if (braceCount === 0) {
+            jsonEnd = i + 1;
+            break;
+          }
+        }
+        
+        if (jsonEnd === -1) {
+          throw new Error('Incomplete JSON in response');
+        }
+        
+        const jsonStr = response.reply.substring(jsonStart, jsonEnd);
+        result = JSON.parse(jsonStr);
+      } catch (parseError) {
+        // Log the parsing error for debugging/monitoring
+        console.warn('⚠️ Failed to parse JSON from FalkeAI response:', getErrorMessage(parseError));
+        // If parsing fails, create a basic lesson structure from the response
+        result = this.createBasicLessonFromResponse(input, response.reply);
+      }
       
-      console.log('✅ OpenAI API response received');
+      console.log('✅ FalkeAI API response received');
       
       return {
         ...result,
         metadata: {
           generatedAt: new Date().toISOString(),
-          generatedBy: 'OpenAI GPT-4',
-          version: this.VERSION
+          generatedBy: 'FalkeAI',
+          version: this.VERSION,
+          isAIGenerated: true as const,
+          estimatedDuration: result.duration || 60
         }
       };
     } catch (error) {
-      console.error('❌ OpenAI API error:', getErrorMessage(error));
+      console.error('❌ FalkeAI API error:', getErrorMessage(error));
       const err = error as Error;
       throw new Error(`Lesson generation failed: ${err.message}`);
     }
+  }
+
+  /**
+   * Create a basic lesson structure when JSON parsing fails
+   * Uses dynamic IDs and extracts meaningful content from response
+   */
+  private createBasicLessonFromResponse(input: LessonInput, response: string): GeneratedLesson {
+    const duration = input.lessonLength === 'short' ? 30 : input.lessonLength === 'long' ? 90 : 60;
+    const sectionId = `section-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    
+    // Try to extract a meaningful title from the first line of response
+    const firstLine = response.split('\n')[0].trim();
+    const sectionTitle = firstLine.length > 0 && firstLine.length <= 100 
+      ? firstLine.replace(/^#+\s*/, '') // Remove markdown headers
+      : `${input.topic} Overview`;
+    
+    return {
+      title: `${input.subject}: ${input.topic}`,
+      subject: input.subject,
+      topic: input.topic,
+      targetGrade: input.targetGrade,
+      difficulty: input.difficulty || 'beginner',
+      duration,
+      keyConcepts: [input.topic],
+      prerequisites: [],
+      sections: [{
+        id: sectionId,
+        title: sectionTitle,
+        content: response,
+        order: 1,
+        type: 'content'
+      }],
+      exercises: [],
+      resources: [],
+      status: 'draft',
+      metadata: {
+        generatedAt: new Date().toISOString(),
+        generatedBy: 'FalkeAI',
+        version: this.VERSION,
+        isAIGenerated: true as const,
+        estimatedDuration: duration
+      }
+    };
   }
 
   // MongoDB CRUD operations
@@ -303,7 +368,7 @@ class LessonService {
     try {
       console.log(`🎓 Generating lesson for ${input.subject} - ${input.topic} (Grade ${input.targetGrade})`);
       
-      const generated = await this.generateWithOpenAI(input);
+      const generated = await this.generateWithFalkeAI(input);
       
       // Convert GeneratedLesson to Lesson and save to MongoDB
       const lesson = await this.createLesson(authorId, {
