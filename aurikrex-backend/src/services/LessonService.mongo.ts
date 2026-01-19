@@ -55,14 +55,34 @@ class LessonService {
       // Parse the response - FalkeAI returns JSON in the reply
       let result: GeneratedLesson;
       try {
-        // Try to extract JSON from the response
-        const jsonMatch = response.reply.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          result = JSON.parse(jsonMatch[0]);
-        } else {
+        // Try to find and extract the outermost JSON object
+        // Look for properly balanced braces to avoid matching partial JSON
+        const jsonStart = response.reply.indexOf('{');
+        if (jsonStart === -1) {
           throw new Error('No JSON found in response');
         }
-      } catch {
+        
+        // Find the matching closing brace
+        let braceCount = 0;
+        let jsonEnd = -1;
+        for (let i = jsonStart; i < response.reply.length; i++) {
+          if (response.reply[i] === '{') braceCount++;
+          if (response.reply[i] === '}') braceCount--;
+          if (braceCount === 0) {
+            jsonEnd = i + 1;
+            break;
+          }
+        }
+        
+        if (jsonEnd === -1) {
+          throw new Error('Incomplete JSON in response');
+        }
+        
+        const jsonStr = response.reply.substring(jsonStart, jsonEnd);
+        result = JSON.parse(jsonStr);
+      } catch (parseError) {
+        // Log the parsing error for debugging/monitoring
+        console.warn('⚠️ Failed to parse JSON from FalkeAI response:', getErrorMessage(parseError));
         // If parsing fails, create a basic lesson structure from the response
         result = this.createBasicLessonFromResponse(input, response.reply);
       }
@@ -88,9 +108,18 @@ class LessonService {
 
   /**
    * Create a basic lesson structure when JSON parsing fails
+   * Uses dynamic IDs and extracts meaningful content from response
    */
   private createBasicLessonFromResponse(input: LessonInput, response: string): GeneratedLesson {
     const duration = input.lessonLength === 'short' ? 30 : input.lessonLength === 'long' ? 90 : 60;
+    const sectionId = `section-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    
+    // Try to extract a meaningful title from the first line of response
+    const firstLine = response.split('\n')[0].trim();
+    const sectionTitle = firstLine.length > 0 && firstLine.length <= 100 
+      ? firstLine.replace(/^#+\s*/, '') // Remove markdown headers
+      : `${input.topic} Overview`;
+    
     return {
       title: `${input.subject}: ${input.topic}`,
       subject: input.subject,
@@ -101,8 +130,8 @@ class LessonService {
       keyConcepts: [input.topic],
       prerequisites: [],
       sections: [{
-        id: 'section-1',
-        title: 'Introduction',
+        id: sectionId,
+        title: sectionTitle,
         content: response,
         order: 1,
         type: 'content'
