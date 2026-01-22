@@ -513,7 +513,6 @@ export class UserModel {
           { username: 1 },
           {
             unique: true,
-            sparse: true,
             partialFilterExpression: { username: { $exists: true, $type: 'string' } }
           }
         ),

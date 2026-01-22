@@ -808,7 +808,7 @@ function FalkeAITutorCard() {
 
 function LessonsPanel() {
   const { user } = useAuth();
-  const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant' | 'error'; content: string; timestamp: Date }>>([]);
+  const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string; timestamp: Date }>>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
@@ -866,10 +866,10 @@ function LessonsPanel() {
       };
       setChatMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
-      // Handle errors gracefully with user-friendly message
+      // Handle errors gracefully with user-friendly message displayed as assistant response
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
       const errorResponse = {
-        role: 'error' as const,
+        role: 'assistant' as const,
         content: `⚠️ Unable to get a response from the AI tutor. ${errorMessage}. Please try again.`,
         timestamp: new Date()
       };
@@ -2240,7 +2240,7 @@ function SettingsPanel() {
 
 function FalkeAIPanel() {
   const { user } = useAuth();
-  const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant' | 'system' | 'error'; content: string; timestamp: Date }>>([
+  const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant' | 'system'; content: string; timestamp: Date }>>([
     {
       role: 'system',
       content: '👋 Welcome to FalkeAI! I\'m your intelligent learning companion. Ask me anything about your studies, request explanations, or get help with assignments. How can I assist you today?',
@@ -2288,10 +2288,10 @@ function FalkeAIPanel() {
       };
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
-      // Handle errors gracefully with user-friendly message
+      // Handle errors gracefully with user-friendly message displayed as assistant response
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
       const errorResponse = {
-        role: 'error' as const,
+        role: 'assistant' as const,
         content: `⚠️ Unable to get a response. ${errorMessage}. Please try again.`,
         timestamp: new Date()
       };
