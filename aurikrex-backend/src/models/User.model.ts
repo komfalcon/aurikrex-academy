@@ -2,7 +2,6 @@ import { Collection, ObjectId, Filter, UpdateFilter } from 'mongodb';
 import { getDB } from '../config/mongodb.js';
 import { log } from '../utils/logger.js';
 import { escapeRegex } from '../utils/regex.js';
-import { USERNAME_PATTERN } from '../utils/username.js';
 import bcrypt from 'bcryptjs';
 
 // Supported OAuth providers - extensible for future providers like Apple
@@ -508,11 +507,14 @@ export class UserModel {
       
       await Promise.all([
         collection.createIndex({ email: 1 }, { unique: true }),
+        // Unique username index with partial filter - only index documents where username exists and is a string
+        // Note: $regex is not supported in partialFilterExpression, using $exists and $type instead
         collection.createIndex(
           { username: 1 },
           {
             unique: true,
-            partialFilterExpression: { username: { $type: 'string', $regex: USERNAME_PATTERN.source } }
+            sparse: true,
+            partialFilterExpression: { username: { $exists: true, $type: 'string' } }
           }
         ),
         collection.createIndex({ role: 1 }),

@@ -5,17 +5,10 @@
  * 
  * Features:
  * - Collapsible sidebar with Framer Motion animations
- * - FalkeAI integration placeholders (Tutor, Lessons, Assignments, Analytics)
+ * - FalkeAI integration for AI-powered tutoring
  * - Glassmorphism design with semantic tokens
  * - Full keyboard navigation & accessibility (ARIA labels, reduced motion)
- * - Mock data for demonstration
  * - Smooth micro-interactions (hover, press, transitions)
- * 
- * Future Integration Points:
- * - TODO: Connect FalkeAI API endpoints
- * - TODO: Replace mockData with real backend hooks
- * - TODO: Add user progress tracking with database
- * - TODO: Implement real-time notifications
  * 
  * ============================================================================
  */
@@ -69,6 +62,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/context/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ProfileDropdown } from "@/components/dashboard/ProfileDropdown";
+import { sendMessage } from "@/utils/falkeai";
+import type { FalkeAIChatPage } from "@/types";
 import {
   AreaChart,
   Area,
@@ -807,11 +802,13 @@ function FalkeAITutorCard() {
 }
 
 // ============================================================================
-// OTHER PANELS (Placeholders)
+// ============================================================================
+// SMART LESSONS PANEL (FalkeAI-Powered)
 // ============================================================================
 
 function LessonsPanel() {
-  const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string; timestamp: Date }>>([]);
+  const { user } = useAuth();
+  const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant' | 'error'; content: string; timestamp: Date }>>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
@@ -840,9 +837,10 @@ function LessonsPanel() {
   const handleSendMessage = async () => {
     if (!inputMessage.trim() && uploadedFiles.length === 0) return;
     
+    const messageContent = inputMessage + (uploadedFiles.length > 0 ? `\n\n📎 Attached files: ${uploadedFiles.map(f => f.name).join(', ')}` : '');
     const userMessage = {
       role: 'user' as const,
-      content: inputMessage + (uploadedFiles.length > 0 ? `\n\n📎 Attached files: ${uploadedFiles.map(f => f.name).join(', ')}` : ''),
+      content: messageContent,
       timestamp: new Date()
     };
     
@@ -851,16 +849,34 @@ function LessonsPanel() {
     setUploadedFiles([]);
     setIsLoading(true);
 
-    // Simulate AI response (placeholder for FalkeAI integration)
-    setTimeout(() => {
+    try {
+      // Call FalkeAI API through the backend
+      const page: FalkeAIChatPage = 'Smart Lessons';
+      const response = await sendMessage(
+        messageContent,
+        page,
+        user?.uid || 'anonymous',
+        user?.displayName || user?.email || 'Student'
+      );
+
       const assistantMessage = {
         role: 'assistant' as const,
-        content: "🤖 Thank you for your question! FalkeAI is being connected and will provide personalized lesson assistance here. In the meantime, I'm a placeholder response. Once integrated, I'll be able to:\n\n• Generate custom lessons based on your learning style\n• Explain complex concepts in simple terms\n• Analyze uploaded documents and create study materials\n• Provide practice problems and quizzes",
+        content: response.reply,
         timestamp: new Date()
       };
       setChatMessages(prev => [...prev, assistantMessage]);
+    } catch (error) {
+      // Handle errors gracefully with user-friendly message
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      const errorResponse = {
+        role: 'error' as const,
+        content: `⚠️ Unable to get a response from the AI tutor. ${errorMessage}. Please try again.`,
+        timestamp: new Date()
+      };
+      setChatMessages(prev => [...prev, errorResponse]);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -2223,7 +2239,8 @@ function SettingsPanel() {
 // ============================================================================
 
 function FalkeAIPanel() {
-  const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant' | 'system'; content: string; timestamp: Date }>>([
+  const { user } = useAuth();
+  const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant' | 'system' | 'error'; content: string; timestamp: Date }>>([
     {
       role: 'system',
       content: '👋 Welcome to FalkeAI! I\'m your intelligent learning companion. Ask me anything about your studies, request explanations, or get help with assignments. How can I assist you today?',
@@ -2232,7 +2249,6 @@ function FalkeAIPanel() {
   ]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [conversationId] = useState(() => `conv_${Date.now()}`);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const shouldReduceMotion = useReducedMotion();
 
@@ -2244,9 +2260,10 @@ function FalkeAIPanel() {
   const handleSendMessage = async () => {
     if (!inputMessage.trim()) return;
     
+    const messageContent = inputMessage.trim();
     const userMessage = {
       role: 'user' as const,
-      content: inputMessage,
+      content: messageContent,
       timestamp: new Date()
     };
     
@@ -2254,23 +2271,34 @@ function FalkeAIPanel() {
     setInputMessage("");
     setIsLoading(true);
 
-    // Simulate AI response (placeholder for FalkeAI /chat endpoint integration)
-    setTimeout(() => {
-      const responses = [
-        "That's a great question! Let me explain this concept in detail. The key points to understand are:\n\n1. **Foundation**: Start with the basic principles\n2. **Application**: See how it applies in practice\n3. **Practice**: Try solving related problems\n\nWould you like me to elaborate on any of these points?",
-        "I'd be happy to help you with that! Here's a step-by-step breakdown:\n\n• First, identify the main components\n• Then, analyze how they interact\n• Finally, synthesize your understanding\n\nShall I provide some practice questions?",
-        "Excellent topic! This is one of my favorite subjects to explain. The core idea is actually simpler than it might seem at first. Let me walk you through it with an example that relates to everyday life...",
-        "I understand you want to learn more about this. Let me give you a comprehensive overview that covers both the theoretical foundation and practical applications. Feel free to interrupt with questions at any point!",
-      ];
-      
+    try {
+      // Call FalkeAI API through the backend
+      const page: FalkeAIChatPage = 'Ask FalkeAI';
+      const response = await sendMessage(
+        messageContent,
+        page,
+        user?.uid || 'anonymous',
+        user?.displayName || user?.email || 'Student'
+      );
+
       const assistantMessage = {
         role: 'assistant' as const,
-        content: responses[Math.floor(Math.random() * responses.length)],
+        content: response.reply,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, assistantMessage]);
+    } catch (error) {
+      // Handle errors gracefully with user-friendly message
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      const errorResponse = {
+        role: 'error' as const,
+        content: `⚠️ Unable to get a response. ${errorMessage}. Please try again.`,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorResponse]);
+    } finally {
       setIsLoading(false);
-    }, 1500 + Math.random() * 1000);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
