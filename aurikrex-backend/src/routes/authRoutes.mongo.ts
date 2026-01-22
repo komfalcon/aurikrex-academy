@@ -53,7 +53,7 @@ router.get('/microsoft/url', microsoftAuthInit);
 router.get('/microsoft/callback', microsoftAuthCallback as any);
 
 // ============================================
-// OAuth Routes - GitHub (placeholder)
+// OAuth Routes - GitHub
 // ============================================
 
 /**

@@ -294,13 +294,12 @@ export const microsoftAuthCallback = [
 ];
 
 // ============================================
-// GITHUB OAuth (placeholder - no env vars yet)
+// GITHUB OAuth
 // ============================================
 
 /**
  * Initiate GitHub OAuth flow
  * Returns the GitHub OAuth URL for frontend to redirect to
- * Note: GitHub OAuth is not yet configured - env vars needed
  */
 export const githubAuthInit = async (_req: Request, res: Response): Promise<void> => {
   try {

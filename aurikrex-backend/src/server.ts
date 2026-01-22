@@ -19,6 +19,14 @@ const PORT = parseInt(env.PORT, 10);
 const NODE_ENV = env.NODE_ENV;
 const ALLOWED_ORIGINS = env.ALLOWED_ORIGINS.split(",");
 
+// ============================================
+// TRUST PROXY CONFIGURATION
+// ============================================
+// Required for Express to correctly identify client IP behind Nginx/load balancers
+// This ensures rate limiting works correctly with X-Forwarded-For headers
+// Set to 1 to trust the first proxy (Nginx)
+app.set('trust proxy', 1);
+
 // Type for API Error
 interface ApiError extends Error {
   status?: number;
