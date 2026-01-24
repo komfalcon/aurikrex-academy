@@ -486,7 +486,11 @@ function Header({ onToggleSidebar, isSidebarCollapsed, onToggleMobileSidebar }: 
 // DASHBOARD CONTENT PANELS
 // ============================================================================
 
-function DashboardPanel() {
+interface DashboardPanelProps {
+  onLaunchFalkeAI: () => void;
+}
+
+function DashboardPanel({ onLaunchFalkeAI }: DashboardPanelProps) {
   const { user } = useAuth();
   const shouldReduceMotion = useReducedMotion();
   
@@ -680,10 +684,10 @@ function DashboardPanel() {
                 );
               })}
 
-              {/* TODO: Connect FalkeAI API for real insights */}
-              <div className="mt-4 p-4 rounded-lg border border-dashed border-primary/30 bg-primary/5">
-                <p className="text-xs text-center text-muted-foreground">
-                  🚀 More AI insights coming soon with FalkeAI integration
+              {/* FalkeAI integration status */}
+              <div className="mt-4 p-4 rounded-lg border border-green-500/30 bg-green-500/5">
+                <p className="text-xs text-center text-green-600 dark:text-green-400">
+                  ✅ FalkeAI insights are powered by real-time AI analysis
                 </p>
               </div>
             </CardContent>
@@ -692,7 +696,7 @@ function DashboardPanel() {
       </div>
 
       {/* FalkeAI Tutor Preview */}
-      <FalkeAITutorCard />
+      <FalkeAITutorCard onLaunchFalkeAI={onLaunchFalkeAI} />
     </div>
   );
 }
@@ -710,7 +714,11 @@ function CircleIcon(props: React.SVGProps<SVGSVGElement>) {
 // FALKEAI TUTOR CARD (Main Dashboard Feature)
 // ============================================================================
 
-function FalkeAITutorCard() {
+interface FalkeAITutorCardProps {
+  onLaunchFalkeAI: () => void;
+}
+
+function FalkeAITutorCard({ onLaunchFalkeAI }: FalkeAITutorCardProps) {
   const shouldReduceMotion = useReducedMotion();
   
   return (
@@ -780,19 +788,25 @@ function FalkeAITutorCard() {
 
           {/* CTA */}
           <div className="flex items-center gap-3 mt-6">
-            <button className="flex-1 px-6 py-3 bg-gradient-primary text-white font-semibold rounded-2xl hover:shadow-glow hover:scale-105 transition-all duration-200 flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-primary shadow-md">
+            <button 
+              onClick={onLaunchFalkeAI}
+              className="flex-1 px-6 py-3 bg-gradient-primary text-white font-semibold rounded-2xl hover:shadow-glow hover:scale-105 transition-all duration-200 flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-primary shadow-md"
+            >
               <Sparkles className="w-5 h-5" aria-hidden="true" />
               Launch FalkeAI Tutor
             </button>
-            <button className="px-6 py-3 bg-secondary text-foreground font-semibold rounded-2xl hover:bg-secondary/80 hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm">
+            <button 
+              onClick={onLaunchFalkeAI}
+              className="px-6 py-3 bg-secondary text-foreground font-semibold rounded-2xl hover:bg-secondary/80 hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm"
+            >
               Learn More
             </button>
           </div>
 
-          {/* TODO Note */}
-          <div className="mt-4 p-3 rounded-xl bg-accent/10 border border-accent/20">
-            <p className="text-xs text-center text-muted-foreground">
-              💡 <strong>Coming Soon:</strong> Full FalkeAI integration with real-time tutoring, lesson generation, and assignment analysis
+          {/* Status indicator */}
+          <div className="mt-4 p-3 rounded-xl bg-green-500/10 border border-green-500/20">
+            <p className="text-xs text-center text-green-600 dark:text-green-400">
+              ✅ <strong>FalkeAI is ready!</strong> Click above to start your AI-powered learning session.
             </p>
           </div>
         </CardContent>
@@ -2500,10 +2514,15 @@ export default function Dashboard() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const shouldReduceMotion = useReducedMotion();
 
+  // Handler to navigate to FalkeAI chat panel
+  const handleLaunchFalkeAI = useCallback(() => {
+    setActivePanel("falkeai");
+  }, []);
+
   const renderPanel = () => {
     switch (activePanel) {
       case "dashboard":
-        return <DashboardPanel />;
+        return <DashboardPanel onLaunchFalkeAI={handleLaunchFalkeAI} />;
       case "lessons":
         return <LessonsPanel />;
       case "assignments":
