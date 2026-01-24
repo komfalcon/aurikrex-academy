@@ -51,26 +51,25 @@ export async function sendMessageToFalkeAI(
 ): Promise<FalkeAIChatResponse> {
   // Validate inputs
   if (!message || typeof message !== 'string' || message.trim().length === 0) {
-    console.error('🤖 FalkeAI Error: Message is required');
+    console.error('[FalkeAI] Error: Message is required');
     throw new Error('Message is required');
   }
 
   if (!context.userId || !context.username || !context.page) {
-    console.error('🤖 FalkeAI Error: Missing context', { context });
+    console.error('[FalkeAI] Error: Missing required context fields');
     throw new Error('Context with userId, username, and page is required');
   }
 
   // Check token before making request
   const token = getToken();
   if (!token) {
-    console.error('🤖 FalkeAI Error: No authentication token found. Please sign in.');
+    console.error('[FalkeAI] Error: No authentication token found');
     throw new Error('Please sign in to use FalkeAI');
   }
 
-  console.log('🤖 FalkeAI: Sending message', {
+  console.log('[FalkeAI] Sending message', {
     page: context.page,
     messageLength: message.trim().length,
-    hasToken: !!token,
   });
 
   try {
@@ -90,7 +89,7 @@ export async function sendMessageToFalkeAI(
     // Handle non-OK responses
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      console.error('🤖 FalkeAI API Error:', {
+      console.error('[FalkeAI] API Error:', {
         status: response.status,
         statusText: response.statusText,
         errorData,
@@ -102,22 +101,21 @@ export async function sendMessageToFalkeAI(
 
     // Validate response structure
     if (!data || typeof data.reply !== 'string') {
-      console.error('🤖 FalkeAI Error: Invalid response structure', { data });
+      console.error('[FalkeAI] Error: Invalid response structure');
       throw new Error('Invalid response from AI service');
     }
 
-    console.log('🤖 FalkeAI: Response received', {
+    console.log('[FalkeAI] Response received', {
       replyLength: data.reply.length,
       timestamp: data.timestamp,
     });
 
     return data;
   } catch (error) {
-    // Log comprehensive error details for debugging
-    console.error('🤖 FalkeAI Error Details:', {
+    // Log error details for debugging (avoid sensitive data)
+    console.error('[FalkeAI] Error:', {
       message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      context: { page: context.page, userId: context.userId },
+      page: context.page,
     });
     throw error;
   }
