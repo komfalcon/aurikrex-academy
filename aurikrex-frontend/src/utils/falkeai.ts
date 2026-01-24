@@ -16,7 +16,7 @@
  * which then forwards requests to FalkeAI. The frontend never calls FalkeAI directly.
  */
 
-import { apiRequest } from './api';
+import { apiRequest, getToken } from './api';
 import {
   FalkeAIChatContext,
   FalkeAIChatResponse,
@@ -51,40 +51,76 @@ export async function sendMessageToFalkeAI(
 ): Promise<FalkeAIChatResponse> {
   // Validate inputs
   if (!message || typeof message !== 'string' || message.trim().length === 0) {
+    console.error('🤖 FalkeAI Error: Message is required');
     throw new Error('Message is required');
   }
 
   if (!context.userId || !context.username || !context.page) {
+    console.error('🤖 FalkeAI Error: Missing context', { context });
     throw new Error('Context with userId, username, and page is required');
   }
 
-  const response = await apiRequest('/ai/chat', {
-    method: 'POST',
-    body: JSON.stringify({
-      message: message.trim(),
-      context: {
-        page: context.page,
-        course: context.course,
-        username: context.username,
-        userId: context.userId,
-      },
-    }),
+  // Check token before making request
+  const token = getToken();
+  if (!token) {
+    console.error('🤖 FalkeAI Error: No authentication token found. Please sign in.');
+    throw new Error('Please sign in to use FalkeAI');
+  }
+
+  console.log('🤖 FalkeAI: Sending message', {
+    page: context.page,
+    messageLength: message.trim().length,
+    hasToken: !!token,
   });
 
-  // Handle non-OK responses
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || `Request failed (${response.status})`);
+  try {
+    const response = await apiRequest('/ai/chat', {
+      method: 'POST',
+      body: JSON.stringify({
+        message: message.trim(),
+        context: {
+          page: context.page,
+          course: context.course,
+          username: context.username,
+          userId: context.userId,
+        },
+      }),
+    });
+
+    // Handle non-OK responses
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('🤖 FalkeAI API Error:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorData,
+      });
+      throw new Error(errorData.message || `Request failed (${response.status})`);
+    }
+
+    const data: FalkeAIChatResponse = await response.json();
+
+    // Validate response structure
+    if (!data || typeof data.reply !== 'string') {
+      console.error('🤖 FalkeAI Error: Invalid response structure', { data });
+      throw new Error('Invalid response from AI service');
+    }
+
+    console.log('🤖 FalkeAI: Response received', {
+      replyLength: data.reply.length,
+      timestamp: data.timestamp,
+    });
+
+    return data;
+  } catch (error) {
+    // Log comprehensive error details for debugging
+    console.error('🤖 FalkeAI Error Details:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      context: { page: context.page, userId: context.userId },
+    });
+    throw error;
   }
-
-  const data: FalkeAIChatResponse = await response.json();
-
-  // Validate response structure
-  if (!data || typeof data.reply !== 'string') {
-    throw new Error('Invalid response from AI service');
-  }
-
-  return data;
 }
 
 /**
