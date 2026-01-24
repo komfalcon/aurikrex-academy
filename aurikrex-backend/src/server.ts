@@ -53,12 +53,9 @@ const corsOptions = {
 };
 
 // Apply CORS middleware to all routes
+// CORS middleware handles all HTTP methods including OPTIONS preflight
 app.use(cors(corsOptions));
 
-// Handle preflight OPTIONS requests for all routes
-// This ensures browsers can perform CORS preflight checks before actual requests
-// Note: Using '*' for path-to-regexp v7+ compatibility (Express 5.x)
-app.options("*", cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(compression());  // Enable compression
