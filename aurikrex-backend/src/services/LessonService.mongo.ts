@@ -1,6 +1,6 @@
 import { LessonModel, LessonDocument, LessonProgressModel } from '../models/Lesson.model.js';
 import { getErrorMessage } from '../utils/errors.js';
-import { falkeAIService } from './FalkeAIService.js';
+import { aiService } from './AIService.js';
 import {
   Lesson,
   LessonInput,
@@ -14,36 +14,36 @@ class LessonService {
   private readonly VERSION = '1.0.0';
 
   constructor() {
-    // FalkeAI service is configured via environment variables
-    if (!falkeAIService.isConfigured()) {
-      console.warn('⚠️  FalkeAI not configured. AI lesson generation features disabled.');
+    // AI service is configured via environment variables
+    if (!aiService.isConfigured()) {
+      console.warn('⚠️  AI Service not configured. AI lesson generation features disabled.');
     }
   }
 
   /**
-   * Check if FalkeAI is available and configured
+   * Check if AI service is available and configured
    * @returns boolean indicating if AI features are available
    */
   private checkAIAvailable(): boolean {
-    if (!falkeAIService.isConfigured()) {
-      console.warn('FalkeAI feature called but FalkeAI is not configured');
+    if (!aiService.isConfigured()) {
+      console.warn('AI feature called but AI service is not configured');
       return false;
     }
     return true;
   }
 
-  private async generateWithFalkeAI(input: LessonInput): Promise<GeneratedLesson> {
+  private async generateWithAI(input: LessonInput): Promise<GeneratedLesson> {
     if (!this.checkAIAvailable()) {
-      throw new Error('AI service is not configured. Please set FALKEAI_API_KEY and FALKEAI_API_BASE_URL for lesson generation.');
+      throw new Error('AI service is not configured. Please set GEMINI_API_KEY_1/2/3 or OPENAI_API_KEY_1/2 for lesson generation.');
     }
 
     try {
       const prompt = this.constructPrompt(input);
       
-      console.log('🤖 Calling FalkeAI API for lesson generation...');
+      console.log('🤖 Calling AI Service for lesson generation...');
       
-      // Use FalkeAI chat service for lesson generation
-      const response = await falkeAIService.sendChatMessage({
+      // Use AI service for lesson generation
+      const response = await aiService.sendChatMessage({
         message: prompt,
         context: {
           page: 'Smart Lessons',
@@ -52,7 +52,7 @@ class LessonService {
         }
       });
 
-      // Parse the response - FalkeAI returns JSON in the reply
+      // Parse the response - AI returns JSON in the reply
       let result: GeneratedLesson;
       try {
         // Try to find and extract the outermost JSON object
@@ -82,25 +82,25 @@ class LessonService {
         result = JSON.parse(jsonStr);
       } catch (parseError) {
         // Log the parsing error for debugging/monitoring
-        console.warn('⚠️ Failed to parse JSON from FalkeAI response:', getErrorMessage(parseError));
+        console.warn('⚠️ Failed to parse JSON from AI response:', getErrorMessage(parseError));
         // If parsing fails, create a basic lesson structure from the response
         result = this.createBasicLessonFromResponse(input, response.reply);
       }
       
-      console.log('✅ FalkeAI API response received');
+      console.log(`✅ AI Service response received (provider: ${response.provider || 'unknown'})`);
       
       return {
         ...result,
         metadata: {
           generatedAt: new Date().toISOString(),
-          generatedBy: 'FalkeAI',
+          generatedBy: response.provider || 'AI',
           version: this.VERSION,
           isAIGenerated: true as const,
           estimatedDuration: result.duration || 60
         }
       };
     } catch (error) {
-      console.error('❌ FalkeAI API error:', getErrorMessage(error));
+      console.error('❌ AI Service error:', getErrorMessage(error));
       const err = error as Error;
       throw new Error(`Lesson generation failed: ${err.message}`);
     }
@@ -368,7 +368,7 @@ class LessonService {
     try {
       console.log(`🎓 Generating lesson for ${input.subject} - ${input.topic} (Grade ${input.targetGrade})`);
       
-      const generated = await this.generateWithFalkeAI(input);
+      const generated = await this.generateWithAI(input);
       
       // Convert GeneratedLesson to Lesson and save to MongoDB
       const lesson = await this.createLesson(authorId, {

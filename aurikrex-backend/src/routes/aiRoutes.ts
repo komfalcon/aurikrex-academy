@@ -2,10 +2,14 @@
  * AI Routes
  * 
  * Routes for AI-related functionality in Aurikrex Academy.
- * These routes provide a bridge between the frontend and the FalkeAI backend.
+ * These routes provide a bridge between the frontend and AI backends.
+ * 
+ * Supported AI Providers:
+ * - Primary: Google Gemini (free tier, 3 API keys load-balanced)
+ * - Fallback: OpenAI (paid, 2 API keys load-balanced)
  * 
  * IMPORTANT:
- * - The frontend should never call FalkeAI directly
+ * - The frontend should never call AI providers directly
  * - All AI calls must go through these internal backend routes
  * - No model details or API keys are exposed to the frontend
  */
@@ -24,7 +28,7 @@ const router = Router();
 
 /**
  * @route   POST /api/ai/chat
- * @desc    Send a chat message to FalkeAI and receive a response
+ * @desc    Send a chat message to AI service (Gemini/OpenAI) and receive a response
  * @access  Private (requires authentication)
  * 
  * Request body:
@@ -40,8 +44,10 @@ const router = Router();
  * 
  * Response:
  * {
- *   "reply": "FalkeAI response text",
- *   "timestamp": "ISO string"
+ *   "reply": "AI response text",
+ *   "timestamp": "ISO string",
+ *   "provider": "gemini | openai",
+ *   "model": "model name"
  * }
  */
 router.post(

@@ -1,4 +1,4 @@
-import { falkeAIService } from '../services/FalkeAIService.js';
+import { aiService } from '../services/AIService.js';
 import { log } from '../utils/logger.js';
 import validateEnv from '../utils/env.mongo.js';
 
@@ -6,19 +6,19 @@ async function testAIProviders() {
   // Validate environment variables
   validateEnv();
 
-  // Test FalkeAI Service
+  // Test AI Service
   try {
-    log.info('Testing FalkeAI Service...');
+    log.info('Testing AI Service (Gemini/OpenAI)...');
     
-    if (!falkeAIService.isConfigured()) {
-      log.warn('FalkeAI Service is not configured. Skipping test.');
-      log.warn('Set FALKEAI_API_BASE_URL and FALKEAI_API_KEY to enable FalkeAI features.');
+    if (!aiService.isConfigured()) {
+      log.warn('AI Service is not configured. Skipping test.');
+      log.warn('Set GEMINI_API_KEY_1/2/3 or OPENAI_API_KEY_1/2 to enable AI features.');
       return;
     }
 
-    const testMessage = 'Hello, FalkeAI! Can you help me understand basic algebra?';
+    const testMessage = 'Hello! Can you help me understand basic algebra?';
     
-    const response = await falkeAIService.sendChatMessage({
+    const response = await aiService.sendChatMessage({
       message: testMessage,
       context: {
         page: 'Smart Lessons',
@@ -27,17 +27,21 @@ async function testAIProviders() {
       }
     });
 
-    log.info('FalkeAI Service test successful', { 
+    log.info('AI Service test successful', { 
       replyLength: response.reply.length,
-      timestamp: response.timestamp
+      timestamp: response.timestamp,
+      provider: response.provider,
+      model: response.model
     });
     
-    console.log('\n✅ FalkeAI test passed!');
+    console.log('\n✅ AI Service test passed!');
+    console.log('Provider:', response.provider);
+    console.log('Model:', response.model);
     console.log('Response preview:', response.reply.substring(0, 200) + '...');
     
   } catch (error) {
-    log.error('FalkeAI Service test failed', { error });
-    console.error('\n❌ FalkeAI test failed:', error);
+    log.error('AI Service test failed', { error });
+    console.error('\n❌ AI Service test failed:', error);
   }
 }
 

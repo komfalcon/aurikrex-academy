@@ -51,12 +51,12 @@ class RedisCache implements AICache {
 
 /**
  * SmartTaskRouter - Routes AI tasks to the appropriate model
- * Note: With FalkeAI-only architecture, all tasks are routed to FalkeAI
+ * With Gemini/OpenAI architecture, all tasks are routed to Gemini first with OpenAI fallback
  */
 class SmartTaskRouter implements TaskRouter {
   async route(_taskType: TaskType, _input: unknown): Promise<AIModel> {
-    // All tasks are now handled by FalkeAI
-    return 'falkeai';
+    // All tasks are now handled by Gemini (primary) or OpenAI (fallback)
+    return 'gemini';
   }
 }
 
@@ -133,7 +133,7 @@ abstract class BaseAIProvider implements AIProvider {
 }
 
 const defaultConfig: AIServiceConfig = {
-  model: 'falkeai',
+  model: 'gemini',
   maxRetries: 3,
   timeout: 90000, // 90 seconds for complex questions
   temperature: 0.7,
