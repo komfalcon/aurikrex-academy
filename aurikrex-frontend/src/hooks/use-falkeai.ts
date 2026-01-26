@@ -18,7 +18,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { apiRequest, getToken } from '../utils/api';
+import { apiRequest, getToken, ApiError } from '../utils/api';
 import {
   FalkeAIChatContext,
   FalkeAIChatResponse,
@@ -197,11 +197,18 @@ export function useFalkeAI(): UseFalkeAIReturn {
           timestamp: requestTimestamp,
         });
 
-        // Handle specific error types
-        if (errorInstance.message === 'Network request failed: Failed to fetch') {
-          const networkError = 'Network error: Unable to reach the server. Please check your connection.';
-          setError(networkError);
-          throw new Error(networkError);
+        // Handle specific error types using ApiError properties
+        if (err instanceof ApiError) {
+          if (err.isNetworkError) {
+            const networkError = 'Network error: Unable to reach the server. Please check your connection.';
+            setError(networkError);
+            throw new Error(networkError);
+          }
+          if (err.isTimeout) {
+            const timeoutError = 'Request timed out. Please try again.';
+            setError(timeoutError);
+            throw new Error(timeoutError);
+          }
         }
 
         setError(errorInstance.message);

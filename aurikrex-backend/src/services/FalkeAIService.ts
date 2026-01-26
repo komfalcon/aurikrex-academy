@@ -23,17 +23,31 @@ const MAX_RETRIES = 2;
 const RETRY_DELAY = 1000; // 1 second
 
 /**
- * Custom error class that carries HTTP status code information
+ * Error codes for FalkeAI errors
+ */
+export enum FalkeAIErrorCode {
+  TIMEOUT = 'TIMEOUT',
+  NETWORK_ERROR = 'NETWORK_ERROR',
+  INVALID_RESPONSE = 'INVALID_RESPONSE',
+  AUTHENTICATION_ERROR = 'AUTHENTICATION_ERROR',
+  SERVICE_UNAVAILABLE = 'SERVICE_UNAVAILABLE',
+  UNKNOWN = 'UNKNOWN',
+}
+
+/**
+ * Custom error class that carries HTTP status code and error code information
  * Used to determine if an error is retryable based on status code
  */
-class FalkeAIError extends Error {
+export class FalkeAIError extends Error {
   public readonly statusCode?: number;
   public readonly isRetryable: boolean;
+  public readonly errorCode: FalkeAIErrorCode;
 
-  constructor(message: string, statusCode?: number) {
+  constructor(message: string, statusCode?: number, errorCode?: FalkeAIErrorCode) {
     super(message);
     this.name = 'FalkeAIError';
     this.statusCode = statusCode;
+    this.errorCode = errorCode || FalkeAIErrorCode.UNKNOWN;
     // Client errors (4xx) are not retryable, server errors (5xx) are retryable
     this.isRetryable = statusCode === undefined || statusCode >= 500;
   }
@@ -245,7 +259,7 @@ class FalkeAIService {
           hasReply: data ? typeof data.reply : 'no data',
           receivedKeys: data ? Object.keys(data) : [],
         });
-        throw new FalkeAIError('Invalid response from AI service');
+        throw new FalkeAIError('Invalid response from AI service', undefined, FalkeAIErrorCode.INVALID_RESPONSE);
       }
 
       log.info('✅ FalkeAI request completed successfully', {
@@ -267,18 +281,18 @@ class FalkeAIService {
           timeout: this.timeout,
           durationMs: requestDuration,
         });
-        throw new FalkeAIError('AI service request timed out. Please try again.');
+        throw new FalkeAIError('AI service request timed out. Please try again.', undefined, FalkeAIErrorCode.TIMEOUT);
       }
 
-      // Handle network errors
-      if (error instanceof TypeError && error.message.includes('fetch')) {
+      // Handle network errors (TypeError with specific patterns)
+      if (error instanceof TypeError) {
         log.error('❌ FalkeAI network error', {
           error: error.message,
           baseUrl: this.baseUrl,
           durationMs: requestDuration,
           hint: 'Check if FalkeAI service is running and accessible',
         });
-        throw new FalkeAIError(`Network error: Unable to reach AI service at ${this.baseUrl}`);
+        throw new FalkeAIError(`Network error: Unable to reach AI service at ${this.baseUrl}`, undefined, FalkeAIErrorCode.NETWORK_ERROR);
       }
 
       // Re-throw other errors

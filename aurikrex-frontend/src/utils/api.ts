@@ -148,15 +148,22 @@ export const apiRequest = async (
     
     // Handle network-level errors
     const err = error instanceof Error ? error : new Error(String(error));
+    
+    // Build hints array for debugging
+    const hints: string[] = [];
+    if (err.message === 'Failed to fetch') {
+      hints.push('Check CORS configuration, network connectivity, and API URL');
+    }
+    if (!API_URL) {
+      hints.push('VITE_API_URL environment variable is not set');
+    }
+    
     console.error('❌ Network Error:', {
       url,
       errorMessage: err.message,
       errorName: err.name,
       timestamp: requestTimestamp,
-      hints: [
-        err.message === 'Failed to fetch' && 'Check CORS configuration, network connectivity, and API URL',
-        !API_URL && 'VITE_API_URL environment variable is not set',
-      ].filter(Boolean),
+      hints: hints.length > 0 ? hints : undefined,
     });
     
     // Provide more helpful error messages

@@ -12,7 +12,7 @@
 
 import { Request, Response } from 'express';
 import { log } from '../utils/logger.js';
-import { falkeAIService } from '../services/FalkeAIService.js';
+import { falkeAIService, FalkeAIError, FalkeAIErrorCode } from '../services/FalkeAIService.js';
 import { FalkeAIChatRequest } from '../types/ai.types.js';
 
 /**
@@ -103,6 +103,8 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<void
     log.error('❌ AI chat request failed', {
       error: errorMessage,
       errorType: error instanceof Error ? error.constructor.name : typeof error,
+      errorCode: error instanceof FalkeAIError ? error.errorCode : undefined,
+      statusCode: error instanceof FalkeAIError ? error.statusCode : undefined,
       stack: errorStack,
       userId: req.body?.context?.userId,
       page: req.body?.context?.page,
@@ -110,19 +112,40 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<void
       falkeAIBaseUrl: process.env.FALKEAI_API_BASE_URL || 'NOT SET',
     });
 
-    // Determine appropriate status code and message
+    // Determine appropriate status code and message using error codes
     let statusCode = 500;
     let userMessage = errorMessage;
     
-    if (errorMessage.includes('timeout')) {
-      statusCode = 504;
-      userMessage = 'AI service request timed out. Please try again.';
-    } else if (errorMessage.includes('unavailable') || errorMessage.includes('not configured')) {
-      statusCode = 503;
-      userMessage = 'AI service is temporarily unavailable. Please try again later.';
-    } else if (errorMessage.includes('authentication') || errorMessage.includes('unauthorized')) {
-      statusCode = 502;
-      userMessage = 'AI service authentication failed. Please contact support.';
+    if (error instanceof FalkeAIError) {
+      // Use structured error codes for reliable categorization
+      switch (error.errorCode) {
+        case FalkeAIErrorCode.TIMEOUT:
+          statusCode = 504;
+          userMessage = 'AI service request timed out. Please try again.';
+          break;
+        case FalkeAIErrorCode.NETWORK_ERROR:
+          statusCode = 502;
+          userMessage = 'Unable to reach AI service. Please try again later.';
+          break;
+        case FalkeAIErrorCode.SERVICE_UNAVAILABLE:
+          statusCode = 503;
+          userMessage = 'AI service is temporarily unavailable. Please try again later.';
+          break;
+        case FalkeAIErrorCode.AUTHENTICATION_ERROR:
+          statusCode = 502;
+          userMessage = 'AI service authentication failed. Please contact support.';
+          break;
+        case FalkeAIErrorCode.INVALID_RESPONSE:
+          statusCode = 502;
+          userMessage = 'AI service returned an invalid response. Please try again.';
+          break;
+        default:
+          // Use HTTP status code from FalkeAIError if available
+          if (error.statusCode) {
+            statusCode = error.statusCode >= 500 ? 502 : error.statusCode;
+          }
+          break;
+      }
     }
 
     // Return clean error message (no stack traces to frontend)

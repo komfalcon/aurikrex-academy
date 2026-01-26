@@ -16,7 +16,7 @@
  * which then forwards requests to FalkeAI. The frontend never calls FalkeAI directly.
  */
 
-import { apiRequest, getToken } from './api';
+import { apiRequest, getToken, ApiError } from './api';
 import {
   FalkeAIChatContext,
   FalkeAIChatResponse,
@@ -160,9 +160,14 @@ export async function sendMessageToFalkeAI(
       timestamp: requestTimestamp,
     });
 
-    // Handle network errors specifically
-    if (errorInstance.message === 'Network request failed: Failed to fetch') {
-      throw new Error('Network error: Unable to reach the server. Please check your connection.');
+    // Handle specific error types using ApiError properties
+    if (error instanceof ApiError) {
+      if (error.isNetworkError) {
+        throw new Error('Network error: Unable to reach the server. Please check your connection.');
+      }
+      if (error.isTimeout) {
+        throw new Error('Request timed out. Please try again.');
+      }
     }
 
     throw error;
