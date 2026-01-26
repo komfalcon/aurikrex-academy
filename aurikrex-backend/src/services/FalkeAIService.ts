@@ -18,7 +18,7 @@ import {
 } from '../types/ai.types.js';
 
 // Configuration constants
-const DEFAULT_TIMEOUT = 30000; // 30 seconds
+const DEFAULT_TIMEOUT = 90000; // 90 seconds for complex questions
 const MAX_RETRIES = 2;
 const RETRY_DELAY = 1000; // 1 second
 const DEFAULT_TEMPERATURE = 0.7;

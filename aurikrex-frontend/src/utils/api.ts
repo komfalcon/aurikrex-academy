@@ -17,8 +17,8 @@
 
 const API_URL = import.meta.env.VITE_API_URL;
 
-// Default timeout for API requests (30 seconds)
-const DEFAULT_TIMEOUT = 30000;
+// Default timeout for API requests (90 seconds for complex AI questions)
+const DEFAULT_TIMEOUT = 90000;
 
 if (!API_URL) {
   console.warn('⚠️ VITE_API_URL is not set. API calls will fail. Please configure your environment variables.');
