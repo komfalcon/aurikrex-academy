@@ -17,13 +17,16 @@
  * which then forwards requests to FalkeAI. The frontend never calls FalkeAI directly.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { apiRequest, getToken, ApiError } from '../utils/api';
 import {
   FalkeAIChatContext,
   FalkeAIChatResponse,
   FalkeAIChatPage,
 } from '../types';
+
+// Minimum interval between requests (1 second)
+const MIN_REQUEST_INTERVAL = 1000;
 
 /**
  * Response type for the useFalkeAI hook
@@ -72,6 +75,10 @@ interface UseFalkeAIReturn {
 export function useFalkeAI(): UseFalkeAIReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Refs for debouncing - prevent rapid-fire requests
+  const isLoadingRef = useRef(false);
+  const lastRequestTimeRef = useRef(0);
 
   /**
    * Clear the current error
@@ -100,6 +107,28 @@ export function useFalkeAI(): UseFalkeAIReturn {
         console.error('[useFalkeAI] No authentication token found');
         throw new Error('Please sign in to use FalkeAI');
       }
+
+      // Debouncing: Prevent rapid-fire requests
+      const now = Date.now();
+      const timeSinceLastRequest = now - lastRequestTimeRef.current;
+
+      // Check if a request is already in progress
+      if (isLoadingRef.current) {
+        console.warn('⚠️ [useFalkeAI] Request already in progress, ignoring duplicate request');
+        throw new Error('A request is already processing. Please wait...');
+      }
+
+      // Check if too soon since last request
+      if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
+        const waitTime = MIN_REQUEST_INTERVAL - timeSinceLastRequest;
+        const waitSeconds = Math.ceil(waitTime / 1000);
+        console.warn(`⚠️ [useFalkeAI] Too many requests. Please wait ${waitSeconds}s`);
+        throw new Error(`Please wait ${waitSeconds} second${waitSeconds !== 1 ? 's' : ''} before sending another message`);
+      }
+
+      // Update refs to track request state
+      isLoadingRef.current = true;
+      lastRequestTimeRef.current = now;
 
       setIsLoading(true);
       setError(null);
@@ -215,6 +244,7 @@ export function useFalkeAI(): UseFalkeAIReturn {
         throw err;
       } finally {
         setIsLoading(false);
+        isLoadingRef.current = false;
       }
     },
     []
