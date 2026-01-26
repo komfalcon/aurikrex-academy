@@ -1,7 +1,8 @@
 import { Lesson, LessonInput } from './lesson.types.js';
 
-// FalkeAI is now the only supported AI model
-export type AIModel = 'falkeai';
+// Supported AI providers
+export type AIModel = 'gemini' | 'openai';
+export type AIProviderType = 'gemini' | 'openai';
 
 export interface AIServiceConfig {
   model: AIModel;
@@ -11,7 +12,7 @@ export interface AIServiceConfig {
   cacheDuration?: number; // in seconds
 }
 
-export interface AIResponse<T = any> {
+export interface AIResponse<T = unknown> {
   data: T;
   model: AIModel;
   usage?: {
@@ -92,14 +93,14 @@ export interface RateLimitConfig {
 }
 
 // ============================================
-// FalkeAI Chat Types
+// AI Chat Types (Unified for Gemini/OpenAI)
 // ============================================
 
 /**
- * Context information for the FalkeAI chat request
+ * Context information for the AI chat request
  * Used to provide contextual information about where the chat is being used
  */
-export interface FalkeAIChatContext {
+export interface AIChatContext {
   page: 'Smart Lessons' | 'Assignment' | 'Dashboard' | 'Ask FalkeAI';
   course?: string;
   username: string;
@@ -109,24 +110,32 @@ export interface FalkeAIChatContext {
 /**
  * Request body for the internal AI chat endpoint
  */
-export interface FalkeAIChatRequest {
+export interface AIChatRequest {
   message: string;
-  context: FalkeAIChatContext;
+  context: AIChatContext;
 }
 
 /**
  * Response from the internal AI chat endpoint
  */
-export interface FalkeAIChatResponse {
+export interface AIChatResponse {
   reply: string;
   timestamp: string;
+  provider?: AIProviderType;
+  model?: string;
 }
 
 /**
  * Error response from the AI chat endpoint
  */
-export interface FalkeAIErrorResponse {
+export interface AIErrorResponse {
   status: 'error';
   message: string;
   code?: string;
 }
+
+// Legacy type aliases for backwards compatibility
+export type FalkeAIChatContext = AIChatContext;
+export type FalkeAIChatRequest = AIChatRequest;
+export type FalkeAIChatResponse = AIChatResponse;
+export type FalkeAIErrorResponse = AIErrorResponse;

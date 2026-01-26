@@ -2,23 +2,28 @@
  * AI Controller
  * 
  * Handles AI-related HTTP requests for Aurikrex Academy.
- * This controller acts as the bridge between the frontend and FalkeAI backend.
+ * This controller acts as the bridge between the frontend and AI backends.
+ * 
+ * Supported AI Providers:
+ * - Primary: Google Gemini (free tier, 3 API keys load-balanced)
+ * - Fallback: OpenAI (paid, 2 API keys load-balanced)
  * 
  * Endpoints:
- * - POST /api/ai/chat - Send a chat message to FalkeAI
+ * - POST /api/ai/chat - Send a chat message to AI service
  * 
  * Note: Input validation is handled by express-validator middleware in aiRoutes.ts
  */
 
 import { Request, Response } from 'express';
 import { log } from '../utils/logger.js';
-import { falkeAIService, FalkeAIError, FalkeAIErrorCode } from '../services/FalkeAIService.js';
-import { FalkeAIChatRequest } from '../types/ai.types.js';
+import { aiService, AIServiceError, AIErrorCode } from '../services/AIService.js';
+import { AIChatRequest } from '../types/ai.types.js';
 
 /**
  * POST /api/ai/chat
  * 
- * Send a chat message to FalkeAI and receive a response.
+ * Send a chat message to AI service and receive a response.
+ * Tries Gemini first (free tier), falls back to OpenAI if needed.
  * Input validation is handled by express-validator middleware.
  * 
  * Request body:
@@ -34,8 +39,10 @@ import { FalkeAIChatRequest } from '../types/ai.types.js';
  * 
  * Response:
  * {
- *   "reply": "FalkeAI response text",
- *   "timestamp": "ISO string"
+ *   "reply": "AI response text",
+ *   "timestamp": "ISO string",
+ *   "provider": "gemini | openai",
+ *   "model": "model name"
  * }
  */
 export const sendChatMessage = async (req: Request, res: Response): Promise<void> => {
@@ -43,7 +50,7 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<void
   
   try {
     // Request body is already validated by express-validator middleware
-    const { message, context } = req.body as FalkeAIChatRequest;
+    const { message, context } = req.body as AIChatRequest;
 
     // Log incoming request with detailed info for debugging
     log.info('📨 AI Chat Request received', {
@@ -56,9 +63,9 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<void
       timestamp: requestTimestamp,
     });
 
-    // Check if FalkeAI service is configured
-    if (!falkeAIService.isConfigured()) {
-      log.error('❌ FalkeAI service not configured - missing FALKEAI_API_BASE_URL or FALKEAI_API_KEY');
+    // Check if AI service is configured
+    if (!aiService.isConfigured()) {
+      log.error('❌ AI service not configured - no API keys available');
       res.status(503).json({
         status: 'error',
         message: 'AI service is currently unavailable. Please try again later.',
@@ -66,13 +73,13 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    log.info('🔄 Calling FalkeAI Service', {
-      baseUrl: process.env.FALKEAI_API_BASE_URL ? 'configured' : 'missing',
-      apiKey: process.env.FALKEAI_API_KEY ? 'configured' : 'missing',
+    log.info('🔄 Calling AI Service', {
+      geminiConfigured: !!process.env.GEMINI_API_KEY_1,
+      openaiConfigured: !!process.env.OPENAI_API_KEY_1,
     });
 
     // Build the request
-    const chatRequest: FalkeAIChatRequest = {
+    const chatRequest: AIChatRequest = {
       message: message.trim(),
       context: {
         page: context.page,
@@ -82,15 +89,17 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<void
       },
     };
 
-    // Send to FalkeAI and get response
-    const response = await falkeAIService.sendChatMessage(chatRequest);
+    // Send to AI service and get response
+    const response = await aiService.sendChatMessage(chatRequest);
 
-    log.info('✅ FalkeAI Response received successfully', {
+    log.info('✅ AI Response received successfully', {
       page: context.page,
       userId: context.userId,
       replyLength: response.reply.length,
       replyPreview: response.reply.substring(0, 100) + (response.reply.length > 100 ? '...' : ''),
       timestamp: response.timestamp,
+      provider: response.provider,
+      model: response.model,
     });
 
     // Return the response
@@ -103,44 +112,47 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<void
     log.error('❌ AI chat request failed', {
       error: errorMessage,
       errorType: error instanceof Error ? error.constructor.name : typeof error,
-      errorCode: error instanceof FalkeAIError ? error.errorCode : undefined,
-      statusCode: error instanceof FalkeAIError ? error.statusCode : undefined,
+      errorCode: error instanceof AIServiceError ? error.errorCode : undefined,
+      statusCode: error instanceof AIServiceError ? error.statusCode : undefined,
       stack: errorStack,
       userId: req.body?.context?.userId,
       page: req.body?.context?.page,
       requestTimestamp,
-      falkeAIBaseUrl: process.env.FALKEAI_API_BASE_URL || 'NOT SET',
     });
 
     // Determine appropriate status code and message using error codes
     let statusCode = 500;
     let userMessage = errorMessage;
     
-    if (error instanceof FalkeAIError) {
+    if (error instanceof AIServiceError) {
       // Use structured error codes for reliable categorization
       switch (error.errorCode) {
-        case FalkeAIErrorCode.TIMEOUT:
+        case AIErrorCode.TIMEOUT:
           statusCode = 504;
           userMessage = 'AI service request timed out. Please try again.';
           break;
-        case FalkeAIErrorCode.NETWORK_ERROR:
+        case AIErrorCode.NETWORK_ERROR:
           statusCode = 502;
           userMessage = 'Unable to reach AI service. Please try again later.';
           break;
-        case FalkeAIErrorCode.SERVICE_UNAVAILABLE:
+        case AIErrorCode.SERVICE_UNAVAILABLE:
           statusCode = 503;
           userMessage = 'AI service is temporarily unavailable. Please try again later.';
           break;
-        case FalkeAIErrorCode.AUTHENTICATION_ERROR:
+        case AIErrorCode.AUTHENTICATION_ERROR:
           statusCode = 502;
           userMessage = 'AI service authentication failed. Please contact support.';
           break;
-        case FalkeAIErrorCode.INVALID_RESPONSE:
+        case AIErrorCode.INVALID_RESPONSE:
           statusCode = 502;
           userMessage = 'AI service returned an invalid response. Please try again.';
           break;
+        case AIErrorCode.RATE_LIMITED:
+          statusCode = 429;
+          userMessage = 'AI service is busy. Please try again in a moment.';
+          break;
         default:
-          // Use HTTP status code from FalkeAIError if available
+          // Use HTTP status code from AIServiceError if available
           if (error.statusCode) {
             statusCode = error.statusCode >= 500 ? 502 : error.statusCode;
           }
@@ -163,14 +175,18 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<void
  * Useful for monitoring and debugging.
  */
 export const getAIHealth = async (_req: Request, res: Response): Promise<void> => {
-  const isConfigured = falkeAIService.isConfigured();
+  const isConfigured = aiService.isConfigured();
 
   res.status(200).json({
     status: isConfigured ? 'ok' : 'unconfigured',
-    service: 'FalkeAI',
+    service: 'AIService (Gemini/OpenAI)',
+    providers: {
+      gemini: !!process.env.GEMINI_API_KEY_1,
+      openai: !!process.env.OPENAI_API_KEY_1,
+    },
     timestamp: new Date().toISOString(),
     message: isConfigured 
       ? 'AI service is properly configured' 
-      : 'AI service is not configured. Set FALKEAI_API_BASE_URL and FALKEAI_API_KEY.',
+      : 'AI service is not configured. Set GEMINI_API_KEY_1/2/3 and/or OPENAI_API_KEY_1/2.',
   });
 };
