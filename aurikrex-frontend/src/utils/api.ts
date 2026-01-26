@@ -17,6 +17,9 @@
 
 const API_URL = import.meta.env.VITE_API_URL;
 
+// Default timeout for API requests (30 seconds)
+const DEFAULT_TIMEOUT = 30000;
+
 if (!API_URL) {
   console.warn('⚠️ VITE_API_URL is not set. API calls will fail. Please configure your environment variables.');
 }
@@ -29,6 +32,8 @@ export class ApiError extends Error {
   public readonly statusText?: string;
   public readonly requestUrl?: string;
   public readonly responseData?: unknown;
+  public readonly isTimeout?: boolean;
+  public readonly isNetworkError?: boolean;
 
   constructor(
     message: string,
@@ -37,6 +42,8 @@ export class ApiError extends Error {
       statusText?: string;
       requestUrl?: string;
       responseData?: unknown;
+      isTimeout?: boolean;
+      isNetworkError?: boolean;
     }
   ) {
     super(message);
@@ -45,6 +52,8 @@ export class ApiError extends Error {
     this.statusText = options?.statusText;
     this.requestUrl = options?.requestUrl;
     this.responseData = options?.responseData;
+    this.isTimeout = options?.isTimeout;
+    this.isNetworkError = options?.isNetworkError;
   }
 }
 
@@ -56,19 +65,22 @@ export const getToken = (): string | null => {
 };
 
 /**
- * Make an authenticated API request with comprehensive error handling
+ * Make an authenticated API request with comprehensive error handling and timeout support
  * 
  * @param endpoint - API endpoint (can be relative like '/auth/user' or absolute URL)
  * @param options - Fetch options (method, body, headers, etc.)
+ * @param timeout - Optional timeout in milliseconds (default: 30000)
  * @returns Response object
  * @throws ApiError on network or HTTP errors
  */
 export const apiRequest = async (
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  timeout: number = DEFAULT_TIMEOUT
 ): Promise<Response> => {
   const token = getToken();
   const url = endpoint.startsWith('http') ? endpoint : `${API_URL}${endpoint}`;
+  const requestTimestamp = new Date().toISOString();
   
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
@@ -81,15 +93,26 @@ export const apiRequest = async (
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  // Create AbortController for timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
   try {
-    console.log(`📡 API Request: ${options.method || 'GET'} ${url}`);
+    console.log(`📡 API Request: ${options.method || 'GET'} ${url}`, {
+      hasAuth: !!token,
+      timestamp: requestTimestamp,
+      timeout,
+    });
     
     const response = await fetch(url, {
       ...options,
       headers,
       credentials: 'include', // Include cookies for session support
       mode: 'cors', // Explicitly enable CORS
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     // Log response details for debugging
     if (!response.ok) {
@@ -97,25 +120,55 @@ export const apiRequest = async (
         url,
         status: response.status,
         statusText: response.statusText,
+        timestamp: requestTimestamp,
+      });
+    } else {
+      console.log(`✅ API Response: ${response.status} ${response.statusText}`, {
+        url,
+        timestamp: requestTimestamp,
       });
     }
 
     return response;
   } catch (error) {
+    clearTimeout(timeoutId);
+    
+    // Handle timeout (AbortError)
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.error('❌ API Timeout:', {
+        url,
+        timeout,
+        timestamp: requestTimestamp,
+      });
+      throw new ApiError(
+        `Request timed out after ${timeout / 1000} seconds`,
+        { requestUrl: url, isTimeout: true }
+      );
+    }
+    
     // Handle network-level errors
     const err = error instanceof Error ? error : new Error(String(error));
     console.error('❌ Network Error:', {
       url,
       errorMessage: err.message,
       errorName: err.name,
-      hint: err.message === 'Failed to fetch' 
-        ? 'Check CORS configuration, network connectivity, and API URL'
-        : undefined,
+      timestamp: requestTimestamp,
+      hints: [
+        err.message === 'Failed to fetch' && 'Check CORS configuration, network connectivity, and API URL',
+        !API_URL && 'VITE_API_URL environment variable is not set',
+      ].filter(Boolean),
     });
     
+    // Provide more helpful error messages
+    let errorMessage = `Network request failed: ${err.message}`;
+    
+    if (err.message === 'Failed to fetch') {
+      errorMessage = 'Unable to connect to the server. Please check your internet connection and try again.';
+    }
+    
     throw new ApiError(
-      `Network request failed: ${err.message}`,
-      { requestUrl: url }
+      errorMessage,
+      { requestUrl: url, isNetworkError: true }
     );
   }
 };

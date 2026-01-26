@@ -39,24 +39,36 @@ import { FalkeAIChatRequest } from '../types/ai.types.js';
  * }
  */
 export const sendChatMessage = async (req: Request, res: Response): Promise<void> => {
+  const requestTimestamp = new Date().toISOString();
+  
   try {
     // Request body is already validated by express-validator middleware
     const { message, context } = req.body as FalkeAIChatRequest;
 
+    // Log incoming request with detailed info for debugging
+    log.info('📨 AI Chat Request received', {
+      message: message.substring(0, 100) + (message.length > 100 ? '...' : ''),
+      messageLength: message.length,
+      userId: context.userId,
+      username: context.username,
+      page: context.page,
+      course: context.course || 'N/A',
+      timestamp: requestTimestamp,
+    });
+
     // Check if FalkeAI service is configured
     if (!falkeAIService.isConfigured()) {
-      log.error('❌ FalkeAI service not configured');
+      log.error('❌ FalkeAI service not configured - missing FALKEAI_API_BASE_URL or FALKEAI_API_KEY');
       res.status(503).json({
         status: 'error',
-        message: 'AI service is currently unavailable',
+        message: 'AI service is currently unavailable. Please try again later.',
       });
       return;
     }
 
-    log.info('💬 Processing AI chat request', {
-      page: context.page,
-      userId: context.userId,
-      messageLength: message.length,
+    log.info('🔄 Calling FalkeAI Service', {
+      baseUrl: process.env.FALKEAI_API_BASE_URL ? 'configured' : 'missing',
+      apiKey: process.env.FALKEAI_API_KEY ? 'configured' : 'missing',
     });
 
     // Build the request
@@ -73,27 +85,50 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<void
     // Send to FalkeAI and get response
     const response = await falkeAIService.sendChatMessage(chatRequest);
 
-    log.info('✅ AI chat response sent', {
+    log.info('✅ FalkeAI Response received successfully', {
       page: context.page,
       userId: context.userId,
       replyLength: response.reply.length,
+      replyPreview: response.reply.substring(0, 100) + (response.reply.length > 100 ? '...' : ''),
+      timestamp: response.timestamp,
     });
 
     // Return the response
     res.status(200).json(response);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+    const errorStack = error instanceof Error ? error.stack : undefined;
     
+    // Log detailed error information for debugging
     log.error('❌ AI chat request failed', {
       error: errorMessage,
+      errorType: error instanceof Error ? error.constructor.name : typeof error,
+      stack: errorStack,
       userId: req.body?.context?.userId,
       page: req.body?.context?.page,
+      requestTimestamp,
+      falkeAIBaseUrl: process.env.FALKEAI_API_BASE_URL || 'NOT SET',
     });
 
-    // Return clean error message (no stack traces)
-    res.status(500).json({
+    // Determine appropriate status code and message
+    let statusCode = 500;
+    let userMessage = errorMessage;
+    
+    if (errorMessage.includes('timeout')) {
+      statusCode = 504;
+      userMessage = 'AI service request timed out. Please try again.';
+    } else if (errorMessage.includes('unavailable') || errorMessage.includes('not configured')) {
+      statusCode = 503;
+      userMessage = 'AI service is temporarily unavailable. Please try again later.';
+    } else if (errorMessage.includes('authentication') || errorMessage.includes('unauthorized')) {
+      statusCode = 502;
+      userMessage = 'AI service authentication failed. Please contact support.';
+    }
+
+    // Return clean error message (no stack traces to frontend)
+    res.status(statusCode).json({
       status: 'error',
-      message: errorMessage,
+      message: userMessage,
     });
   }
 };

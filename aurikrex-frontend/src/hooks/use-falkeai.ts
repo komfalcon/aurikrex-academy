@@ -18,7 +18,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { apiRequest } from '../utils/api';
+import { apiRequest, getToken } from '../utils/api';
 import {
   FalkeAIChatContext,
   FalkeAIChatResponse,
@@ -94,8 +94,28 @@ export function useFalkeAI(): UseFalkeAIReturn {
         throw new Error('Context with userId, username, and page is required');
       }
 
+      // Check authentication before making request
+      const token = getToken();
+      if (!token) {
+        console.error('[useFalkeAI] No authentication token found');
+        throw new Error('Please sign in to use FalkeAI');
+      }
+
       setIsLoading(true);
       setError(null);
+
+      const requestTimestamp = new Date().toISOString();
+      
+      // Log request details for debugging
+      console.log('📤 [useFalkeAI] Sending message to FalkeAI:', {
+        endpoint: '/ai/chat',
+        messageLength: message.trim().length,
+        messagePreview: message.substring(0, 50) + (message.length > 50 ? '...' : ''),
+        page: context.page,
+        userId: context.userId,
+        hasAuth: !!token,
+        timestamp: requestTimestamp,
+      });
 
       try {
         const response = await apiRequest('/ai/chat', {
@@ -111,10 +131,36 @@ export function useFalkeAI(): UseFalkeAIReturn {
           }),
         });
 
+        // Log response status
+        console.log('📥 [useFalkeAI] Response received:', {
+          status: response.status,
+          statusText: response.statusText,
+          ok: response.ok,
+        });
+
         // Handle non-OK responses
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          const errorMessage = errorData.message || `Request failed (${response.status})`;
+          console.error('❌ [useFalkeAI] API Error:', {
+            status: response.status,
+            statusText: response.statusText,
+            errorData,
+            timestamp: requestTimestamp,
+          });
+          
+          // Determine user-friendly error message
+          let errorMessage = errorData.message || `Request failed (${response.status})`;
+          
+          if (response.status === 401) {
+            errorMessage = 'Authentication failed. Please sign in again.';
+          } else if (response.status === 403) {
+            errorMessage = 'You do not have permission to use the AI chat.';
+          } else if (response.status === 503) {
+            errorMessage = 'AI service is temporarily unavailable. Please try again later.';
+          } else if (response.status === 504) {
+            errorMessage = 'AI service request timed out. Please try again.';
+          }
+          
           setError(errorMessage);
           throw new Error(errorMessage);
         }
@@ -123,15 +169,42 @@ export function useFalkeAI(): UseFalkeAIReturn {
 
         // Validate response structure
         if (!data || typeof data.reply !== 'string') {
+          console.error('❌ [useFalkeAI] Invalid response structure:', {
+            hasData: !!data,
+            hasReply: data ? typeof data.reply : 'no data',
+            receivedKeys: data ? Object.keys(data) : [],
+          });
           const errorMessage = 'Invalid response from AI service';
           setError(errorMessage);
           throw new Error(errorMessage);
         }
 
+        console.log('✅ [useFalkeAI] Success:', {
+          replyLength: data.reply.length,
+          replyPreview: data.reply.substring(0, 100) + (data.reply.length > 100 ? '...' : ''),
+          timestamp: data.timestamp,
+        });
+
         return data;
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
-        setError(errorMessage);
+        const errorInstance = err instanceof Error ? err : new Error(String(err));
+        
+        // Detailed error logging
+        console.error('🚨 [useFalkeAI] Request failed:', {
+          errorType: errorInstance.name,
+          errorMessage: errorInstance.message,
+          page: context.page,
+          timestamp: requestTimestamp,
+        });
+
+        // Handle specific error types
+        if (errorInstance.message === 'Network request failed: Failed to fetch') {
+          const networkError = 'Network error: Unable to reach the server. Please check your connection.';
+          setError(networkError);
+          throw new Error(networkError);
+        }
+
+        setError(errorInstance.message);
         throw err;
       } finally {
         setIsLoading(false);

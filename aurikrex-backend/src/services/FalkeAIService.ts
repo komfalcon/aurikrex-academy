@@ -56,9 +56,17 @@ class FalkeAIService {
 
     // Log initialization status (without exposing secrets)
     if (this.baseUrl && this.apiKey) {
-      log.info('✅ FalkeAI Service initialized successfully');
+      log.info('✅ FalkeAI Service initialized successfully', {
+        baseUrl: this.baseUrl,
+        apiKeyConfigured: true,
+        timeout: this.timeout,
+      });
     } else {
-      log.warn('⚠️ FalkeAI Service: Missing configuration. FALKEAI_API_BASE_URL and FALKEAI_API_KEY required.');
+      log.warn('⚠️ FalkeAI Service: Missing configuration', {
+        baseUrlSet: !!this.baseUrl,
+        apiKeySet: !!this.apiKey,
+        hint: 'Set FALKEAI_API_BASE_URL and FALKEAI_API_KEY environment variables',
+      });
     }
   }
 
@@ -79,7 +87,10 @@ class FalkeAIService {
   public async sendChatMessage(request: FalkeAIChatRequest): Promise<FalkeAIChatResponse> {
     // Validate service configuration
     if (!this.isConfigured()) {
-      log.error('❌ FalkeAI Service not configured');
+      log.error('❌ FalkeAI Service not configured', {
+        baseUrl: this.baseUrl || 'NOT SET',
+        apiKeySet: !!this.apiKey,
+      });
       throw new Error('AI service is not available. Please contact support.');
     }
 
@@ -93,9 +104,11 @@ class FalkeAIService {
     }
 
     log.info('📤 Sending message to FalkeAI', {
+      endpoint: `${this.baseUrl}/chat`,
       page: request.context.page,
       userId: request.context.userId,
       messageLength: request.message.length,
+      timestamp: new Date().toISOString(),
     });
 
     let lastError: Error | null = null;
@@ -103,12 +116,18 @@ class FalkeAIService {
     // Retry logic for transient failures
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
+        log.info(`🔄 FalkeAI request attempt ${attempt}/${MAX_RETRIES}`, {
+          attempt,
+          maxRetries: MAX_RETRIES,
+        });
+        
         const response = await this.makeRequest(request);
         
         log.info('✅ FalkeAI response received', {
           page: request.context.page,
           userId: request.context.userId,
           replyLength: response.reply.length,
+          attempt,
         });
 
         return response;
@@ -117,12 +136,18 @@ class FalkeAIService {
         
         // Don't retry for non-retryable errors (client errors 4xx)
         if (error instanceof FalkeAIError && !error.isRetryable) {
+          log.error('❌ FalkeAI request failed (non-retryable)', {
+            error: lastError.message,
+            statusCode: error.statusCode,
+          });
           throw lastError;
         }
 
         log.warn(`⚠️ FalkeAI request attempt ${attempt} failed`, {
           error: lastError.message,
+          errorType: error instanceof Error ? error.constructor.name : typeof error,
           willRetry: attempt < MAX_RETRIES,
+          nextRetryIn: attempt < MAX_RETRIES ? `${RETRY_DELAY * attempt}ms` : 'N/A',
         });
 
         // Wait before retrying
@@ -135,6 +160,8 @@ class FalkeAIService {
     // All retries exhausted
     log.error('❌ FalkeAI request failed after all retries', {
       error: lastError?.message,
+      totalAttempts: MAX_RETRIES,
+      userId: request.context.userId,
     });
 
     throw new Error('AI service is temporarily unavailable. Please try again later.');
@@ -146,6 +173,7 @@ class FalkeAIService {
   private async makeRequest(request: FalkeAIChatRequest): Promise<FalkeAIChatResponse> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+    const requestStartTime = Date.now();
 
     try {
       // Build the request payload
@@ -165,7 +193,16 @@ class FalkeAIService {
         },
       };
 
-      const response = await fetch(`${this.baseUrl}/chat`, {
+      const endpoint = `${this.baseUrl}/chat`;
+      
+      log.info('📡 Making HTTP request to FalkeAI', {
+        endpoint,
+        method: 'POST',
+        timeout: this.timeout,
+        payloadSize: JSON.stringify(payload).length,
+      });
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -176,10 +213,24 @@ class FalkeAIService {
       });
 
       clearTimeout(timeoutId);
+      const requestDuration = Date.now() - requestStartTime;
+
+      log.info('📥 FalkeAI HTTP response received', {
+        status: response.status,
+        statusText: response.statusText,
+        durationMs: requestDuration,
+        ok: response.ok,
+      });
 
       // Handle non-OK responses
       if (!response.ok) {
         const errorMessage = await this.parseErrorResponse(response);
+        log.error('❌ FalkeAI returned error response', {
+          status: response.status,
+          statusText: response.statusText,
+          errorMessage,
+          durationMs: requestDuration,
+        });
         // Throw FalkeAIError with status code for proper retry logic
         throw new FalkeAIError(errorMessage, response.status);
       }
@@ -189,8 +240,18 @@ class FalkeAIService {
 
       // Validate response structure
       if (!data || typeof data.reply !== 'string') {
+        log.error('❌ Invalid response structure from FalkeAI', {
+          hasData: !!data,
+          hasReply: data ? typeof data.reply : 'no data',
+          receivedKeys: data ? Object.keys(data) : [],
+        });
         throw new FalkeAIError('Invalid response from AI service');
       }
+
+      log.info('✅ FalkeAI request completed successfully', {
+        replyLength: data.reply.length,
+        durationMs: requestDuration,
+      });
 
       return {
         reply: data.reply,
@@ -198,10 +259,26 @@ class FalkeAIService {
       };
     } catch (error) {
       clearTimeout(timeoutId);
+      const requestDuration = Date.now() - requestStartTime;
 
       // Handle abort (timeout)
       if (error instanceof Error && error.name === 'AbortError') {
+        log.error('❌ FalkeAI request timed out', {
+          timeout: this.timeout,
+          durationMs: requestDuration,
+        });
         throw new FalkeAIError('AI service request timed out. Please try again.');
+      }
+
+      // Handle network errors
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        log.error('❌ FalkeAI network error', {
+          error: error.message,
+          baseUrl: this.baseUrl,
+          durationMs: requestDuration,
+          hint: 'Check if FalkeAI service is running and accessible',
+        });
+        throw new FalkeAIError(`Network error: Unable to reach AI service at ${this.baseUrl}`);
       }
 
       // Re-throw other errors

@@ -49,6 +49,8 @@ export async function sendMessageToFalkeAI(
   message: string,
   context: FalkeAIChatContext
 ): Promise<FalkeAIChatResponse> {
+  const requestTimestamp = new Date().toISOString();
+  
   // Validate inputs
   if (!message || typeof message !== 'string' || message.trim().length === 0) {
     console.error('[FalkeAI] Error: Message is required');
@@ -56,7 +58,11 @@ export async function sendMessageToFalkeAI(
   }
 
   if (!context.userId || !context.username || !context.page) {
-    console.error('[FalkeAI] Error: Missing required context fields');
+    console.error('[FalkeAI] Error: Missing required context fields', {
+      hasUserId: !!context.userId,
+      hasUsername: !!context.username,
+      hasPage: !!context.page,
+    });
     throw new Error('Context with userId, username, and page is required');
   }
 
@@ -67,9 +73,14 @@ export async function sendMessageToFalkeAI(
     throw new Error('Please sign in to use FalkeAI');
   }
 
-  console.log('[FalkeAI] Sending message', {
+  console.log('[FalkeAI] 📤 Sending message', {
+    endpoint: '/ai/chat',
     page: context.page,
+    userId: context.userId,
     messageLength: message.trim().length,
+    messagePreview: message.substring(0, 50) + (message.length > 50 ? '...' : ''),
+    hasAuth: !!token,
+    timestamp: requestTimestamp,
   });
 
   try {
@@ -86,37 +97,74 @@ export async function sendMessageToFalkeAI(
       }),
     });
 
+    // Log response status for debugging
+    console.log('[FalkeAI] 📥 Response received:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+    });
+
     // Handle non-OK responses
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      console.error('[FalkeAI] API Error:', {
+      console.error('[FalkeAI] ❌ API Error:', {
         status: response.status,
         statusText: response.statusText,
         errorData,
+        timestamp: requestTimestamp,
       });
-      throw new Error(errorData.message || `Request failed (${response.status})`);
+      
+      // Determine user-friendly error message based on status code
+      let errorMessage = errorData.message || `Request failed (${response.status})`;
+      
+      if (response.status === 401) {
+        errorMessage = 'Authentication failed. Please sign in again.';
+      } else if (response.status === 403) {
+        errorMessage = 'You do not have permission to use the AI chat.';
+      } else if (response.status === 503) {
+        errorMessage = 'AI service is temporarily unavailable. Please try again later.';
+      } else if (response.status === 504) {
+        errorMessage = 'AI service request timed out. Please try again.';
+      }
+      
+      throw new Error(errorMessage);
     }
 
     const data: FalkeAIChatResponse = await response.json();
 
     // Validate response structure
     if (!data || typeof data.reply !== 'string') {
-      console.error('[FalkeAI] Error: Invalid response structure');
+      console.error('[FalkeAI] ❌ Error: Invalid response structure', {
+        hasData: !!data,
+        hasReply: data ? typeof data.reply : 'no data',
+        receivedKeys: data ? Object.keys(data) : [],
+      });
       throw new Error('Invalid response from AI service');
     }
 
-    console.log('[FalkeAI] Response received', {
+    console.log('[FalkeAI] ✅ Success:', {
       replyLength: data.reply.length,
+      replyPreview: data.reply.substring(0, 100) + (data.reply.length > 100 ? '...' : ''),
       timestamp: data.timestamp,
     });
 
     return data;
   } catch (error) {
     // Log error details for debugging (avoid sensitive data)
-    console.error('[FalkeAI] Error:', {
-      message: error instanceof Error ? error.message : String(error),
+    const errorInstance = error instanceof Error ? error : new Error(String(error));
+    
+    console.error('[FalkeAI] 🚨 Request failed:', {
+      errorType: errorInstance.name,
+      errorMessage: errorInstance.message,
       page: context.page,
+      timestamp: requestTimestamp,
     });
+
+    // Handle network errors specifically
+    if (errorInstance.message === 'Network request failed: Failed to fetch') {
+      throw new Error('Network error: Unable to reach the server. Please check your connection.');
+    }
+
     throw error;
   }
 }
@@ -165,17 +213,32 @@ export async function sendMessage(
  */
 export async function checkAIServiceHealth(): Promise<boolean> {
   try {
+    console.log('[FalkeAI] Checking AI service health...');
+    
     const response = await apiRequest('/ai/health', {
       method: 'GET',
     });
 
     if (!response.ok) {
+      console.warn('[FalkeAI] Health check failed:', {
+        status: response.status,
+        statusText: response.statusText,
+      });
       return false;
     }
 
     const data = await response.json();
-    return data.status === 'ok';
-  } catch {
+    const isHealthy = data.status === 'ok';
+    
+    console.log('[FalkeAI] Health check result:', {
+      status: data.status,
+      service: data.service,
+      isHealthy,
+    });
+    
+    return isHealthy;
+  } catch (error) {
+    console.error('[FalkeAI] Health check error:', error);
     return false;
   }
 }
