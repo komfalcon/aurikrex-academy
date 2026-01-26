@@ -135,7 +135,7 @@ abstract class BaseAIProvider implements AIProvider {
 const defaultConfig: AIServiceConfig = {
   model: 'falkeai',
   maxRetries: 3,
-  timeout: 30000,
+  timeout: 90000, // 90 seconds for complex questions
   temperature: 0.7,
   cacheDuration: 3600 // 1 hour
 };
