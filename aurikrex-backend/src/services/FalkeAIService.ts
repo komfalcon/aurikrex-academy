@@ -19,8 +19,8 @@ import {
 
 // Configuration constants
 const DEFAULT_TIMEOUT = 90000; // 90 seconds for complex questions
-const MAX_RETRIES = 2;
-const RETRY_DELAY = 1000; // 1 second
+const MAX_RETRIES = 3; // Total attempts (1 initial + 2 retries)
+const BASE_DELAY = 2000; // 2 seconds base delay for exponential backoff
 const DEFAULT_TEMPERATURE = 0.7;
 const DEFAULT_MAX_TOKENS = 512;
 
@@ -63,6 +63,10 @@ class FalkeAIService {
   private readonly baseUrl: string;
   private readonly apiKey: string;
   private readonly timeout: number;
+  
+  // Request queue for processing requests one at a time
+  private requestQueue: Array<() => Promise<void>> = [];
+  private isProcessingQueue = false;
 
   constructor() {
     // Get configuration from environment variables (no hardcoded secrets)
@@ -127,13 +131,64 @@ class FalkeAIService {
       timestamp: new Date().toISOString(),
     });
 
+    // Queue the request to prevent FalkeAI overload
+    return new Promise<FalkeAIChatResponse>((resolve, reject) => {
+      this.requestQueue.push(async () => {
+        try {
+          const response = await this.executeRequestWithRetry(request);
+          resolve(response);
+        } catch (error) {
+          reject(error);
+        }
+      });
+
+      log.info(`📋 Request queued. Queue length: ${this.requestQueue.length}`, {
+        userId: request.context.userId,
+        queueLength: this.requestQueue.length,
+      });
+
+      // Start processing the queue if not already processing
+      this.processQueue();
+    });
+  }
+
+  /**
+   * Process the request queue - handles one request at a time (FIFO)
+   */
+  private async processQueue(): Promise<void> {
+    if (this.isProcessingQueue) {
+      return;
+    }
+    
+    this.isProcessingQueue = true;
+
+    while (this.requestQueue.length > 0) {
+      const request = this.requestQueue.shift();
+      if (request) {
+        try {
+          await request();
+        } catch (error) {
+          log.error('❌ Queued request failed:', {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+    }
+
+    this.isProcessingQueue = false;
+  }
+
+  /**
+   * Execute request with exponential backoff retry logic
+   */
+  private async executeRequestWithRetry(request: FalkeAIChatRequest): Promise<FalkeAIChatResponse> {
     let lastError: Error | null = null;
 
-    // Retry logic for transient failures
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    // Retry logic with exponential backoff for transient failures
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        log.info(`🔄 FalkeAI request attempt ${attempt}/${MAX_RETRIES}`, {
-          attempt,
+        log.info(`🔄 FalkeAI request attempt ${attempt + 1}/${MAX_RETRIES}`, {
+          attempt: attempt + 1,
           maxRetries: MAX_RETRIES,
         });
         
@@ -143,33 +198,45 @@ class FalkeAIService {
           page: request.context.page,
           userId: request.context.userId,
           replyLength: response.reply.length,
-          attempt,
+          attempt: attempt + 1,
         });
 
         return response;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
         
-        // Don't retry for non-retryable errors (client errors 4xx)
-        if (error instanceof FalkeAIError && !error.isRetryable) {
+        // Determine if error is retryable
+        const isRetryable = this.isRetryableError(error);
+        
+        // Don't retry for non-retryable errors (client errors 4xx, validation errors)
+        if (!isRetryable) {
           log.error('❌ FalkeAI request failed (non-retryable)', {
             error: lastError.message,
-            statusCode: error.statusCode,
+            statusCode: error instanceof FalkeAIError ? error.statusCode : undefined,
           });
           throw lastError;
         }
 
-        log.warn(`⚠️ FalkeAI request attempt ${attempt} failed`, {
+        // Don't wait/retry if this was the last attempt
+        if (attempt === MAX_RETRIES - 1) {
+          break;
+        }
+
+        // Exponential backoff: 2s, 4s, 8s
+        const delay = BASE_DELAY * Math.pow(2, attempt);
+        log.warn(`⚠️ FalkeAI request attempt ${attempt + 1} failed`, {
           error: lastError.message,
           errorType: error instanceof Error ? error.constructor.name : typeof error,
-          willRetry: attempt < MAX_RETRIES,
-          nextRetryIn: attempt < MAX_RETRIES ? `${RETRY_DELAY * attempt}ms` : 'N/A',
+          willRetry: true,
+          nextRetryIn: `${delay}ms`,
         });
 
-        // Wait before retrying
-        if (attempt < MAX_RETRIES) {
-          await this.sleep(RETRY_DELAY * attempt);
-        }
+        log.info(`⏳ Waiting ${delay}ms before retry ${attempt + 2}/${MAX_RETRIES}`, {
+          delayMs: delay,
+          nextAttempt: attempt + 2,
+        });
+
+        await this.sleep(delay);
       }
     }
 
@@ -181,6 +248,30 @@ class FalkeAIService {
     });
 
     throw new Error('AI service is temporarily unavailable. Please try again later.');
+  }
+
+  /**
+   * Check if an error is retryable (network errors, timeouts, server errors)
+   */
+  private isRetryableError(error: unknown): boolean {
+    // FalkeAIError with isRetryable property
+    if (error instanceof FalkeAIError) {
+      return error.isRetryable;
+    }
+
+    // Check for network error codes
+    if (error && typeof error === 'object') {
+      const errorCode = (error as { code?: string }).code;
+      if (errorCode === 'ECONNREFUSED' || 
+          errorCode === 'ETIMEDOUT' || 
+          errorCode === 'ENOTFOUND' ||
+          errorCode === 'ECONNRESET') {
+        return true;
+      }
+    }
+
+    // Default to retryable for unknown errors
+    return true;
   }
 
   /**
