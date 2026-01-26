@@ -258,23 +258,54 @@ class FalkeAIService {
       // FalkeAI returns: { response: string, model: string, timestamp: string }
       const data = await response.json() as { response?: string; reply?: string; model?: string; timestamp?: string };
 
+      // Log the raw response for debugging
+      log.info('📥 FalkeAI raw response data:', {
+        data: data,
+        dataType: typeof data,
+        keys: data ? Object.keys(data) : [],
+      });
+
+      // Validate response structure (null check before typeof since typeof null === 'object')
+      if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        log.error('❌ FalkeAI response is not an object:', {
+          dataType: typeof data,
+          isNull: data === null,
+          isArray: Array.isArray(data),
+          data: data,
+        });
+        throw new FalkeAIError('Invalid response: not an object', undefined, FalkeAIErrorCode.INVALID_RESPONSE);
+      }
+
       // Get the response text - FalkeAI uses 'response', but we also support 'reply' for compatibility
       const responseText = data.response || data.reply;
 
-      // Validate response structure
-      if (!data || typeof responseText !== 'string') {
-        log.error('❌ Invalid response structure from FalkeAI', {
-          hasData: !!data,
-          responseType: data ? typeof data.response : 'undefined',
-          replyType: data ? typeof data.reply : 'undefined',
-          receivedKeys: data ? Object.keys(data) : [],
+      // Check that 'response' field exists and is a string
+      if (!responseText || typeof responseText !== 'string') {
+        log.error('❌ FalkeAI response field missing or invalid:', {
+          field: 'response',
+          responseValue: data.response,
+          responseType: typeof data.response,
+          replyValue: data.reply,
+          replyType: typeof data.reply,
+          receivedKeys: Object.keys(data),
         });
-        throw new FalkeAIError('Invalid response from AI service', undefined, FalkeAIErrorCode.INVALID_RESPONSE);
+        throw new FalkeAIError('Invalid response: missing "response" field', undefined, FalkeAIErrorCode.INVALID_RESPONSE);
       }
 
-      log.info('✅ FalkeAI request completed successfully', {
-        replyLength: responseText.length,
-        model: data.model,
+      // Check that 'model' field exists and is a string (optional but log if missing)
+      if (!data.model || typeof data.model !== 'string') {
+        log.warn('⚠️ FalkeAI model field missing or invalid (non-critical):', {
+          field: 'model',
+          modelValue: data.model,
+          modelType: typeof data.model,
+        });
+      }
+
+      // Success! Log the validated response
+      log.info('✅ FalkeAI Response valid:', {
+        responseLength: responseText.length,
+        model: data.model || 'unknown',
+        timestamp: data.timestamp || 'generated',
         durationMs: requestDuration,
       });
 
