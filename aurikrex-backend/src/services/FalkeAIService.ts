@@ -265,10 +265,12 @@ class FalkeAIService {
         keys: data ? Object.keys(data) : [],
       });
 
-      // Validate response structure
-      if (!data || typeof data !== 'object') {
+      // Validate response structure (null check before typeof since typeof null === 'object')
+      if (!data || typeof data !== 'object' || Array.isArray(data)) {
         log.error('❌ FalkeAI response is not an object:', {
           dataType: typeof data,
+          isNull: data === null,
+          isArray: Array.isArray(data),
           data: data,
         });
         throw new FalkeAIError('Invalid response: not an object', undefined, FalkeAIErrorCode.INVALID_RESPONSE);
