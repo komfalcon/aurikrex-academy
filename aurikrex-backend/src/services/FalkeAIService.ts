@@ -21,6 +21,8 @@ import {
 const DEFAULT_TIMEOUT = 30000; // 30 seconds
 const MAX_RETRIES = 2;
 const RETRY_DELAY = 1000; // 1 second
+const DEFAULT_TEMPERATURE = 0.7;
+const DEFAULT_MAX_TOKENS = 512;
 
 /**
  * Error codes for FalkeAI errors
@@ -191,9 +193,12 @@ class FalkeAIService {
 
     try {
       // Build the request payload
-      // Note: System identity is injected here (not exposed to frontend)
+      // FalkeAI expects: { message, temperature, max_tokens }
+      // with optional context information
       const payload = {
         message: request.message,
+        temperature: DEFAULT_TEMPERATURE,
+        max_tokens: DEFAULT_MAX_TOKENS,
         context: {
           page: request.context.page,
           course: request.context.course,
@@ -250,26 +255,32 @@ class FalkeAIService {
       }
 
       // Parse response
-      const data = await response.json() as { reply?: string };
+      // FalkeAI returns: { response: string, model: string, timestamp: string }
+      const data = await response.json() as { response?: string; reply?: string; model?: string; timestamp?: string };
+
+      // Get the response text - FalkeAI uses 'response', but we also support 'reply' for compatibility
+      const responseText = data.response || data.reply;
 
       // Validate response structure
-      if (!data || typeof data.reply !== 'string') {
+      if (!data || typeof responseText !== 'string') {
         log.error('❌ Invalid response structure from FalkeAI', {
           hasData: !!data,
-          hasReply: data ? typeof data.reply : 'no data',
+          responseType: data ? typeof data.response : 'undefined',
+          replyType: data ? typeof data.reply : 'undefined',
           receivedKeys: data ? Object.keys(data) : [],
         });
         throw new FalkeAIError('Invalid response from AI service', undefined, FalkeAIErrorCode.INVALID_RESPONSE);
       }
 
       log.info('✅ FalkeAI request completed successfully', {
-        replyLength: data.reply.length,
+        replyLength: responseText.length,
+        model: data.model,
         durationMs: requestDuration,
       });
 
       return {
-        reply: data.reply,
-        timestamp: new Date().toISOString(),
+        reply: responseText,
+        timestamp: data.timestamp || new Date().toISOString(),
       };
     } catch (error) {
       clearTimeout(timeoutId);
