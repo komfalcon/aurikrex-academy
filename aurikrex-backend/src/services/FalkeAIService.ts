@@ -56,6 +56,16 @@ export class FalkeAIError extends Error {
 }
 
 /**
+ * Helper function to safely extract error code from an error object
+ */
+function getErrorCode(error: unknown): string | undefined {
+  if (error && typeof error === 'object' && 'code' in error) {
+    return (error as { code?: string }).code;
+  }
+  return undefined;
+}
+
+/**
  * FalkeAI Service class
  * Handles all communication with the FalkeAI backend
  */
@@ -251,9 +261,7 @@ class FalkeAIService {
       finalError: finalErrorDetails?.data,
       totalAttempts: MAX_RETRIES,
       message: lastError?.message,
-      code: lastError && typeof lastError === 'object' && 'code' in lastError 
-        ? (lastError as { code?: string }).code 
-        : undefined,
+      code: getErrorCode(lastError),
       userId: request.context.userId,
     });
 
@@ -439,15 +447,12 @@ class FalkeAIService {
 
       // Handle network errors (TypeError with specific patterns)
       if (error instanceof TypeError) {
-        const errorCode = error && typeof error === 'object' && 'code' in error 
-          ? (error as { code?: string }).code 
-          : undefined;
         log.error('❌ FalkeAI network error:', {
           status: undefined,
           statusText: 'Network Error',
           data: null,
           message: error.message,
-          code: errorCode,
+          code: getErrorCode(error),
           url: `${this.baseUrl}/chat`,
           method: 'POST',
           durationMs: requestDuration,
