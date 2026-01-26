@@ -240,10 +240,20 @@ class FalkeAIService {
       }
     }
 
-    // All retries exhausted
-    log.error('❌ FalkeAI request failed after all retries', {
-      error: lastError?.message,
+    // All retries exhausted - log detailed error information
+    const finalErrorDetails = lastError && typeof lastError === 'object' && 'response' in lastError
+      ? (lastError as { response?: { status?: number; statusText?: string; data?: unknown } }).response
+      : undefined;
+    
+    log.error('❌ FalkeAI request failed after all retries:', {
+      finalStatus: finalErrorDetails?.status,
+      finalStatusText: finalErrorDetails?.statusText,
+      finalError: finalErrorDetails?.data,
       totalAttempts: MAX_RETRIES,
+      message: lastError?.message,
+      code: lastError && typeof lastError === 'object' && 'code' in lastError 
+        ? (lastError as { code?: string }).code 
+        : undefined,
       userId: request.context.userId,
     });
 
@@ -334,15 +344,18 @@ class FalkeAIService {
 
       // Handle non-OK responses
       if (!response.ok) {
-        const errorMessage = await this.parseErrorResponse(response);
-        log.error('❌ FalkeAI returned error response', {
+        const errorData = await this.parseErrorResponseWithData(response);
+        log.error('❌ FalkeAI returned error response:', {
           status: response.status,
           statusText: response.statusText,
-          errorMessage,
+          data: errorData.rawData,  // The actual error response body from FalkeAI
+          message: errorData.message,
+          url: endpoint,
+          method: 'POST',
           durationMs: requestDuration,
         });
         // Throw FalkeAIError with status code for proper retry logic
-        throw new FalkeAIError(errorMessage, response.status);
+        throw new FalkeAIError(errorData.message, response.status);
       }
 
       // Parse response
@@ -410,7 +423,14 @@ class FalkeAIService {
 
       // Handle abort (timeout)
       if (error instanceof Error && error.name === 'AbortError') {
-        log.error('❌ FalkeAI request timed out', {
+        log.error('❌ FalkeAI request timed out:', {
+          status: undefined,
+          statusText: 'Request Timeout',
+          data: null,
+          message: 'AI service request timed out',
+          code: 'ECONNABORTED',
+          url: `${this.baseUrl}/chat`,
+          method: 'POST',
           timeout: this.timeout,
           durationMs: requestDuration,
         });
@@ -419,9 +439,17 @@ class FalkeAIService {
 
       // Handle network errors (TypeError with specific patterns)
       if (error instanceof TypeError) {
-        log.error('❌ FalkeAI network error', {
-          error: error.message,
-          baseUrl: this.baseUrl,
+        const errorCode = error && typeof error === 'object' && 'code' in error 
+          ? (error as { code?: string }).code 
+          : undefined;
+        log.error('❌ FalkeAI network error:', {
+          status: undefined,
+          statusText: 'Network Error',
+          data: null,
+          message: error.message,
+          code: errorCode,
+          url: `${this.baseUrl}/chat`,
+          method: 'POST',
           durationMs: requestDuration,
           hint: 'Check if FalkeAI service is running and accessible',
         });
@@ -434,15 +462,20 @@ class FalkeAIService {
   }
 
   /**
-   * Parse error response from FalkeAI
+   * Parse error response from FalkeAI with raw data for detailed logging
+   * Returns both the parsed message and the raw response data
    */
-  private async parseErrorResponse(response: Response): Promise<string> {
+  private async parseErrorResponseWithData(response: Response): Promise<{ message: string; rawData: unknown }> {
     try {
-      const data = await response.json() as { message?: string; error?: string };
-      return data.message || data.error || `AI service error (${response.status})`;
+      const data = await response.json() as { message?: string; error?: string; detail?: string; [key: string]: unknown };
+      const message = data.message || data.error || data.detail || `AI service error (${response.status})`;
+      return { message, rawData: data };
     } catch {
       // If we can't parse the error response, return a generic message
-      return `AI service error (${response.status})`;
+      return { 
+        message: `AI service error (${response.status})`, 
+        rawData: null 
+      };
     }
   }
 
