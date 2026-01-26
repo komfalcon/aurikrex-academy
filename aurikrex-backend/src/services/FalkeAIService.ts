@@ -270,8 +270,8 @@ class FalkeAIService {
       }
     }
 
-    // Default to retryable for unknown errors
-    return true;
+    // Default to non-retryable for unknown errors to prevent infinite retry loops
+    return false;
   }
 
   /**
