@@ -3,11 +3,11 @@
  * 
  * Smart AI Model Router with OpenRouter (PRIMARY) + Groq (FALLBACK)
  * 
- * PRIMARY: OpenRouter (4 FREE models - NO EXPIRY - smart routing)
+ * PRIMARY: OpenRouter (2 TESTED & WORKING FREE models - NO EXPIRY - smart routing)
  *   - Simple questions → Google Gemma 3 4B (FAST)
- *   - Balanced questions → Qwen2.5 72B (GENERAL)
- *   - Complex/Reasoning → Qwen3-Next-80B (SMART)
- *   - Coding questions → DeepSeek R1 Zero (EXPERT)
+ *   - Balanced questions → Google Gemma 3 4B (RELIABLE)
+ *   - Complex/Reasoning → Meta Llama 3.3 70B (SMART)
+ *   - Coding questions → Meta Llama 3.3 70B (EXPERT)
  * 
  * FALLBACK: Groq API (if OpenRouter completely fails)
  *   - Uses: Mixtral 8x7B (free)
@@ -95,17 +95,20 @@ class AIService {
   private readonly groqBaseUrl = 'https://api.groq.com/openai/v1/chat/completions';
   private readonly timeout: number;
 
-  // OpenRouter models - 4 FREE models with NO EXPIRY
+  // OpenRouter models - 2 TESTED & WORKING FREE models with NO EXPIRY
   // See: https://openrouter.ai/models (filter by free)
   private readonly models = {
-    // Fast, lightweight - Good for simple questions
+    // Fast model - Google Gemma 3 4B (Tested & Working)
     fast: 'google/gemma-3-4b-it:free',
-    // Balanced - General purpose, best ratio (72B parameters)
-    balanced: 'qwen/qwen-2.5-72b-instruct:free',
-    // Smart - Complex reasoning, better quality (80B parameters, 262K context)
-    smart: 'qwen/qwen3-next-80b-a3b-instruct:free',
-    // Expert - Best reasoning & coding
-    expert: 'deepseek/deepseek-r1-zero:free',
+    
+    // Balanced model - Google Gemma 3 4B (Same as fast, reliable)
+    balanced: 'google/gemma-3-4b-it:free',
+    
+    // Smart model - Meta Llama 3.3 70B (Tested & Working, powerful)
+    smart: 'meta-llama/llama-3.3-70b-instruct:free',
+    
+    // Expert model - Meta Llama 3.3 70B (Same as smart, best quality)
+    expert: 'meta-llama/llama-3.3-70b-instruct:free',
   };
 
   // Groq fallback model
@@ -226,48 +229,48 @@ class AIService {
    * Select the best model based on question analysis
    * 
    * Routes questions to appropriate models:
-   * - Coding questions → Expert (DeepSeek R1 Zero) - Best for code/algorithms
-   * - Complex/Reasoning → Smart (Qwen3-Next-80B) - Deep analysis
-   * - General questions → Balanced (Qwen2.5 72B) - Good for most queries
-   * - Simple/short → Fast (Gemma 3 4B) - Quick responses
+   * - Coding questions → Expert (Meta Llama 3.3 70B) - Best for code/algorithms
+   * - Complex/Reasoning → Smart (Meta Llama 3.3 70B) - Deep analysis
+   * - General questions → Balanced (Google Gemma 3 4B) - Good for most queries
+   * - Simple/short → Fast (Google Gemma 3 4B) - Quick responses
    */
   private selectBestModel(message: string): SelectedModel {
     const lower = message.toLowerCase();
 
-    // CODING DETECTION → Expert Model (DeepSeek R1 Zero)
+    // CODING DETECTION → Expert Model (Meta Llama 3.3 70B)
     // Uses word boundaries to avoid false positives (e.g., "classical" won't match "class")
     if (/\b(code|function|javascript|typescript|python|debug|implement|algorithm|syntax|program|variable|class|method)\b/.test(lower)) {
       log.info('🔍 Detected: CODING question');
       return {
         id: this.models.expert,
-        name: 'DeepSeek R1 Zero (Expert)',
+        name: 'Meta Llama 3.3 70B (Expert)',
         type: 'coding',
       };
     }
 
-    // COMPLEX/REASONING DETECTION → Smart Model (Qwen3-Next-80B)
+    // COMPLEX/REASONING DETECTION → Smart Model (Meta Llama 3.3 70B)
     // Uses word boundaries to avoid false positives
     if (/\b(explain|why|how|analyze|compare|theory|concept|research|mechanism|complex|quantum|difference)\b/.test(lower)) {
       log.info('🔍 Detected: COMPLEX/REASONING question');
       return {
         id: this.models.smart,
-        name: 'Qwen3-Next-80B (Smart)',
+        name: 'Meta Llama 3.3 70B (Smart)',
         type: 'smart',
       };
     }
 
-    // BALANCED DETECTION → General Purpose (Qwen2.5 72B)
+    // BALANCED DETECTION → General Purpose (Google Gemma 3 4B)
     // Uses word boundaries to avoid false positives
     if (/\b(what|tell|describe|define|list|summarize)\b/.test(lower)) {
       log.info('🔍 Detected: BALANCED question');
       return {
         id: this.models.balanced,
-        name: 'Qwen2.5 72B (Balanced)',
+        name: 'Google Gemma 3 4B (Balanced)',
         type: 'balanced',
       };
     }
 
-    // SIMPLE DETECTION (short questions < 10 words) → Fast Model (Gemma 3 4B)
+    // SIMPLE DETECTION (short questions < 10 words) → Fast Model (Google Gemma 3 4B)
     // Use robust word counting that handles multiple whitespace correctly
     const wordCount = message.trim().split(/\s+/).filter(word => word.length > 0).length;
     if (wordCount < 10) {
@@ -283,7 +286,7 @@ class AIService {
     log.info('🔍 Detected: BALANCED question (default)');
     return {
       id: this.models.balanced,
-      name: 'Qwen2.5 72B (Balanced)',
+      name: 'Google Gemma 3 4B (Balanced)',
       type: 'balanced',
     };
   }
