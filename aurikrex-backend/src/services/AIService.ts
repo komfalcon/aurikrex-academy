@@ -4,10 +4,10 @@
  * Smart AI Model Router with OpenRouter (PRIMARY) + Groq (FALLBACK)
  * 
  * PRIMARY: OpenRouter (4 FREE models - NO EXPIRY - smart routing)
- *   - Simple questions → Google Gemma 3 2B (FAST, 32K context)
- *   - Balanced questions → Qwen 2.5 32B (GENERAL, 256K context)
- *   - Complex/Reasoning → Qwen3 Next 80B (SMART, 262K context)
- *   - Coding questions → Moonshot Kimi K2 (EXPERT, 128K context)
+ *   - Simple questions → Google Gemma 3 4B (FAST)
+ *   - Balanced questions → Qwen2.5 32B (GENERAL)
+ *   - Complex/Reasoning → Qwen3-Next-80B (SMART)
+ *   - Coding questions → DeepSeek R1 Zero (EXPERT)
  * 
  * FALLBACK: Groq API (if OpenRouter completely fails)
  *   - Uses: Mixtral 8x7B (free)
@@ -98,14 +98,14 @@ class AIService {
   // OpenRouter models - 4 FREE models with NO EXPIRY
   // See: https://openrouter.ai/models (filter by free)
   private readonly models = {
-    // Fast, lightweight - Good for simple questions (32K context)
-    fast: 'google/gemma-3-2b-instruct:free',
-    // Balanced - General purpose, best ratio (256K context)
-    balanced: 'alibaba/qwen-2.5-32b-instruct:free',
-    // Smart - Complex reasoning, better quality (262K context)
-    smart: 'alibaba/qwen-3-next-80b-a3b-instruct:free',
-    // Expert - Best reasoning & coding (128K context)
-    expert: 'moonshot/kimi-k2-0711:free',
+    // Fast, lightweight - Good for simple questions
+    fast: 'google/gemma-3-4b-it:free',
+    // Balanced - General purpose, best ratio
+    balanced: 'qwen/qwen2.5-32b-instruct:free',
+    // Smart - Complex reasoning, better quality
+    smart: 'qwen/qwen-3-next-80b-a3b-instruct:free',
+    // Expert - Best reasoning & coding
+    expert: 'deepseek/deepseek-r1-zero:free',
   };
 
   // Groq fallback model
@@ -226,55 +226,55 @@ class AIService {
    * Select the best model based on question analysis
    * 
    * Routes questions to appropriate models:
-   * - Coding questions → Expert (Kimi K2) - Best for code/algorithms
-   * - Complex/Reasoning → Smart (Qwen3 80B) - Deep analysis
-   * - General questions → Balanced (Qwen 32B) - Good for most queries
-   * - Simple/short → Fast (Gemma 3 2B) - Quick responses
+   * - Coding questions → Expert (DeepSeek R1 Zero) - Best for code/algorithms
+   * - Complex/Reasoning → Smart (Qwen3-Next-80B) - Deep analysis
+   * - General questions → Balanced (Qwen2.5 32B) - Good for most queries
+   * - Simple/short → Fast (Gemma 3 4B) - Quick responses
    */
   private selectBestModel(message: string): SelectedModel {
     const lower = message.toLowerCase();
 
-    // CODING DETECTION → Expert Model (Kimi K2)
+    // CODING DETECTION → Expert Model (DeepSeek R1 Zero)
     // Uses word boundaries to avoid false positives (e.g., "classical" won't match "class")
     if (/\b(code|function|javascript|typescript|python|debug|implement|algorithm|syntax|program|variable|class|method)\b/.test(lower)) {
       log.info('🔍 Detected: CODING question');
       return {
         id: this.models.expert,
-        name: 'Moonshot Kimi K2 (Expert)',
+        name: 'DeepSeek R1 Zero (Expert)',
         type: 'coding',
       };
     }
 
-    // COMPLEX/REASONING DETECTION → Smart Model (Qwen3 80B)
+    // COMPLEX/REASONING DETECTION → Smart Model (Qwen3-Next-80B)
     // Uses word boundaries to avoid false positives
     if (/\b(explain|why|how|analyze|compare|theory|concept|research|mechanism|complex|quantum|difference)\b/.test(lower)) {
       log.info('🔍 Detected: COMPLEX/REASONING question');
       return {
         id: this.models.smart,
-        name: 'Qwen3 Next 80B (Smart)',
+        name: 'Qwen3-Next-80B (Smart)',
         type: 'smart',
       };
     }
 
-    // BALANCED DETECTION → General Purpose (Qwen 32B)
+    // BALANCED DETECTION → General Purpose (Qwen2.5 32B)
     // Uses word boundaries to avoid false positives
     if (/\b(what|tell|describe|define|list|summarize)\b/.test(lower)) {
       log.info('🔍 Detected: BALANCED question');
       return {
         id: this.models.balanced,
-        name: 'Qwen 2.5 32B (Balanced)',
+        name: 'Qwen2.5 32B (Balanced)',
         type: 'balanced',
       };
     }
 
-    // SIMPLE DETECTION (short questions < 10 words) → Fast Model (Gemma 3 2B)
+    // SIMPLE DETECTION (short questions < 10 words) → Fast Model (Gemma 3 4B)
     // Use robust word counting that handles multiple whitespace correctly
     const wordCount = message.trim().split(/\s+/).filter(word => word.length > 0).length;
     if (wordCount < 10) {
       log.info('🔍 Detected: SIMPLE/QUICK question');
       return {
         id: this.models.fast,
-        name: 'Google Gemma 3 2B (Fast)',
+        name: 'Google Gemma 3 4B (Fast)',
         type: 'fast',
       };
     }
@@ -283,7 +283,7 @@ class AIService {
     log.info('🔍 Detected: BALANCED question (default)');
     return {
       id: this.models.balanced,
-      name: 'Qwen 2.5 32B (Balanced)',
+      name: 'Qwen2.5 32B (Balanced)',
       type: 'balanced',
     };
   }
