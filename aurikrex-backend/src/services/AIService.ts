@@ -3,11 +3,11 @@
  * 
  * Smart AI Model Router with OpenRouter (PRIMARY) + Groq (FALLBACK)
  * 
- * PRIMARY: OpenRouter (4 FREE models with smart routing)
- *   - Simple questions → Arcee Trinity Mini (FAST)
- *   - Complex/Reasoning → Hermes 3 405B (REASONING)
- *   - Coding questions → Hermes 3 405B (CODING)
- *   - Balanced → Qwen3 Next 80B (BALANCED)
+ * PRIMARY: OpenRouter (4 FREE models - NO EXPIRY - smart routing)
+ *   - Simple questions → Google Gemma 3 2B (FAST, 32K context)
+ *   - Balanced questions → Qwen 2.5 32B (GENERAL, 256K context)
+ *   - Complex/Reasoning → Qwen3 Next 80B (SMART, 262K context)
+ *   - Coding questions → Moonshot Kimi K2 (EXPERT, 128K context)
  * 
  * FALLBACK: Groq API (if OpenRouter completely fails)
  *   - Uses: Mixtral 8x7B (free)
@@ -18,6 +18,7 @@
  *   - Automatic fallback from OpenRouter to Groq on failure
  *   - Request queuing to prevent overload
  *   - Detailed logging showing which provider succeeded
+ *   - 100% FREE - All models have $0/M input & output with NO EXPIRY
  */
 
 import axios, { AxiosError } from 'axios';
@@ -94,13 +95,17 @@ class AIService {
   private readonly groqBaseUrl = 'https://api.groq.com/openai/v1/chat/completions';
   private readonly timeout: number;
 
-  // OpenRouter models
-  // Note: reasoning and coding both use Hermes 3 405B which excels at both tasks
+  // OpenRouter models - 4 FREE models with NO EXPIRY
+  // See: https://openrouter.ai/models (filter by free)
   private readonly models = {
-    fast: 'arcee-ai/arcee-trinity-mini:free',
-    balanced: 'qwen/qwen3-next-80b-a3b-instruct:free',
-    reasoning: 'nous-research/hermes-3-405b-instruct:free',
-    coding: 'nous-research/hermes-3-405b-instruct:free',
+    // Fast, lightweight - Good for simple questions (32K context)
+    fast: 'google/gemma-3-2b-instruct:free',
+    // Balanced - General purpose, best ratio (256K context)
+    balanced: 'alibaba/qwen-2.5-32b-instruct:free',
+    // Smart - Complex reasoning, better quality (262K context)
+    smart: 'alibaba/qwen-3-next-80b-a3b-instruct:free',
+    // Expert - Best reasoning & coding (128K context)
+    expert: 'moonshot/kimi-k2-0711:free',
   };
 
   // Groq fallback model
@@ -219,69 +224,66 @@ class AIService {
 
   /**
    * Select the best model based on question analysis
+   * 
+   * Routes questions to appropriate models:
+   * - Coding questions → Expert (Kimi K2) - Best for code/algorithms
+   * - Complex/Reasoning → Smart (Qwen3 80B) - Deep analysis
+   * - General questions → Balanced (Qwen 32B) - Good for most queries
+   * - Simple/short → Fast (Gemma 3 2B) - Quick responses
    */
   private selectBestModel(message: string): SelectedModel {
     const lower = message.toLowerCase();
 
-    // CODING DETECTION
-    if (
-      lower.includes('code') ||
-      lower.includes('function') ||
-      lower.includes('python') ||
-      lower.includes('javascript') ||
-      lower.includes('debug') ||
-      lower.includes('syntax') ||
-      lower.includes('algorithm') ||
-      lower.includes('typescript') ||
-      lower.includes('program') ||
-      lower.includes('variable') ||
-      lower.includes('class') ||
-      lower.includes('method')
-    ) {
+    // CODING DETECTION → Expert Model (Kimi K2)
+    // Uses word boundaries to avoid false positives (e.g., "classical" won't match "class")
+    if (/\b(code|function|javascript|typescript|python|debug|implement|algorithm|syntax|program|variable|class|method)\b/.test(lower)) {
       log.info('🔍 Detected: CODING question');
       return {
-        id: this.models.coding,
-        name: 'Hermes 3 405B (Coding Expert)',
+        id: this.models.expert,
+        name: 'Moonshot Kimi K2 (Expert)',
         type: 'coding',
       };
     }
 
-    // REASONING/COMPLEX DETECTION
-    if (
-      lower.includes('explain') ||
-      lower.includes('why') ||
-      lower.includes('how') ||
-      lower.includes('analyze') ||
-      lower.includes('complex') ||
-      lower.includes('theory') ||
-      lower.includes('quantum') ||
-      lower.includes('mechanism') ||
-      lower.includes('compare') ||
-      lower.includes('difference')
-    ) {
-      log.info('🔍 Detected: REASONING/COMPLEX question');
+    // COMPLEX/REASONING DETECTION → Smart Model (Qwen3 80B)
+    // Uses word boundaries to avoid false positives
+    if (/\b(explain|why|how|analyze|compare|theory|concept|research|mechanism|complex|quantum|difference)\b/.test(lower)) {
+      log.info('🔍 Detected: COMPLEX/REASONING question');
       return {
-        id: this.models.reasoning,
-        name: 'Hermes 3 405B (Reasoning Master)',
-        type: 'reasoning',
+        id: this.models.smart,
+        name: 'Qwen3 Next 80B (Smart)',
+        type: 'smart',
       };
     }
 
-    // SIMPLE DETECTION (short, direct questions)
-    if (message.split(' ').length < 10) {
+    // BALANCED DETECTION → General Purpose (Qwen 32B)
+    // Uses word boundaries to avoid false positives
+    if (/\b(what|tell|describe|define|list|summarize)\b/.test(lower)) {
+      log.info('🔍 Detected: BALANCED question');
+      return {
+        id: this.models.balanced,
+        name: 'Qwen 2.5 32B (Balanced)',
+        type: 'balanced',
+      };
+    }
+
+    // SIMPLE DETECTION (short questions < 10 words) → Fast Model (Gemma 3 2B)
+    // Use robust word counting that handles multiple whitespace correctly
+    const wordCount = message.trim().split(/\s+/).filter(word => word.length > 0).length;
+    if (wordCount < 10) {
       log.info('🔍 Detected: SIMPLE/QUICK question');
       return {
         id: this.models.fast,
-        name: 'Arcee Trinity Mini (Speed Demon)',
+        name: 'Google Gemma 3 2B (Fast)',
         type: 'fast',
       };
     }
 
     // DEFAULT: Use balanced model for medium complexity
-    log.info('🔍 Detected: BALANCED question');
+    log.info('🔍 Detected: BALANCED question (default)');
     return {
       id: this.models.balanced,
-      name: 'Qwen3 Next 80B (Balanced)',
+      name: 'Qwen 2.5 32B (Balanced)',
       type: 'balanced',
     };
   }
