@@ -4,10 +4,10 @@
  * Smart AI Model Router with OpenRouter (PRIMARY) + Groq (FALLBACK)
  * 
  * PRIMARY: OpenRouter (4 FREE models - NO EXPIRY - smart routing)
- *   - Simple questions → Google Gemma 3 4B (FAST, 4B parameters)
- *   - Balanced questions → Qwen2.5 32B (GENERAL, 32B parameters)
- *   - Complex/Reasoning → Qwen3-Next-80B (SMART, 80B parameters)
- *   - Coding questions → DeepSeek R1 Zero (EXPERT, FREE!)
+ *   - Simple questions → Google Gemma 3 4B (FAST)
+ *   - Balanced questions → Qwen2.5 32B (GENERAL)
+ *   - Complex/Reasoning → Qwen3-Next-80B (SMART)
+ *   - Coding questions → DeepSeek R1 Zero (EXPERT)
  * 
  * FALLBACK: Groq API (if OpenRouter completely fails)
  *   - Uses: Mixtral 8x7B (free)
@@ -98,13 +98,13 @@ class AIService {
   // OpenRouter models - 4 FREE models with NO EXPIRY
   // See: https://openrouter.ai/models (filter by free)
   private readonly models = {
-    // Fast, lightweight - Good for simple questions (4B parameters)
+    // Fast, lightweight - Good for simple questions
     fast: 'google/gemma-3-4b-it:free',
-    // Balanced - General purpose, best ratio (32B parameters)
+    // Balanced - General purpose, best ratio
     balanced: 'qwen/qwen2.5-32b-instruct:free',
-    // Smart - Complex reasoning, better quality (80B parameters, 262K context)
+    // Smart - Complex reasoning, better quality
     smart: 'qwen/qwen-3-next-80b-a3b-instruct:free',
-    // Expert - Best reasoning & coding - DeepSeek R1 Zero (FREE!)
+    // Expert - Best reasoning & coding
     expert: 'deepseek/deepseek-r1-zero:free',
   };
 
