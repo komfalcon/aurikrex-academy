@@ -1,8 +1,8 @@
 import { Lesson, LessonInput } from './lesson.types.js';
 
 // Supported AI providers
-export type AIModel = 'gemini' | 'openai';
-export type AIProviderType = 'gemini' | 'openai';
+export type AIModel = 'gemini' | 'openai' | 'openrouter' | 'groq';
+export type AIProviderType = 'gemini' | 'openai' | 'openrouter' | 'groq';
 
 export interface AIServiceConfig {
   model: AIModel;
@@ -123,6 +123,7 @@ export interface AIChatResponse {
   timestamp: string;
   provider?: AIProviderType;
   model?: string;
+  modelType?: string;
 }
 
 /**

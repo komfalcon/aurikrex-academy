@@ -8,11 +8,11 @@ async function testAIProviders() {
 
   // Test AI Service
   try {
-    log.info('Testing AI Service (Gemini/OpenAI)...');
+    log.info('Testing AI Service (OpenRouter/Groq)...');
     
     if (!aiService.isConfigured()) {
       log.warn('AI Service is not configured. Skipping test.');
-      log.warn('Set GEMINI_API_KEY_1/2/3 or OPENAI_API_KEY_1/2 to enable AI features.');
+      log.warn('Set OPENROUTER_API_KEY or GROQ_API_KEY to enable AI features.');
       return;
     }
 
@@ -31,12 +31,14 @@ async function testAIProviders() {
       replyLength: response.reply.length,
       timestamp: response.timestamp,
       provider: response.provider,
-      model: response.model
+      model: response.model,
+      modelType: response.modelType
     });
     
     console.log('\n✅ AI Service test passed!');
     console.log('Provider:', response.provider);
     console.log('Model:', response.model);
+    console.log('Model Type:', response.modelType);
     console.log('Response preview:', response.reply.substring(0, 200) + '...');
     
   } catch (error) {

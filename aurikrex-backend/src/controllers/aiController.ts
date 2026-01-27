@@ -5,8 +5,13 @@
  * This controller acts as the bridge between the frontend and AI backends.
  * 
  * Supported AI Providers:
- * - Primary: Google Gemini (free tier, 3 API keys load-balanced)
- * - Fallback: OpenAI (paid, 2 API keys load-balanced)
+ * - Primary: OpenRouter (4 FREE models with smart routing)
+ *   - Simple → Arcee Trinity Mini (FAST)
+ *   - Complex → Hermes 3 405B (REASONING)
+ *   - Coding → Hermes 3 405B (CODING)
+ *   - Balanced → Qwen3 Next 80B (BALANCED)
+ * - Fallback: Groq API (if OpenRouter completely fails)
+ *   - Uses: Mixtral 8x7B (free)
  * 
  * Endpoints:
  * - POST /api/ai/chat - Send a chat message to AI service
@@ -23,7 +28,7 @@ import { AIChatRequest } from '../types/ai.types.js';
  * POST /api/ai/chat
  * 
  * Send a chat message to AI service and receive a response.
- * Tries Gemini first (free tier), falls back to OpenAI if needed.
+ * Tries OpenRouter first (free tier, smart routing), falls back to Groq if needed.
  * Input validation is handled by express-validator middleware.
  * 
  * Request body:
@@ -41,8 +46,9 @@ import { AIChatRequest } from '../types/ai.types.js';
  * {
  *   "reply": "AI response text",
  *   "timestamp": "ISO string",
- *   "provider": "gemini | openai",
- *   "model": "model name"
+ *   "provider": "openrouter | groq",
+ *   "model": "model name",
+ *   "modelType": "fast | balanced | reasoning | coding | fallback"
  * }
  */
 export const sendChatMessage = async (req: Request, res: Response): Promise<void> => {
@@ -74,8 +80,8 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<void
     }
 
     log.info('🔄 Calling AI Service', {
-      geminiConfigured: !!process.env.GEMINI_API_KEY_1,
-      openaiConfigured: !!process.env.OPENAI_API_KEY_1,
+      openrouterConfigured: !!process.env.OPENROUTER_API_KEY,
+      groqConfigured: !!process.env.GROQ_API_KEY,
     });
 
     // Build the request
@@ -100,6 +106,7 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<void
       timestamp: response.timestamp,
       provider: response.provider,
       model: response.model,
+      modelType: response.modelType,
     });
 
     // Return the response
@@ -179,14 +186,14 @@ export const getAIHealth = async (_req: Request, res: Response): Promise<void> =
 
   res.status(200).json({
     status: isConfigured ? 'ok' : 'unconfigured',
-    service: 'AIService (Gemini/OpenAI)',
+    service: 'AIService (OpenRouter/Groq)',
     providers: {
-      gemini: !!process.env.GEMINI_API_KEY_1,
-      openai: !!process.env.OPENAI_API_KEY_1,
+      openrouter: !!process.env.OPENROUTER_API_KEY,
+      groq: !!process.env.GROQ_API_KEY,
     },
     timestamp: new Date().toISOString(),
     message: isConfigured 
       ? 'AI service is properly configured' 
-      : 'AI service is not configured. Set GEMINI_API_KEY_1/2/3 and/or OPENAI_API_KEY_1/2.',
+      : 'AI service is not configured. Set OPENROUTER_API_KEY and/or GROQ_API_KEY.',
   });
 };
