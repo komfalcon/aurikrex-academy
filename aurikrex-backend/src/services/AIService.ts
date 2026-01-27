@@ -235,7 +235,8 @@ class AIService {
     const lower = message.toLowerCase();
 
     // CODING DETECTION → Expert Model (Kimi K2)
-    if (/code|function|javascript|typescript|python|debug|implement|algorithm|syntax|program|variable|class|method/.test(lower)) {
+    // Uses word boundaries to avoid false positives (e.g., "classical" won't match "class")
+    if (/\b(code|function|javascript|typescript|python|debug|implement|algorithm|syntax|program|variable|class|method)\b/.test(lower)) {
       log.info('🔍 Detected: CODING question');
       return {
         id: this.models.expert,
@@ -245,7 +246,8 @@ class AIService {
     }
 
     // COMPLEX/REASONING DETECTION → Smart Model (Qwen3 80B)
-    if (/explain|why|how|analyze|compare|theory|concept|research|mechanism|complex|quantum|difference/.test(lower)) {
+    // Uses word boundaries to avoid false positives
+    if (/\b(explain|why|how|analyze|compare|theory|concept|research|mechanism|complex|quantum|difference)\b/.test(lower)) {
       log.info('🔍 Detected: COMPLEX/REASONING question');
       return {
         id: this.models.smart,
@@ -255,7 +257,8 @@ class AIService {
     }
 
     // BALANCED DETECTION → General Purpose (Qwen 32B)
-    if (/what|tell|describe|define|list|summarize/.test(lower)) {
+    // Uses word boundaries to avoid false positives
+    if (/\b(what|tell|describe|define|list|summarize)\b/.test(lower)) {
       log.info('🔍 Detected: BALANCED question');
       return {
         id: this.models.balanced,
@@ -265,12 +268,14 @@ class AIService {
     }
 
     // SIMPLE DETECTION (short questions < 10 words) → Fast Model (Gemma 3 2B)
-    if (message.split(' ').length < 10) {
+    // Use robust word counting that handles multiple whitespace correctly
+    const wordCount = message.trim().split(/\s+/).filter(word => word.length > 0).length;
+    if (wordCount < 10) {
       log.info('🔍 Detected: SIMPLE/QUICK question');
       return {
         id: this.models.fast,
         name: 'Google Gemma 3 2B (Fast)',
-        type: 'simple',
+        type: 'fast',
       };
     }
 
