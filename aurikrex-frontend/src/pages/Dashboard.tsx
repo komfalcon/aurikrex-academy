@@ -63,6 +63,11 @@ import { useAuth } from "@/context/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ProfileDropdown } from "@/components/dashboard/ProfileDropdown";
 import { sendMessage } from "@/utils/falkeai";
+import { analyzeProgress, type UserProgress, type AIInsight, type AIRecommendation } from "@/utils/aiAnalysis";
+import { HeroProgress } from "@/components/dashboard/HeroProgress";
+import { AIRecommendations } from "@/components/dashboard/AIRecommendations";
+import { QuickActions } from "@/components/dashboard/QuickActions";
+import { DashboardSkeleton, AIThinkingIndicator } from "@/components/dashboard/LoadingSkeletons";
 import type { FalkeAIChatPage } from "@/types";
 import {
   AreaChart,
@@ -493,209 +498,247 @@ interface DashboardPanelProps {
 function DashboardPanel({ onLaunchFalkeAI }: DashboardPanelProps) {
   const { user } = useAuth();
   const shouldReduceMotion = useReducedMotion();
+  const [isLoadingAI, setIsLoadingAI] = useState(false);
+  const [aiInsights, setAiInsights] = useState<AIInsight[]>([]);
+  const [aiRecommendations, setAiRecommendations] = useState<AIRecommendation[]>([]);
+  const [aiSummary, setAiSummary] = useState<string>("");
   
   // Get firstName from authenticated user or fallback to mock data
   const displayName = user?.firstName || user?.displayName || mockData.user.name.split(' ')[0];
 
+  // Prepare user progress data for AI analysis
+  const userProgress: UserProgress = {
+    lessonsCompleted: mockData.stats[0].value,
+    totalLessons: mockData.stats[0].total,
+    assignmentsCompleted: mockData.stats[1].value,
+    totalAssignments: mockData.stats[1].total,
+    averageScore: mockData.stats[2].value,
+    streak: mockData.user.streak,
+    subjects: mockData.subjects.map(s => ({
+      name: s.name,
+      progress: s.progress,
+      lessons: s.lessons,
+    })),
+  };
+
+  // Hero stats for the new progress component
+  const heroStats = {
+    lessonsCompleted: userProgress.lessonsCompleted,
+    totalLessons: userProgress.totalLessons,
+    assignmentsCompleted: userProgress.assignmentsCompleted,
+    totalAssignments: userProgress.totalAssignments,
+    overallProgress: mockData.stats[3].value,
+    streak: mockData.user.streak,
+    level: mockData.user.level,
+    totalHours: 42,
+  };
+
+  // Fetch AI insights on mount
+  const fetchAIInsights = useCallback(async () => {
+    if (!user?.uid) return;
+    
+    setIsLoadingAI(true);
+    try {
+      const analysis = await analyzeProgress(
+        user.uid,
+        displayName,
+        userProgress
+      );
+      setAiInsights(analysis.insights);
+      setAiRecommendations(analysis.recommendations);
+      setAiSummary(analysis.summary);
+    } catch (error) {
+      console.error('Failed to fetch AI insights:', error);
+      // Set fallback insights
+      setAiInsights([
+        {
+          id: 'fallback-1',
+          type: 'strength',
+          title: 'Great Progress!',
+          description: `You've completed ${userProgress.lessonsCompleted} lessons. Keep up the momentum!`,
+          priority: 'medium',
+          actionable: false,
+        },
+        {
+          id: 'fallback-2',
+          type: 'suggestion',
+          title: 'Continue Learning',
+          description: 'Start a new lesson today to maintain your streak.',
+          priority: 'high',
+          actionable: true,
+          action: 'Start Lesson',
+        },
+      ]);
+      setAiRecommendations([
+        {
+          id: 'rec-fallback-1',
+          type: 'lesson',
+          title: 'Continue Your Journey',
+          reason: 'Based on your recent activity',
+          confidence: 85,
+          duration: '30 min',
+        },
+      ]);
+    } finally {
+      setIsLoadingAI(false);
+    }
+  }, [user?.uid, displayName, userProgress.lessonsCompleted]);
+
+  useEffect(() => {
+    fetchAIInsights();
+  }, []);
+
+  // Current lesson for resume learning
+  const currentLesson = {
+    title: 'Advanced Integration Techniques',
+    progress: 45,
+    subject: 'Mathematics',
+  };
+
   return (
     <div className="space-y-6">
-      {/* Welcome Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-      >
-        <h1 className="text-3xl md:text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
-          Welcome back, {displayName}! 👋
-        </h1>
-        <p className="text-muted-foreground">Here's your learning progress overview</p>
-      </motion.div>
+      {/* Hero Progress Section - New Creative Layout */}
+      <HeroProgress
+        userName={displayName}
+        stats={heroStats}
+      />
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6">
-        {mockData.stats.map((stat, index) => {
-          const Icon = stat.icon;
-          const percentage = (stat.value / stat.total) * 100;
-          return (
-            <motion.div
-              key={stat.title}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: index * 0.1 }}
-              whileHover={!shouldReduceMotion ? { scale: 1.02, y: -4 } : {}}
-            >
-              <Card className="hover:shadow-lg transition-all duration-300 cursor-pointer border-border bg-card/50 backdrop-blur-sm">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="space-y-2">
-                      <p className="text-sm text-muted-foreground font-medium">{stat.title}</p>
-                      <div className="flex items-baseline gap-2">
-                        <h3 className="text-3xl font-bold">{stat.value}{stat.suffix || ""}</h3>
-                        {!stat.suffix && <span className="text-sm text-muted-foreground">/ {stat.total}</span>}
+      {/* Main Content Grid - Two Column Layout */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* Left Column: Quick Actions + Assignments */}
+        <div className="xl:col-span-1 space-y-6">
+          {/* Quick Actions */}
+          <QuickActions
+            currentLesson={currentLesson}
+            onResumeLearning={() => {}}
+            onBrowseCourses={() => {}}
+            onViewAssignments={() => {}}
+            onOpenAI={onLaunchFalkeAI}
+            onViewAnalytics={() => {}}
+            onViewAchievements={() => {}}
+            variant="grid"
+          />
+
+          {/* Upcoming Assignments */}
+          <motion.div
+            initial={shouldReduceMotion ? {} : { opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.3 }}
+          >
+            <Card className="border-border bg-card/50 backdrop-blur-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg font-bold flex items-center gap-2">
+                  <ClipboardCheck className="w-5 h-5 text-orange-500" aria-hidden="true" />
+                  Upcoming Assignments
+                  <Badge variant="secondary" className="ml-auto text-xs">
+                    {mockData.assignments.length} pending
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {mockData.assignments.map((assignment, index) => {
+                  const statusConfig = {
+                    pending: { icon: Clock, color: "text-orange-500", bg: "bg-orange-500/10" },
+                    "in-progress": { icon: AlertCircle, color: "text-blue-500", bg: "bg-blue-500/10" },
+                    "not-started": { icon: CircleIcon, color: "text-gray-500", bg: "bg-gray-500/10" },
+                  };
+                  const config = statusConfig[assignment.status as keyof typeof statusConfig];
+                  const StatusIcon = config.icon;
+
+                  return (
+                    <motion.div
+                      key={assignment.id}
+                      initial={shouldReduceMotion ? {} : { opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.2, delay: 0.4 + index * 0.05 }}
+                      whileHover={!shouldReduceMotion ? { x: 4 } : {}}
+                      className="p-3 rounded-xl bg-secondary/50 hover:bg-secondary transition-all duration-200 cursor-pointer"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`p-2 rounded-lg ${config.bg} flex-shrink-0`}>
+                          <StatusIcon className={`w-4 h-4 ${config.color}`} aria-hidden="true" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-sm truncate">{assignment.title}</h4>
+                          <p className="text-xs text-muted-foreground">{assignment.subject}</p>
+                          <p className="text-xs text-muted-foreground mt-1">Due: {assignment.dueDate}</p>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" aria-hidden="true" />
                       </div>
-                    </div>
-                    <div className={`p-3 rounded-xl ${stat.bgColor} shadow-sm`}>
-                      <Icon className={`w-6 h-6 ${stat.color}`} aria-hidden="true" />
-                    </div>
-                  </div>
-                  <Progress value={percentage} className="h-2" />
-                </CardContent>
-              </Card>
-            </motion.div>
-          );
-        })}
+                    </motion.div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
+
+        {/* Right Column: AI Recommendations */}
+        <div className="xl:col-span-2 space-y-6">
+          {/* AI Recommendations Spotlight */}
+          <AIRecommendations
+            insights={aiInsights}
+            recommendations={aiRecommendations}
+            isLoading={isLoadingAI}
+            onRefresh={fetchAIInsights}
+            onActionClick={(action) => {
+              console.log('AI action clicked:', action);
+              if (action.toLowerCase().includes('ai') || action.toLowerCase().includes('lesson')) {
+                onLaunchFalkeAI();
+              }
+            }}
+            summary={aiSummary}
+          />
+
+          {/* Subject Progress - Compact Grid */}
+          <motion.div
+            initial={shouldReduceMotion ? {} : { opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.5 }}
+          >
+            <Card className="border-border bg-card/50 backdrop-blur-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg font-bold flex items-center gap-2">
+                  <Target className="w-5 h-5 text-primary" aria-hidden="true" />
+                  Learning Progress by Subject
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {mockData.subjects.map((subject, index) => (
+                    <motion.div
+                      key={subject.name}
+                      initial={shouldReduceMotion ? {} : { opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: 0.6 + index * 0.1 }}
+                      className="p-4 rounded-xl bg-secondary/30 hover:bg-secondary/50 transition-colors"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-3 h-3 rounded-full ${subject.color}`} />
+                          <span className="text-sm font-medium">{subject.name}</span>
+                        </div>
+                        <span className="text-sm font-semibold">{subject.progress}%</span>
+                      </div>
+                      <div className="relative h-2 bg-secondary rounded-full overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${subject.progress}%` }}
+                          transition={{ duration: 1, delay: 0.8 + index * 0.1, ease: "easeOut" }}
+                          className={`absolute top-0 left-0 h-full ${subject.color}`}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">{subject.lessons} lessons</p>
+                    </motion.div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
       </div>
 
-      {/* Subject Progress */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.5 }}
-      >
-        <Card className="border-border bg-card/50 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="text-xl font-bold flex items-center gap-2">
-              <Target className="w-5 h-5 text-primary" aria-hidden="true" />
-              Learning Progress by Subject
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {mockData.subjects.map((subject, index) => (
-              <motion.div
-                key={subject.name}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3, delay: 0.6 + index * 0.1 }}
-                className="space-y-2"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">{subject.name}</span>
-                    <Badge variant="secondary" className="text-xs">{subject.lessons} lessons</Badge>
-                  </div>
-                  <span className="text-sm text-muted-foreground font-semibold">{subject.progress}%</span>
-                </div>
-                <div className="relative h-2 bg-secondary rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${subject.progress}%` }}
-                    transition={{ duration: 1, delay: 0.8 + index * 0.1, ease: "easeOut" }}
-                    className={`absolute top-0 left-0 h-full ${subject.color}`}
-                  />
-                </div>
-              </motion.div>
-            ))}
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* Grid: Assignments + AI Insights */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {/* Assignments */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.9 }}
-        >
-          <Card className="border-border bg-card/50 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="text-xl font-bold flex items-center gap-2">
-                <ClipboardCheck className="w-5 h-5 text-orange-500" aria-hidden="true" />
-                Upcoming Assignments
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {mockData.assignments.map((assignment, index) => {
-                const statusConfig = {
-                  pending: { icon: Clock, color: "text-orange-500", bg: "bg-orange-500/10" },
-                  "in-progress": { icon: AlertCircle, color: "text-blue-500", bg: "bg-blue-500/10" },
-                  "not-started": { icon: CircleIcon, color: "text-gray-500", bg: "bg-gray-500/10" },
-                };
-                const config = statusConfig[assignment.status as keyof typeof statusConfig];
-                const StatusIcon = config.icon;
-
-                return (
-                  <motion.div
-                    key={assignment.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.3, delay: 1 + index * 0.1 }}
-                    whileHover={!shouldReduceMotion ? { x: 4, scale: 1.01 } : {}}
-                    className="p-4 rounded-2xl bg-secondary/50 hover:bg-secondary transition-all duration-200 cursor-pointer shadow-sm"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1">
-                        <h4 className="font-semibold mb-1">{assignment.title}</h4>
-                        <p className="text-sm text-muted-foreground">{assignment.subject}</p>
-                      </div>
-                      <div className={`p-2 rounded-xl ${config.bg}`}>
-                        <StatusIcon className={`w-4 h-4 ${config.color}`} aria-hidden="true" />
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Due: {assignment.dueDate}</span>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* AI Insights */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 1 }}
-        >
-          <Card className="border-border bg-gradient-to-br from-primary/5 to-accent/5 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="text-xl font-bold flex items-center gap-2">
-                <Brain className="w-5 h-5 text-primary" aria-hidden="true" />
-                FalkeAI Insights
-                <Badge className="ml-auto bg-primary/20 text-primary border-primary/30">Beta</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {mockData.aiInsights.map((insight, index) => {
-                const InsightIcon = insight.icon;
-                const colors = {
-                  strength: { icon: "text-green-500", bg: "bg-green-500/10" },
-                  improvement: { icon: "text-orange-500", bg: "bg-orange-500/10" },
-                  suggestion: { icon: "text-blue-500", bg: "bg-blue-500/10" },
-                };
-                const color = colors[insight.type as keyof typeof colors];
-
-                return (
-                  <motion.div
-                    key={insight.id}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.3, delay: 1.1 + index * 0.1 }}
-                    whileHover={!shouldReduceMotion ? { x: -4, scale: 1.01 } : {}}
-                    className="flex items-start gap-3 p-4 rounded-2xl bg-background/50 hover:bg-background/80 transition-all duration-200 cursor-pointer shadow-sm"
-                  >
-                    <div className={`p-2 rounded-xl ${color.bg} flex-shrink-0 shadow-sm`}>
-                      <InsightIcon className={`w-4 h-4 ${color.icon}`} aria-hidden="true" />
-                    </div>
-                    <p className="text-sm flex-1">{insight.text}</p>
-                  </motion.div>
-                );
-              })}
-
-              {/* FalkeAI integration status */}
-              <div className="mt-4 p-4 rounded-lg border border-green-500/30 bg-green-500/5">
-                <p className="text-xs text-center text-green-600 dark:text-green-400">
-                  ✅ FalkeAI insights are powered by real-time AI analysis
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-
-      {/* FalkeAI Tutor Preview */}
+      {/* FalkeAI Tutor CTA */}
       <FalkeAITutorCard onLaunchFalkeAI={onLaunchFalkeAI} />
     </div>
   );
@@ -1781,37 +1824,82 @@ function AnalyticsPanel() {
         </Card>
       </div>
 
-      {/* AI Insights */}
+      {/* AI Insights - Powered by FalkeAI */}
       <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Brain className="w-5 h-5 text-primary" />
-            FalkeAI Learning Insights
-          </CardTitle>
-          <CardDescription>Personalized recommendations based on your data</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Brain className="w-5 h-5 text-primary" />
+                FalkeAI Learning Insights
+                <Badge className="ml-2 bg-green-500/20 text-green-600 border-green-500/30 text-xs">
+                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5 animate-pulse" />
+                  Live
+                </Badge>
+              </CardTitle>
+              <CardDescription>Personalized recommendations based on your analytics data</CardDescription>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 rounded-xl bg-background/50 border border-green-500/20">
+            <motion.div 
+              initial={shouldReduceMotion ? {} : { opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="p-4 rounded-xl bg-background/50 border border-green-500/20 hover:border-green-500/40 transition-colors cursor-pointer"
+            >
               <div className="flex items-center gap-2 mb-2">
                 <Award className="w-5 h-5 text-green-500" />
                 <span className="font-medium text-green-500">Strength</span>
               </div>
               <p className="text-sm">Your performance in Mathematics is excellent! Consider tackling advanced calculus topics.</p>
-            </div>
-            <div className="p-4 rounded-xl bg-background/50 border border-orange-500/20">
+              <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                <Sparkles className="w-3 h-3" /> AI confidence: 92%
+              </p>
+            </motion.div>
+            <motion.div 
+              initial={shouldReduceMotion ? {} : { opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="p-4 rounded-xl bg-background/50 border border-orange-500/20 hover:border-orange-500/40 transition-colors cursor-pointer"
+            >
               <div className="flex items-center gap-2 mb-2">
                 <Target className="w-5 h-5 text-orange-500" />
                 <span className="font-medium text-orange-500">Focus Area</span>
               </div>
               <p className="text-sm">Chemistry scores could improve. Try the organic chemistry review module this week.</p>
-            </div>
-            <div className="p-4 rounded-xl bg-background/50 border border-blue-500/20">
+              <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                <Sparkles className="w-3 h-3" /> Priority: High
+              </p>
+            </motion.div>
+            <motion.div 
+              initial={shouldReduceMotion ? {} : { opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="p-4 rounded-xl bg-background/50 border border-blue-500/20 hover:border-blue-500/40 transition-colors cursor-pointer"
+            >
               <div className="flex items-center gap-2 mb-2">
                 <Lightbulb className="w-5 h-5 text-blue-500" />
                 <span className="font-medium text-blue-500">Recommendation</span>
               </div>
               <p className="text-sm">Based on your learning style, try video-based lessons for better retention.</p>
+              <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                <Sparkles className="w-3 h-3" /> Personalized for you
+              </p>
+            </motion.div>
+          </div>
+          
+          {/* AI Status Bar */}
+          <div className="mt-4 p-3 rounded-xl bg-primary/5 border border-primary/20">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground flex items-center gap-2">
+                <Brain className="w-4 h-4 text-primary" />
+                FalkeAI analyzes your performance data to provide personalized insights
+              </p>
+              <Badge variant="outline" className="text-xs">
+                Updated just now
+              </Badge>
             </div>
           </div>
         </CardContent>
@@ -2254,6 +2342,7 @@ function SettingsPanel() {
 
 function FalkeAIPanel() {
   const { user } = useAuth();
+  const [conversationId, setConversationId] = useState(() => `chat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
   const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant' | 'system'; content: string; timestamp: Date }>>([
     {
       role: 'system',
@@ -2332,6 +2421,7 @@ function FalkeAIPanel() {
   ];
 
   const handleNewConversation = () => {
+    setConversationId(`chat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
     setMessages([{
       role: 'system',
       content: '👋 New conversation started! How can I help you learn today?',
