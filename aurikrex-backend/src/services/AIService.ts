@@ -5,7 +5,7 @@
  * 
  * PRIMARY: OpenRouter (4 FREE models - NO EXPIRY - smart routing)
  *   - Simple questions → Google Gemma 3 4B (FAST)
- *   - Balanced questions → Qwen2.5 32B (GENERAL)
+ *   - Balanced questions → Qwen2.5 72B (GENERAL)
  *   - Complex/Reasoning → Qwen3-Next-80B (SMART)
  *   - Coding questions → DeepSeek R1 Zero (EXPERT)
  * 
@@ -100,10 +100,10 @@ class AIService {
   private readonly models = {
     // Fast, lightweight - Good for simple questions
     fast: 'google/gemma-3-4b-it:free',
-    // Balanced - General purpose, best ratio
-    balanced: 'qwen/qwen2.5-32b-instruct:free',
-    // Smart - Complex reasoning, better quality
-    smart: 'qwen/qwen-3-next-80b-a3b-instruct:free',
+    // Balanced - General purpose, best ratio (72B parameters)
+    balanced: 'qwen/qwen-2.5-72b-instruct:free',
+    // Smart - Complex reasoning, better quality (80B parameters, 262K context)
+    smart: 'qwen/qwen3-next-80b-a3b-instruct:free',
     // Expert - Best reasoning & coding
     expert: 'deepseek/deepseek-r1-zero:free',
   };
@@ -228,7 +228,7 @@ class AIService {
    * Routes questions to appropriate models:
    * - Coding questions → Expert (DeepSeek R1 Zero) - Best for code/algorithms
    * - Complex/Reasoning → Smart (Qwen3-Next-80B) - Deep analysis
-   * - General questions → Balanced (Qwen2.5 32B) - Good for most queries
+   * - General questions → Balanced (Qwen2.5 72B) - Good for most queries
    * - Simple/short → Fast (Gemma 3 4B) - Quick responses
    */
   private selectBestModel(message: string): SelectedModel {
@@ -256,13 +256,13 @@ class AIService {
       };
     }
 
-    // BALANCED DETECTION → General Purpose (Qwen2.5 32B)
+    // BALANCED DETECTION → General Purpose (Qwen2.5 72B)
     // Uses word boundaries to avoid false positives
     if (/\b(what|tell|describe|define|list|summarize)\b/.test(lower)) {
       log.info('🔍 Detected: BALANCED question');
       return {
         id: this.models.balanced,
-        name: 'Qwen2.5 32B (Balanced)',
+        name: 'Qwen2.5 72B (Balanced)',
         type: 'balanced',
       };
     }
@@ -283,7 +283,7 @@ class AIService {
     log.info('🔍 Detected: BALANCED question (default)');
     return {
       id: this.models.balanced,
-      name: 'Qwen2.5 32B (Balanced)',
+      name: 'Qwen2.5 72B (Balanced)',
       type: 'balanced',
     };
   }
