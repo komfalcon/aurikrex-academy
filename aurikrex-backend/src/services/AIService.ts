@@ -95,10 +95,10 @@ class AIService {
   private readonly timeout: number;
 
   // OpenRouter models
+  // Note: reasoning and coding both use Hermes 3 405B which excels at both tasks
   private readonly models = {
     fast: 'arcee-ai/arcee-trinity-mini:free',
     balanced: 'qwen/qwen3-next-80b-a3b-instruct:free',
-    smart: 'nous-research/hermes-3-405b-instruct:free',
     reasoning: 'nous-research/hermes-3-405b-instruct:free',
     coding: 'nous-research/hermes-3-405b-instruct:free',
   };
@@ -391,17 +391,38 @@ class AIService {
         }
       );
 
-      const responseText = response.data.choices[0]?.message?.content || '';
+      // Validate response structure
+      const choices = response.data?.choices;
+      if (!choices || !Array.isArray(choices) || choices.length === 0) {
+        log.warn('⚠️ OpenRouter returned malformed response structure', {
+          hasData: !!response.data,
+          hasChoices: !!choices,
+          isArray: Array.isArray(choices),
+          choicesLength: Array.isArray(choices) ? choices.length : 'N/A',
+        });
+        throw new AIServiceError('Malformed response structure from OpenRouter', undefined, AIErrorCode.INVALID_RESPONSE);
+      }
+
+      const responseText = choices[0]?.message?.content || '';
 
       log.info(`📥 Raw response received (${responseText.length} chars)`);
 
       if (!responseText) {
+        log.warn('⚠️ OpenRouter returned empty content', {
+          hasMessage: !!choices[0]?.message,
+          hasContent: !!choices[0]?.message?.content,
+        });
         throw new AIServiceError('Empty response from OpenRouter', undefined, AIErrorCode.INVALID_RESPONSE);
       }
 
       log.info('✅ OpenRouter response valid');
       return { text: responseText };
     } catch (error) {
+      // Re-throw AIServiceError as-is
+      if (error instanceof AIServiceError) {
+        throw error;
+      }
+
       const axiosError = error as AxiosError;
       const errorData = axiosError.response?.data as { error?: { message?: string } } | undefined;
       const statusCode = axiosError.response?.status;
@@ -462,17 +483,38 @@ class AIService {
         }
       );
 
-      const responseText = response.data.choices[0]?.message?.content || '';
+      // Validate response structure
+      const choices = response.data?.choices;
+      if (!choices || !Array.isArray(choices) || choices.length === 0) {
+        log.warn('⚠️ Groq returned malformed response structure', {
+          hasData: !!response.data,
+          hasChoices: !!choices,
+          isArray: Array.isArray(choices),
+          choicesLength: Array.isArray(choices) ? choices.length : 'N/A',
+        });
+        throw new AIServiceError('Malformed response structure from Groq', undefined, AIErrorCode.INVALID_RESPONSE);
+      }
+
+      const responseText = choices[0]?.message?.content || '';
 
       log.info(`📥 Raw response received (${responseText.length} chars)`);
 
       if (!responseText) {
+        log.warn('⚠️ Groq returned empty content', {
+          hasMessage: !!choices[0]?.message,
+          hasContent: !!choices[0]?.message?.content,
+        });
         throw new AIServiceError('Empty response from Groq', undefined, AIErrorCode.INVALID_RESPONSE);
       }
 
       log.info('✅ Groq response valid');
       return { text: responseText };
     } catch (error) {
+      // Re-throw AIServiceError as-is
+      if (error instanceof AIServiceError) {
+        throw error;
+      }
+
       const axiosError = error as AxiosError;
       const errorData = axiosError.response?.data as { error?: { message?: string } } | undefined;
       const statusCode = axiosError.response?.status;
