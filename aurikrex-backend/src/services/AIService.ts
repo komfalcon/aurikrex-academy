@@ -1,20 +1,26 @@
 /**
  * AI Service
  * 
- * Unified AI service that handles both Google Gemini and OpenAI providers.
- * - Primary: Google Gemini (3 API keys, free tier, load-balanced)
- * - Fallback: OpenAI (2 API keys, paid backup, load-balanced)
+ * Smart AI Model Router with OpenRouter (PRIMARY) + Groq (FALLBACK)
+ * 
+ * PRIMARY: OpenRouter (4 FREE models with smart routing)
+ *   - Simple questions → Arcee Trinity Mini (FAST)
+ *   - Complex/Reasoning → Hermes 3 405B (REASONING)
+ *   - Coding questions → Hermes 3 405B (CODING)
+ *   - Balanced → Qwen3 Next 80B (BALANCED)
+ * 
+ * FALLBACK: Groq API (if OpenRouter completely fails)
+ *   - Uses: Mixtral 8x7B (free)
+ *   - Cost: $0
  * 
  * Features:
- * - Smart routing with load-balancing across all API keys
- * - Automatic fallback from Gemini to OpenAI on failure
- * - Retry logic for rate-limited requests
- * - Request queuing to prevent overload
- * - Detailed logging at each step
+ *   - Smart question analysis to select best model
+ *   - Automatic fallback from OpenRouter to Groq on failure
+ *   - Request queuing to prevent overload
+ *   - Detailed logging showing which provider succeeded
  */
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import OpenAI from 'openai';
+import axios, { AxiosError } from 'axios';
 import { log } from '../utils/logger.js';
 import {
   AIChatRequest,
@@ -24,7 +30,7 @@ import {
 // Configuration constants
 const DEFAULT_TIMEOUT = 90000; // 90 seconds for complex questions
 const DEFAULT_TEMPERATURE = 0.7;
-const DEFAULT_MAX_TOKENS = 512;
+const DEFAULT_MAX_TOKENS = 1024;
 
 /**
  * Error codes for AI service errors
@@ -45,8 +51,18 @@ export enum AIErrorCode {
 export interface AIServiceResponse {
   response: string;
   model: string;
-  provider: 'gemini' | 'openai';
+  modelType: string;
+  provider: 'openrouter' | 'groq';
   latency: number;
+}
+
+/**
+ * Selected model info
+ */
+interface SelectedModel {
+  id: string;
+  name: string;
+  type: string;
 }
 
 /**
@@ -69,45 +85,48 @@ export class AIServiceError extends Error {
 
 /**
  * AI Service class
- * Handles communication with Gemini and OpenAI backends
+ * Handles communication with OpenRouter and Groq backends
  */
 class AIService {
-  private readonly geminiKeys: string[];
-  private readonly openaiKeys: string[];
-  private geminiKeyIndex = 0;
-  private openaiKeyIndex = 0;
+  private readonly openrouterKey: string;
+  private readonly groqKey: string;
+  private readonly openrouterBaseUrl = 'https://openrouter.ai/api/v1/chat/completions';
+  private readonly groqBaseUrl = 'https://api.groq.com/openai/v1/chat/completions';
   private readonly timeout: number;
+
+  // OpenRouter models
+  // Note: reasoning and coding both use Hermes 3 405B which excels at both tasks
+  private readonly models = {
+    fast: 'arcee-ai/arcee-trinity-mini:free',
+    balanced: 'qwen/qwen3-next-80b-a3b-instruct:free',
+    reasoning: 'nous-research/hermes-3-405b-instruct:free',
+    coding: 'nous-research/hermes-3-405b-instruct:free',
+  };
+
+  // Groq fallback model
+  private readonly groqFallbackModel = 'mixtral-8x7b-32768';
 
   // Request queue for processing requests one at a time
   private requestQueue: Array<() => Promise<void>> = [];
   private isProcessingQueue = false;
 
   constructor() {
-    // Load Gemini API keys from environment
-    this.geminiKeys = [
-      process.env.GEMINI_API_KEY_1 || '',
-      process.env.GEMINI_API_KEY_2 || '',
-      process.env.GEMINI_API_KEY_3 || '',
-    ].filter(key => key);
-
-    // Load OpenAI API keys from environment
-    this.openaiKeys = [
-      process.env.OPENAI_API_KEY_1 || '',
-      process.env.OPENAI_API_KEY_2 || '',
-    ].filter(key => key);
+    // Load API keys from environment
+    this.openrouterKey = process.env.OPENROUTER_API_KEY || '';
+    this.groqKey = process.env.GROQ_API_KEY || '';
 
     this.timeout = DEFAULT_TIMEOUT;
 
     // Log initialization status
     log.info('✅ AIService initialized successfully', {
-      geminiKeysLoaded: this.geminiKeys.length,
-      openaiKeysLoaded: this.openaiKeys.length,
+      openrouterConfigured: !!this.openrouterKey,
+      groqConfigured: !!this.groqKey,
       timeout: this.timeout,
     });
 
-    if (this.geminiKeys.length === 0 && this.openaiKeys.length === 0) {
+    if (!this.openrouterKey && !this.groqKey) {
       log.warn('⚠️ AIService: No API keys configured', {
-        hint: 'Set GEMINI_API_KEY_1/2/3 and/or OPENAI_API_KEY_1/2 environment variables',
+        hint: 'Set OPENROUTER_API_KEY and/or GROQ_API_KEY environment variables',
       });
     }
   }
@@ -116,7 +135,7 @@ class AIService {
    * Check if the service is properly configured
    */
   public isConfigured(): boolean {
-    return this.geminiKeys.length > 0 || this.openaiKeys.length > 0;
+    return !!this.openrouterKey || !!this.groqKey;
   }
 
   /**
@@ -129,8 +148,8 @@ class AIService {
     // Validate service configuration
     if (!this.isConfigured()) {
       log.error('❌ AIService not configured', {
-        geminiKeys: this.geminiKeys.length,
-        openaiKeys: this.openaiKeys.length,
+        openrouterKey: !!this.openrouterKey,
+        groqKey: !!this.groqKey,
       });
       throw new Error('AI service is not available. Please contact support.');
     }
@@ -199,230 +218,328 @@ class AIService {
   }
 
   /**
+   * Select the best model based on question analysis
+   */
+  private selectBestModel(message: string): SelectedModel {
+    const lower = message.toLowerCase();
+
+    // CODING DETECTION
+    if (
+      lower.includes('code') ||
+      lower.includes('function') ||
+      lower.includes('python') ||
+      lower.includes('javascript') ||
+      lower.includes('debug') ||
+      lower.includes('syntax') ||
+      lower.includes('algorithm') ||
+      lower.includes('typescript') ||
+      lower.includes('program') ||
+      lower.includes('variable') ||
+      lower.includes('class') ||
+      lower.includes('method')
+    ) {
+      log.info('🔍 Detected: CODING question');
+      return {
+        id: this.models.coding,
+        name: 'Hermes 3 405B (Coding Expert)',
+        type: 'coding',
+      };
+    }
+
+    // REASONING/COMPLEX DETECTION
+    if (
+      lower.includes('explain') ||
+      lower.includes('why') ||
+      lower.includes('how') ||
+      lower.includes('analyze') ||
+      lower.includes('complex') ||
+      lower.includes('theory') ||
+      lower.includes('quantum') ||
+      lower.includes('mechanism') ||
+      lower.includes('compare') ||
+      lower.includes('difference')
+    ) {
+      log.info('🔍 Detected: REASONING/COMPLEX question');
+      return {
+        id: this.models.reasoning,
+        name: 'Hermes 3 405B (Reasoning Master)',
+        type: 'reasoning',
+      };
+    }
+
+    // SIMPLE DETECTION (short, direct questions)
+    if (message.split(' ').length < 10) {
+      log.info('🔍 Detected: SIMPLE/QUICK question');
+      return {
+        id: this.models.fast,
+        name: 'Arcee Trinity Mini (Speed Demon)',
+        type: 'fast',
+      };
+    }
+
+    // DEFAULT: Use balanced model for medium complexity
+    log.info('🔍 Detected: BALANCED question');
+    return {
+      id: this.models.balanced,
+      name: 'Qwen3 Next 80B (Balanced)',
+      type: 'balanced',
+    };
+  }
+
+  /**
    * Execute request with retry logic and provider fallback
    */
   private async executeRequestWithRetry(request: AIChatRequest): Promise<AIChatResponse> {
     const startTime = Date.now();
-    let geminiError: Error | null = null;
-    let openaiError: Error | null = null;
+    let openrouterError: Error | null = null;
+    let groqError: Error | null = null;
 
-    // Try Gemini first (free tier)
-    if (this.geminiKeys.length > 0) {
+    // Try OpenRouter first (PRIMARY)
+    if (this.openrouterKey) {
       try {
-        log.info('📨 Trying Gemini (free tier)...');
-        const response = await this.tryGeminiWithRetry(request.message);
+        log.info('📨 Trying OpenRouter (PRIMARY)...');
+        const selectedModel = this.selectBestModel(request.message);
+        log.info(`🧠 Question analysis suggests: ${selectedModel.type} model`);
+        log.info(`📊 Using OpenRouter model: ${selectedModel.name}`);
+
+        const response = await this.callOpenRouter(request.message, selectedModel.id);
         const latency = Date.now() - startTime;
-        log.info(`✅ Gemini success in ${latency}ms`);
+        log.info(`✅ OpenRouter response received in ${latency}ms`);
 
         return {
-          reply: response.response,
+          reply: response.text,
           timestamp: new Date().toISOString(),
-          provider: response.provider,
-          model: response.model,
+          provider: 'openrouter',
+          model: selectedModel.name,
+          modelType: selectedModel.type,
         };
       } catch (error) {
-        geminiError = error instanceof Error ? error : new Error(String(error));
-        log.warn('⚠️ Gemini failed, trying OpenAI fallback...', {
-          error: geminiError.message,
+        openrouterError = error instanceof Error ? error : new Error(String(error));
+        log.warn('⚠️ OpenRouter failed, trying Groq fallback...', {
+          error: openrouterError.message,
         });
       }
     }
 
-    // Fallback to OpenAI
-    if (this.openaiKeys.length > 0) {
+    // Fallback to Groq (if OpenRouter fails completely)
+    if (this.groqKey) {
       try {
-        log.info('📨 Trying OpenAI (paid backup)...');
-        const response = await this.tryOpenAIWithRetry(request.message);
+        log.info('📨 Trying Groq (FALLBACK)...');
+        const response = await this.callGroq(request.message);
         const latency = Date.now() - startTime;
-        log.info(`✅ OpenAI success in ${latency}ms`);
+        log.info(`✅ Groq response received in ${latency}ms`);
 
         return {
-          reply: response.response,
+          reply: response.text,
           timestamp: new Date().toISOString(),
-          provider: response.provider,
-          model: response.model,
+          provider: 'groq',
+          model: 'Mixtral 8x7B (Groq Fallback)',
+          modelType: 'fallback',
         };
       } catch (error) {
-        openaiError = error instanceof Error ? error : new Error(String(error));
-        log.error('❌ OpenAI also failed', {
-          error: openaiError.message,
+        groqError = error instanceof Error ? error : new Error(String(error));
+        log.error('❌ Groq also failed', {
+          error: groqError.message,
         });
       }
     }
 
     // Both providers failed
-    const geminiMsg = geminiError?.message || 'No Gemini keys configured';
-    const openaiMsg = openaiError?.message || 'No OpenAI keys configured';
+    const openrouterMsg = openrouterError?.message || 'No OpenRouter key configured';
+    const groqMsg = groqError?.message || 'No Groq key configured';
 
     log.error('❌ All AI providers failed', {
-      geminiError: geminiMsg,
-      openaiError: openaiMsg,
+      openrouterError: openrouterMsg,
+      groqError: groqMsg,
     });
 
     throw new AIServiceError(
-      'AI service is temporarily unavailable. Please try again later.',
+      `All AI providers failed. OpenRouter: ${openrouterMsg}, Groq: ${groqMsg}`,
       503,
       AIErrorCode.SERVICE_UNAVAILABLE
     );
   }
 
   /**
-   * Try Gemini with retry logic across all keys
+   * Call OpenRouter API
    */
-  private async tryGeminiWithRetry(message: string, attempt = 0): Promise<Omit<AIServiceResponse, 'latency'>> {
-    if (this.geminiKeys.length === 0) {
-      throw new AIServiceError('No Gemini API keys configured', undefined, AIErrorCode.AUTHENTICATION_ERROR);
-    }
-
-    // Load-balance across Gemini keys
-    const keyIndex = this.geminiKeyIndex;
-    const apiKey = this.geminiKeys[keyIndex];
-    this.geminiKeyIndex = (this.geminiKeyIndex + 1) % this.geminiKeys.length;
-
-    log.info(`🔑 Using Gemini key ${keyIndex + 1}/${this.geminiKeys.length}`);
+  private async callOpenRouter(message: string, modelId: string): Promise<{ text: string }> {
+    log.info(`📡 Calling OpenRouter with model: ${modelId}`);
 
     try {
-      const client = new GoogleGenerativeAI(apiKey);
-      const model = client.getGenerativeModel({ model: 'gemini-2.0-flash' });
-
-      // Create abort controller for timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), this.timeout);
-
-      try {
-        const result = await model.generateContent(message);
-        clearTimeout(timeoutId);
-
-        const response = result.response;
-        const responseText = response.text();
-
-        if (!responseText) {
-          throw new AIServiceError('Empty response from Gemini', undefined, AIErrorCode.INVALID_RESPONSE);
+      const response = await axios.post(
+        this.openrouterBaseUrl,
+        {
+          model: modelId,
+          messages: [
+            {
+              role: 'user',
+              content: message,
+            },
+          ],
+          max_tokens: DEFAULT_MAX_TOKENS,
+          temperature: DEFAULT_TEMPERATURE,
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${this.openrouterKey}`,
+            'HTTP-Referer': 'https://aurikrex.tech',
+            'X-Title': 'Aurikrex Academy',
+            'Content-Type': 'application/json',
+          },
+          timeout: this.timeout,
         }
+      );
 
-        return {
-          response: responseText,
-          model: 'gemini-2.0-flash',
-          provider: 'gemini',
-        };
-      } catch (error) {
-        clearTimeout(timeoutId);
+      // Validate response structure
+      const choices = response.data?.choices;
+      if (!choices || !Array.isArray(choices) || choices.length === 0) {
+        log.warn('⚠️ OpenRouter returned malformed response structure', {
+          hasData: !!response.data,
+          hasChoices: !!choices,
+          isArray: Array.isArray(choices),
+          choicesLength: Array.isArray(choices) ? choices.length : 'N/A',
+        });
+        throw new AIServiceError('Malformed response structure from OpenRouter', undefined, AIErrorCode.INVALID_RESPONSE);
+      }
+
+      const responseText = choices[0]?.message?.content || '';
+
+      log.info(`📥 Raw response received (${responseText.length} chars)`);
+
+      if (!responseText) {
+        log.warn('⚠️ OpenRouter returned empty content', {
+          hasMessage: !!choices[0]?.message,
+          hasContent: !!choices[0]?.message?.content,
+        });
+        throw new AIServiceError('Empty response from OpenRouter', undefined, AIErrorCode.INVALID_RESPONSE);
+      }
+
+      log.info('✅ OpenRouter response valid');
+      return { text: responseText };
+    } catch (error) {
+      // Re-throw AIServiceError as-is
+      if (error instanceof AIServiceError) {
         throw error;
       }
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      const errorMessage = err.message || '';
 
-      // Check if rate-limited
-      if (errorMessage.includes('RESOURCE_EXHAUSTED') ||
-          errorMessage.includes('429') ||
-          errorMessage.includes('rate') ||
-          errorMessage.includes('quota')) {
-        log.warn(`⚠️ Gemini key ${keyIndex + 1} rate-limited`);
+      const axiosError = error as AxiosError;
+      const errorData = axiosError.response?.data as { error?: { message?: string } } | undefined;
+      const statusCode = axiosError.response?.status;
+      const errorMessage = errorData?.error?.message || axiosError.message;
 
-        // Try next key if we haven't tried all keys
-        const keysTriedSoFar = attempt + 1;
-        if (keysTriedSoFar < this.geminiKeys.length) {
-          log.info(`🔄 Trying next Gemini key (attempt ${keysTriedSoFar + 1}/${this.geminiKeys.length})`);
-          return this.tryGeminiWithRetry(message, keysTriedSoFar);
-        }
+      log.error('❌ OpenRouter API error:', {
+        status: statusCode,
+        message: errorMessage,
+      });
 
-        throw new AIServiceError(
-          'All Gemini API keys are rate-limited',
-          429,
-          AIErrorCode.RATE_LIMITED
-        );
+      // Check for specific error types
+      if (statusCode === 429) {
+        throw new AIServiceError('OpenRouter rate limited', 429, AIErrorCode.RATE_LIMITED);
       }
 
-      // Handle timeout
-      if (err.name === 'AbortError' || errorMessage.includes('timeout')) {
-        throw new AIServiceError('Gemini request timed out', undefined, AIErrorCode.TIMEOUT);
+      if (statusCode === 401 || statusCode === 403) {
+        throw new AIServiceError('OpenRouter authentication failed', statusCode, AIErrorCode.AUTHENTICATION_ERROR);
       }
 
-      // Re-throw for other errors
+      if (axiosError.code === 'ECONNABORTED' || errorMessage.includes('timeout')) {
+        throw new AIServiceError('OpenRouter request timed out', undefined, AIErrorCode.TIMEOUT);
+      }
+
       throw new AIServiceError(
-        `Gemini error: ${errorMessage}`,
-        undefined,
+        `OpenRouter error: ${errorMessage}`,
+        statusCode,
         AIErrorCode.UNKNOWN
       );
     }
   }
 
   /**
-   * Try OpenAI with retry logic across all keys
+   * Call Groq API
    */
-  private async tryOpenAIWithRetry(message: string, attempt = 0): Promise<Omit<AIServiceResponse, 'latency'>> {
-    if (this.openaiKeys.length === 0) {
-      throw new AIServiceError('No OpenAI API keys configured', undefined, AIErrorCode.AUTHENTICATION_ERROR);
-    }
-
-    // Load-balance across OpenAI keys
-    const keyIndex = this.openaiKeyIndex;
-    const apiKey = this.openaiKeys[keyIndex];
-    this.openaiKeyIndex = (this.openaiKeyIndex + 1) % this.openaiKeys.length;
-
-    log.info(`🔑 Using OpenAI key ${keyIndex + 1}/${this.openaiKeys.length}`);
+  private async callGroq(message: string): Promise<{ text: string }> {
+    log.info(`📡 Calling Groq with model: ${this.groqFallbackModel}`);
 
     try {
-      const client = new OpenAI({ 
-        apiKey,
-        timeout: this.timeout,
-      });
+      const response = await axios.post(
+        this.groqBaseUrl,
+        {
+          model: this.groqFallbackModel,
+          messages: [
+            {
+              role: 'user',
+              content: message,
+            },
+          ],
+          max_tokens: DEFAULT_MAX_TOKENS,
+          temperature: DEFAULT_TEMPERATURE,
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${this.groqKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: this.timeout,
+        }
+      );
 
-      const response = await client.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        messages: [{ role: 'user', content: message }],
-        max_tokens: DEFAULT_MAX_TOKENS,
-        temperature: DEFAULT_TEMPERATURE,
-      });
+      // Validate response structure
+      const choices = response.data?.choices;
+      if (!choices || !Array.isArray(choices) || choices.length === 0) {
+        log.warn('⚠️ Groq returned malformed response structure', {
+          hasData: !!response.data,
+          hasChoices: !!choices,
+          isArray: Array.isArray(choices),
+          choicesLength: Array.isArray(choices) ? choices.length : 'N/A',
+        });
+        throw new AIServiceError('Malformed response structure from Groq', undefined, AIErrorCode.INVALID_RESPONSE);
+      }
 
-      const responseText = response.choices[0]?.message?.content || '';
+      const responseText = choices[0]?.message?.content || '';
+
+      log.info(`📥 Raw response received (${responseText.length} chars)`);
 
       if (!responseText) {
-        throw new AIServiceError('Empty response from OpenAI', undefined, AIErrorCode.INVALID_RESPONSE);
+        log.warn('⚠️ Groq returned empty content', {
+          hasMessage: !!choices[0]?.message,
+          hasContent: !!choices[0]?.message?.content,
+        });
+        throw new AIServiceError('Empty response from Groq', undefined, AIErrorCode.INVALID_RESPONSE);
       }
 
-      return {
-        response: responseText,
-        model: 'gpt-3.5-turbo',
-        provider: 'openai',
-      };
+      log.info('✅ Groq response valid');
+      return { text: responseText };
     } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      const errorMessage = err.message || '';
-
-      // Check if it's an OpenAI API error with status code
-      let statusCode: number | undefined;
-      if ('status' in err && typeof (err as { status: unknown }).status === 'number') {
-        statusCode = (err as { status: number }).status;
+      // Re-throw AIServiceError as-is
+      if (error instanceof AIServiceError) {
+        throw error;
       }
 
-      // Check if rate-limited
-      if (statusCode === 429 || errorMessage.includes('rate_limit')) {
-        log.warn(`⚠️ OpenAI key ${keyIndex + 1} rate-limited`);
+      const axiosError = error as AxiosError;
+      const errorData = axiosError.response?.data as { error?: { message?: string } } | undefined;
+      const statusCode = axiosError.response?.status;
+      const errorMessage = errorData?.error?.message || axiosError.message;
 
-        // Try next key if we haven't tried all keys
-        const keysTriedSoFar = attempt + 1;
-        if (keysTriedSoFar < this.openaiKeys.length) {
-          log.info(`🔄 Trying next OpenAI key (attempt ${keysTriedSoFar + 1}/${this.openaiKeys.length})`);
-          return this.tryOpenAIWithRetry(message, keysTriedSoFar);
-        }
+      log.error('❌ Groq API error:', {
+        status: statusCode,
+        message: errorMessage,
+      });
 
-        throw new AIServiceError(
-          'All OpenAI API keys are rate-limited',
-          429,
-          AIErrorCode.RATE_LIMITED
-        );
+      // Check for specific error types
+      if (statusCode === 429) {
+        throw new AIServiceError('Groq rate limited', 429, AIErrorCode.RATE_LIMITED);
       }
 
-      // Handle timeout
-      if (errorMessage.includes('timeout') || errorMessage.includes('ETIMEDOUT')) {
-        throw new AIServiceError('OpenAI request timed out', undefined, AIErrorCode.TIMEOUT);
+      if (statusCode === 401 || statusCode === 403) {
+        throw new AIServiceError('Groq authentication failed', statusCode, AIErrorCode.AUTHENTICATION_ERROR);
       }
 
-      // Re-throw for other errors
+      if (axiosError.code === 'ECONNABORTED' || errorMessage.includes('timeout')) {
+        throw new AIServiceError('Groq request timed out', undefined, AIErrorCode.TIMEOUT);
+      }
+
       throw new AIServiceError(
-        `OpenAI error: ${errorMessage}`,
+        `Groq error: ${errorMessage}`,
         statusCode,
         AIErrorCode.UNKNOWN
       );

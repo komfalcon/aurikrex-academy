@@ -51,12 +51,12 @@ class RedisCache implements AICache {
 
 /**
  * SmartTaskRouter - Routes AI tasks to the appropriate model
- * With Gemini/OpenAI architecture, all tasks are routed to Gemini first with OpenAI fallback
+ * With OpenRouter/Groq architecture, all tasks are routed to OpenRouter first with Groq fallback
  */
 class SmartTaskRouter implements TaskRouter {
   async route(_taskType: TaskType, _input: unknown): Promise<AIModel> {
-    // All tasks are now handled by Gemini (primary) or OpenAI (fallback)
-    return 'gemini';
+    // All tasks are now handled by OpenRouter (primary) or Groq (fallback)
+    return 'openrouter';
   }
 }
 
@@ -133,7 +133,7 @@ abstract class BaseAIProvider implements AIProvider {
 }
 
 const defaultConfig: AIServiceConfig = {
-  model: 'gemini',
+  model: 'openrouter',
   maxRetries: 3,
   timeout: 90000, // 90 seconds for complex questions
   temperature: 0.7,

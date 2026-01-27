@@ -34,7 +34,7 @@ class LessonService {
 
   private async generateWithAI(input: LessonInput): Promise<GeneratedLesson> {
     if (!this.checkAIAvailable()) {
-      throw new Error('AI service is not configured. Please set GEMINI_API_KEY_1/2/3 or OPENAI_API_KEY_1/2 for lesson generation.');
+      throw new Error('AI service is not configured. Please set OPENROUTER_API_KEY or GROQ_API_KEY for lesson generation.');
     }
 
     try {
