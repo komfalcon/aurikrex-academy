@@ -76,7 +76,12 @@ export async function analyzeProgress(
   username: string,
   progress: UserProgress
 ): Promise<LearningAnalysis> {
-  const dataHash = JSON.stringify(progress).slice(0, 50);
+  // Validate progress data to prevent errors
+  if (!progress.subjects || progress.subjects.length === 0) {
+    return generateFallbackAnalysis(progress);
+  }
+  
+  const dataHash = `${userId}-${progress.lessonsCompleted}-${progress.totalLessons}-${progress.streak}`;
   const cacheKey = generateCacheKey(userId, dataHash);
   
   // Check cache
@@ -110,14 +115,19 @@ export async function analyzeProgress(
  * Build the analysis prompt for FalkeAI
  */
 function buildAnalysisPrompt(username: string, progress: UserProgress): string {
-  const subjectSummary = progress.subjects
-    .map(s => `${s.name}: ${s.progress}% complete (${s.lessons} lessons)`)
-    .join(', ');
+  const subjectSummary = progress.subjects.length > 0
+    ? progress.subjects.map(s => `${s.name}: ${s.progress}% complete (${s.lessons} lessons)`).join(', ')
+    : 'No subjects yet';
+  
+  // Safe percentage calculation
+  const lessonPercentage = progress.totalLessons > 0 
+    ? Math.round((progress.lessonsCompleted / progress.totalLessons) * 100) 
+    : 0;
     
   return `You are an AI learning coach analyzing ${username}'s learning progress. Please provide a brief, actionable analysis in a friendly tone.
 
 Current Progress:
-- Lessons: ${progress.lessonsCompleted}/${progress.totalLessons} completed (${Math.round((progress.lessonsCompleted/progress.totalLessons)*100)}%)
+- Lessons: ${progress.lessonsCompleted}/${progress.totalLessons} completed (${lessonPercentage}%)
 - Assignments: ${progress.assignmentsCompleted}/${progress.totalAssignments} done
 - Average Score: ${progress.averageScore}%
 - Current Streak: ${progress.streak} days
@@ -141,6 +151,33 @@ function parseAnalysisResponse(reply: string, progress: UserProgress): LearningA
   const strengths: string[] = [];
   const areasToImprove: string[] = [];
   const nextSteps: string[] = [];
+  
+  // Handle empty subjects array
+  if (!progress.subjects || progress.subjects.length === 0) {
+    return {
+      insights: [{
+        id: 'welcome-1',
+        type: 'suggestion',
+        title: 'Get Started',
+        description: 'Start learning to see personalized insights and recommendations.',
+        priority: 'high',
+        actionable: true,
+        action: 'Browse Courses',
+      }],
+      recommendations: [{
+        id: 'rec-start-1',
+        type: 'course',
+        title: 'Explore Available Courses',
+        reason: 'Begin your learning journey today',
+        confidence: 100,
+        duration: '15 min',
+      }],
+      summary: reply || 'Welcome! Start exploring courses to receive personalized AI insights.',
+      nextSteps: ['Browse available courses', 'Set your learning goals'],
+      strengths: [],
+      areasToImprove: [],
+    };
+  }
   
   // Generate insights based on progress data + AI response
   
@@ -225,7 +262,54 @@ function parseAnalysisResponse(reply: string, progress: UserProgress): LearningA
  * Generate fallback analysis when AI is unavailable
  */
 function generateFallbackAnalysis(progress: UserProgress): LearningAnalysis {
-  const completionRate = Math.round((progress.lessonsCompleted / progress.totalLessons) * 100);
+  // Safe calculation avoiding division by zero
+  const completionRate = progress.totalLessons > 0 
+    ? Math.round((progress.lessonsCompleted / progress.totalLessons) * 100) 
+    : 0;
+  
+  // Handle empty subjects array
+  if (!progress.subjects || progress.subjects.length === 0) {
+    return {
+      insights: [
+        {
+          id: 'fallback-welcome',
+          type: 'suggestion',
+          title: 'Welcome to Learning',
+          description: 'Start your first course to receive personalized AI insights.',
+          priority: 'high',
+          actionable: true,
+          action: 'Browse Courses',
+        },
+        {
+          id: 'fallback-streak',
+          type: 'suggestion',
+          title: 'Build Your Streak',
+          description: `Study daily to build a learning streak!`,
+          priority: 'medium',
+          actionable: false,
+        },
+      ],
+      recommendations: [
+        {
+          id: 'rec-fallback-browse',
+          type: 'course',
+          title: 'Explore Courses',
+          reason: 'Find your first course to begin learning',
+          confidence: 100,
+          duration: '10 min',
+        },
+      ],
+      summary: `Welcome! Start learning to track your progress and get AI-powered recommendations.`,
+      nextSteps: [
+        'Browse available courses',
+        'Set your learning goals',
+        'Complete your first lesson',
+      ],
+      strengths: [],
+      areasToImprove: [],
+    };
+  }
+  
   const bestSubject = progress.subjects.reduce((a, b) => a.progress > b.progress ? a : b);
   const weakestSubject = progress.subjects.reduce((a, b) => a.progress < b.progress ? a : b);
   

@@ -283,7 +283,7 @@ export function HeroProgress({ userName, stats, onQuickAction }: HeroProgressPro
               transition={{ delay: 0.6 }}
             >
               <CircularProgress
-                value={stats.level * 10}
+                value={Math.min(stats.level * 10, 100)}
                 max={100}
                 color="text-purple-500"
                 bgColor="text-purple-500/20"
@@ -330,7 +330,7 @@ export function HeroProgress({ userName, stats, onQuickAction }: HeroProgressPro
               <MetricBadge
                 icon={BookOpen}
                 label="Lessons This Week"
-                value={Math.min(stats.lessonsCompleted, 5)}
+                value={Math.min(stats.lessonsCompleted, 7)}
                 color="bg-green-500/10 text-green-500"
               />
             </motion.div>
@@ -343,7 +343,7 @@ export function HeroProgress({ userName, stats, onQuickAction }: HeroProgressPro
               <MetricBadge
                 icon={Trophy}
                 label="Achievements"
-                value={Math.floor(stats.level * 1.5)}
+                value={Math.min(Math.floor(stats.level * 1.5), 50)}
                 color="bg-purple-500/10 text-purple-500"
               />
             </motion.div>
