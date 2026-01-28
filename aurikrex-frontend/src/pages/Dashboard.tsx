@@ -69,6 +69,9 @@ import { AIRecommendations } from "@/components/dashboard/AIRecommendations";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { DashboardSkeleton, AIThinkingIndicator } from "@/components/dashboard/LoadingSkeletons";
 import type { FalkeAIChatPage } from "@/types";
+// Import real data panels
+import AssignmentsPanelReal from "@/components/dashboard/AssignmentsPanelReal";
+import AnalyticsPanelReal from "@/components/dashboard/AnalyticsPanelReal";
 import {
   AreaChart,
   Area,
@@ -2616,9 +2619,11 @@ export default function Dashboard() {
       case "lessons":
         return <LessonsPanel />;
       case "assignments":
-        return <AssignmentsPanel />;
+        // Use real assignments panel with backend data
+        return <AssignmentsPanelReal />;
       case "analytics":
-        return <AnalyticsPanel />;
+        // Use real analytics panel with backend data
+        return <AnalyticsPanelReal />;
       case "settings":
         return <SettingsPanel />;
       case "falkeai":
