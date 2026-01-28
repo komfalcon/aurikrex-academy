@@ -18,7 +18,7 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import { validateRequest } from '../middleware/validation.middleware.js';
 import { authenticate } from '../middleware/auth.middleware.js';
-import { sendChatMessage, getAIHealth } from '../controllers/aiController.js';
+import { sendChatMessage, sendEnhancedChatMessage, getAIHealth } from '../controllers/aiController.js';
 
 const router = Router();
 
@@ -89,6 +89,87 @@ router.post(
   ],
   validateRequest,
   sendChatMessage
+);
+
+// ============================================
+// Enhanced AI Chat Route (with Prompt Engineering)
+// ============================================
+
+/**
+ * @route   POST /api/ai/chat/enhanced
+ * @desc    Send an enhanced chat message with prompt engineering
+ * @access  Private (requires authentication)
+ * 
+ * Request body:
+ * {
+ *   "message": "string",
+ *   "context": {
+ *     "page": "Smart Lessons | Assignment | Dashboard | Ask FalkeAI",
+ *     "course": "optional",
+ *     "username": "string",
+ *     "userId": "string"
+ *   },
+ *   "requestType": "teach | question | review | hint | explanation" (optional),
+ *   "userLearningContext": { ... } (optional)
+ * }
+ * 
+ * Response:
+ * {
+ *   "reply": "Refined AI response text",
+ *   "timestamp": "ISO string",
+ *   "provider": "openrouter | groq",
+ *   "model": "model name",
+ *   "requestType": "teach | question | review | hint | explanation",
+ *   "refined": { raw, refined, formattedHtml, structure }
+ * }
+ */
+router.post(
+  '/chat/enhanced',
+  authenticate,
+  [
+    body('message')
+      .notEmpty()
+      .withMessage('Message is required')
+      .isString()
+      .withMessage('Message must be a string')
+      .trim()
+      .isLength({ min: 1, max: 10000 })
+      .withMessage('Message must be between 1 and 10000 characters'),
+    body('context')
+      .notEmpty()
+      .withMessage('Context is required')
+      .isObject()
+      .withMessage('Context must be an object'),
+    body('context.page')
+      .notEmpty()
+      .withMessage('Context page is required')
+      .isIn(['Smart Lessons', 'Assignment', 'Dashboard', 'Ask FalkeAI'])
+      .withMessage('Invalid page value'),
+    body('context.username')
+      .notEmpty()
+      .withMessage('Context username is required')
+      .isString()
+      .withMessage('Context username must be a string'),
+    body('context.userId')
+      .notEmpty()
+      .withMessage('Context userId is required')
+      .isString()
+      .withMessage('Context userId must be a string'),
+    body('context.course')
+      .optional()
+      .isString()
+      .withMessage('Context course must be a string'),
+    body('requestType')
+      .optional()
+      .isIn(['teach', 'question', 'review', 'hint', 'explanation'])
+      .withMessage('Invalid request type. Must be one of: teach, question, review, hint, explanation'),
+    body('userLearningContext')
+      .optional()
+      .isObject()
+      .withMessage('User learning context must be an object'),
+  ],
+  validateRequest,
+  sendEnhancedChatMessage
 );
 
 // ============================================

@@ -26,12 +26,17 @@ import { log } from '../utils/logger.js';
 import {
   AIChatRequest,
   AIChatResponse,
+  EnhancedAIChatRequest,
+  EnhancedAIChatResponse,
 } from '../types/ai.types.js';
+import { promptEnhancerService } from './PromptEnhancerService.js';
+import { responseRefinerService } from './ResponseRefinerService.js';
 
 // Configuration constants
 const DEFAULT_TIMEOUT = 90000; // 90 seconds for complex questions
 const DEFAULT_TEMPERATURE = 0.7;
 const DEFAULT_MAX_TOKENS = 1024;
+const ENHANCED_MAX_TOKENS = 2000; // More tokens for enhanced responses
 
 /**
  * Error codes for AI service errors
@@ -190,6 +195,65 @@ class AIService {
       });
 
       log.info(`📋 Request queued. Queue length: ${this.requestQueue.length}`, {
+        userId: request.context.userId,
+        queueLength: this.requestQueue.length,
+      });
+
+      // Start processing the queue if not already processing
+      this.processQueue();
+    });
+  }
+
+  /**
+   * Send an enhanced chat message to the AI service with prompt engineering
+   * 
+   * This method implements a three-layer system:
+   * 1. REQUEST ENHANCEMENT (Pre-Processing) - Transforms user input into optimal model prompt
+   * 2. AI MODEL CALL - Sends enhanced prompt to the AI model with system prompt
+   * 3. RESPONSE REFINEMENT (Post-Processing) - Cleans up and structures the response
+   * 
+   * @param request - The enhanced chat request containing message, context, and optional request type
+   * @returns Promise<EnhancedAIChatResponse> - The refined response from the AI
+   */
+  public async sendEnhancedChatMessage(request: EnhancedAIChatRequest): Promise<EnhancedAIChatResponse> {
+    // Validate service configuration
+    if (!this.isConfigured()) {
+      log.error('❌ AIService not configured', {
+        openrouterKey: !!this.openrouterKey,
+        groqKey: !!this.groqKey,
+      });
+      throw new Error('AI service is not available. Please contact support.');
+    }
+
+    // Validate request
+    if (!request.message || typeof request.message !== 'string') {
+      throw new Error('Message is required and must be a string');
+    }
+
+    if (!request.context || !request.context.userId || !request.context.username) {
+      throw new Error('Context with userId and username is required');
+    }
+
+    log.info('📤 Sending ENHANCED message to AI Service', {
+      page: request.context.page,
+      userId: request.context.userId,
+      messageLength: request.message.length,
+      requestType: request.requestType || 'auto-detect',
+      timestamp: new Date().toISOString(),
+    });
+
+    // Queue the request to prevent overload
+    return new Promise<EnhancedAIChatResponse>((resolve, reject) => {
+      this.requestQueue.push(async () => {
+        try {
+          const response = await this.executeEnhancedRequestWithRetry(request);
+          resolve(response);
+        } catch (error) {
+          reject(error);
+        }
+      });
+
+      log.info(`📋 Enhanced request queued. Queue length: ${this.requestQueue.length}`, {
         userId: request.context.userId,
         queueLength: this.requestQueue.length,
       });
@@ -366,6 +430,120 @@ class AIService {
   }
 
   /**
+   * Execute enhanced request with prompt engineering, retry logic, and provider fallback
+   * 
+   * This implements the three-layer prompt engineering system:
+   * 1. Pre-processing: Enhance the prompt with system instructions and user context
+   * 2. Model call: Send enhanced prompt to AI with system prompt
+   * 3. Post-processing: Refine and structure the response
+   */
+  private async executeEnhancedRequestWithRetry(request: EnhancedAIChatRequest): Promise<EnhancedAIChatResponse> {
+    const startTime = Date.now();
+    let openrouterError: Error | null = null;
+    let groqError: Error | null = null;
+
+    // Layer 1: PROMPT ENHANCEMENT (Pre-Processing)
+    const enhancement = promptEnhancerService.enhancePrompt(
+      request.message,
+      request.requestType,
+      request.userLearningContext
+    );
+
+    log.info(`📋 Prompt enhanced`, {
+      requestType: enhancement.requestType,
+      detectedIntent: enhancement.detectedIntent,
+      complexity: enhancement.estimatedComplexity,
+      originalLength: request.message.length,
+      enhancedLength: enhancement.enhancedRequest.length,
+    });
+
+    // Try OpenRouter first (PRIMARY)
+    if (this.openrouterKey) {
+      try {
+        log.info('📨 Trying OpenRouter with ENHANCED prompt (PRIMARY)...');
+        const selectedModel = this.selectBestModel(request.message);
+        log.info(`🧠 Question analysis suggests: ${selectedModel.type} model`);
+        log.info(`📊 Using OpenRouter model: ${selectedModel.name}`);
+
+        // Layer 2: MODEL CALL with system prompt
+        const response = await this.callOpenRouterEnhanced(
+          enhancement.enhancedRequest,
+          enhancement.systemPrompt,
+          selectedModel.id
+        );
+        const latency = Date.now() - startTime;
+        log.info(`✅ OpenRouter enhanced response received in ${latency}ms`);
+
+        // Layer 3: RESPONSE REFINEMENT (Post-Processing)
+        const refined = responseRefinerService.refineResponse(response.text, enhancement.requestType);
+
+        return {
+          reply: refined.refined,
+          timestamp: new Date().toISOString(),
+          provider: 'openrouter',
+          model: selectedModel.name,
+          modelType: selectedModel.type,
+          refined,
+          requestType: enhancement.requestType,
+        };
+      } catch (error) {
+        openrouterError = error instanceof Error ? error : new Error(String(error));
+        log.warn('⚠️ OpenRouter failed, trying Groq fallback...', {
+          error: openrouterError.message,
+        });
+      }
+    }
+
+    // Fallback to Groq (if OpenRouter fails completely)
+    if (this.groqKey) {
+      try {
+        log.info('📨 Trying Groq with ENHANCED prompt (FALLBACK)...');
+        
+        // Layer 2: MODEL CALL with system prompt
+        const response = await this.callGroqEnhanced(
+          enhancement.enhancedRequest,
+          enhancement.systemPrompt
+        );
+        const latency = Date.now() - startTime;
+        log.info(`✅ Groq enhanced response received in ${latency}ms`);
+
+        // Layer 3: RESPONSE REFINEMENT (Post-Processing)
+        const refined = responseRefinerService.refineResponse(response.text, enhancement.requestType);
+
+        return {
+          reply: refined.refined,
+          timestamp: new Date().toISOString(),
+          provider: 'groq',
+          model: 'Mixtral 8x7B (Groq Fallback)',
+          modelType: 'fallback',
+          refined,
+          requestType: enhancement.requestType,
+        };
+      } catch (error) {
+        groqError = error instanceof Error ? error : new Error(String(error));
+        log.error('❌ Groq also failed', {
+          error: groqError.message,
+        });
+      }
+    }
+
+    // Both providers failed
+    const openrouterMsg = openrouterError?.message || 'No OpenRouter key configured';
+    const groqMsg = groqError?.message || 'No Groq key configured';
+
+    log.error('❌ All AI providers failed', {
+      openrouterError: openrouterMsg,
+      groqError: groqMsg,
+    });
+
+    throw new AIServiceError(
+      `All AI providers failed. OpenRouter: ${openrouterMsg}, Groq: ${groqMsg}`,
+      503,
+      AIErrorCode.SERVICE_UNAVAILABLE
+    );
+  }
+
+  /**
    * Call OpenRouter API
    */
   private async callOpenRouter(message: string, modelId: string): Promise<{ text: string }> {
@@ -513,6 +691,207 @@ class AIService {
       }
 
       log.info('✅ Groq response valid');
+      return { text: responseText };
+    } catch (error) {
+      // Re-throw AIServiceError as-is
+      if (error instanceof AIServiceError) {
+        throw error;
+      }
+
+      const axiosError = error as AxiosError;
+      const errorData = axiosError.response?.data as { error?: { message?: string } } | undefined;
+      const statusCode = axiosError.response?.status;
+      const errorMessage = errorData?.error?.message || axiosError.message;
+
+      log.error('❌ Groq API error:', {
+        status: statusCode,
+        message: errorMessage,
+      });
+
+      // Check for specific error types
+      if (statusCode === 429) {
+        throw new AIServiceError('Groq rate limited', 429, AIErrorCode.RATE_LIMITED);
+      }
+
+      if (statusCode === 401 || statusCode === 403) {
+        throw new AIServiceError('Groq authentication failed', statusCode, AIErrorCode.AUTHENTICATION_ERROR);
+      }
+
+      if (axiosError.code === 'ECONNABORTED' || errorMessage.includes('timeout')) {
+        throw new AIServiceError('Groq request timed out', undefined, AIErrorCode.TIMEOUT);
+      }
+
+      throw new AIServiceError(
+        `Groq error: ${errorMessage}`,
+        statusCode,
+        AIErrorCode.UNKNOWN
+      );
+    }
+  }
+
+  /**
+   * Call OpenRouter API with system prompt for enhanced requests
+   */
+  private async callOpenRouterEnhanced(
+    message: string,
+    systemPrompt: string,
+    modelId: string
+  ): Promise<{ text: string }> {
+    log.info(`📡 Calling OpenRouter ENHANCED with model: ${modelId}`);
+
+    try {
+      const response = await axios.post(
+        this.openrouterBaseUrl,
+        {
+          model: modelId,
+          messages: [
+            {
+              role: 'system',
+              content: systemPrompt,
+            },
+            {
+              role: 'user',
+              content: message,
+            },
+          ],
+          max_tokens: ENHANCED_MAX_TOKENS,
+          temperature: DEFAULT_TEMPERATURE,
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${this.openrouterKey}`,
+            'HTTP-Referer': 'https://aurikrex.tech',
+            'X-Title': 'Aurikrex Academy',
+            'Content-Type': 'application/json',
+          },
+          timeout: this.timeout,
+        }
+      );
+
+      // Validate response structure
+      const choices = response.data?.choices;
+      if (!choices || !Array.isArray(choices) || choices.length === 0) {
+        log.warn('⚠️ OpenRouter returned malformed response structure', {
+          hasData: !!response.data,
+          hasChoices: !!choices,
+          isArray: Array.isArray(choices),
+          choicesLength: Array.isArray(choices) ? choices.length : 'N/A',
+        });
+        throw new AIServiceError('Malformed response structure from OpenRouter', undefined, AIErrorCode.INVALID_RESPONSE);
+      }
+
+      const responseText = choices[0]?.message?.content || '';
+
+      log.info(`📥 Enhanced raw response received (${responseText.length} chars)`);
+
+      if (!responseText) {
+        log.warn('⚠️ OpenRouter returned empty content', {
+          hasMessage: !!choices[0]?.message,
+          hasContent: !!choices[0]?.message?.content,
+        });
+        throw new AIServiceError('Empty response from OpenRouter', undefined, AIErrorCode.INVALID_RESPONSE);
+      }
+
+      log.info('✅ OpenRouter enhanced response valid');
+      return { text: responseText };
+    } catch (error) {
+      // Re-throw AIServiceError as-is
+      if (error instanceof AIServiceError) {
+        throw error;
+      }
+
+      const axiosError = error as AxiosError;
+      const errorData = axiosError.response?.data as { error?: { message?: string } } | undefined;
+      const statusCode = axiosError.response?.status;
+      const errorMessage = errorData?.error?.message || axiosError.message;
+
+      log.error('❌ OpenRouter API error:', {
+        status: statusCode,
+        message: errorMessage,
+      });
+
+      // Check for specific error types
+      if (statusCode === 429) {
+        throw new AIServiceError('OpenRouter rate limited', 429, AIErrorCode.RATE_LIMITED);
+      }
+
+      if (statusCode === 401 || statusCode === 403) {
+        throw new AIServiceError('OpenRouter authentication failed', statusCode, AIErrorCode.AUTHENTICATION_ERROR);
+      }
+
+      if (axiosError.code === 'ECONNABORTED' || errorMessage.includes('timeout')) {
+        throw new AIServiceError('OpenRouter request timed out', undefined, AIErrorCode.TIMEOUT);
+      }
+
+      throw new AIServiceError(
+        `OpenRouter error: ${errorMessage}`,
+        statusCode,
+        AIErrorCode.UNKNOWN
+      );
+    }
+  }
+
+  /**
+   * Call Groq API with system prompt for enhanced requests
+   */
+  private async callGroqEnhanced(
+    message: string,
+    systemPrompt: string
+  ): Promise<{ text: string }> {
+    log.info(`📡 Calling Groq ENHANCED with model: ${this.groqFallbackModel}`);
+
+    try {
+      const response = await axios.post(
+        this.groqBaseUrl,
+        {
+          model: this.groqFallbackModel,
+          messages: [
+            {
+              role: 'system',
+              content: systemPrompt,
+            },
+            {
+              role: 'user',
+              content: message,
+            },
+          ],
+          max_tokens: ENHANCED_MAX_TOKENS,
+          temperature: DEFAULT_TEMPERATURE,
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${this.groqKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: this.timeout,
+        }
+      );
+
+      // Validate response structure
+      const choices = response.data?.choices;
+      if (!choices || !Array.isArray(choices) || choices.length === 0) {
+        log.warn('⚠️ Groq returned malformed response structure', {
+          hasData: !!response.data,
+          hasChoices: !!choices,
+          isArray: Array.isArray(choices),
+          choicesLength: Array.isArray(choices) ? choices.length : 'N/A',
+        });
+        throw new AIServiceError('Malformed response structure from Groq', undefined, AIErrorCode.INVALID_RESPONSE);
+      }
+
+      const responseText = choices[0]?.message?.content || '';
+
+      log.info(`📥 Enhanced raw response received (${responseText.length} chars)`);
+
+      if (!responseText) {
+        log.warn('⚠️ Groq returned empty content', {
+          hasMessage: !!choices[0]?.message,
+          hasContent: !!choices[0]?.message?.content,
+        });
+        throw new AIServiceError('Empty response from Groq', undefined, AIErrorCode.INVALID_RESPONSE);
+      }
+
+      log.info('✅ Groq enhanced response valid');
       return { text: responseText };
     } catch (error) {
       // Re-throw AIServiceError as-is

@@ -63,6 +63,131 @@ export interface FalkeAIErrorResponse {
 }
 
 // ============================================
+// Enhanced AI Chat Types (Prompt Engineering)
+// ============================================
+
+/**
+ * Request types for AI interactions
+ * Each type triggers different system prompts and response formatting
+ */
+export type AIRequestType = 'teach' | 'question' | 'review' | 'hint' | 'explanation';
+
+/**
+ * Learning style preferences
+ */
+export type LearningStyle = 'visual' | 'textual' | 'kinesthetic' | 'auditory';
+
+/**
+ * Knowledge level for content adaptation
+ */
+export type KnowledgeLevel = 'beginner' | 'intermediate' | 'advanced';
+
+/**
+ * Preferred learning pace
+ */
+export type LearningPace = 'fast' | 'moderate' | 'slow';
+
+/**
+ * Detail level for responses
+ */
+export type DetailLevel = 'brief' | 'moderate' | 'detailed';
+
+/**
+ * User preferences for AI responses
+ */
+export interface UserPreferences {
+  includeExamples: boolean;
+  includeFormulas: boolean;
+  detailLevel: DetailLevel;
+  codeExamples: boolean;
+  historicalContext: boolean;
+}
+
+/**
+ * User learning context for personalized AI responses
+ */
+export interface UserLearningContext {
+  userId: string;
+  learningStyle: LearningStyle;
+  knowledgeLevel: KnowledgeLevel;
+  preferredPace: LearningPace;
+  previousTopics: string[];
+  strengths: string[];
+  weaknesses: string[];
+  preferences: UserPreferences;
+}
+
+/**
+ * Section type for parsed response content
+ */
+export type SectionType = 
+  | 'text'
+  | 'concept'
+  | 'math'
+  | 'example'
+  | 'error'
+  | 'solution'
+  | 'misconception'
+  | 'practice'
+  | 'resource'
+  | 'understanding'
+  | 'approach'
+  | 'assessment'
+  | 'strength'
+  | 'improvement'
+  | 'feedback';
+
+/**
+ * Parsed section from AI response
+ */
+export interface ResponseSection {
+  heading: string;
+  content: string;
+  type: SectionType;
+}
+
+/**
+ * Structured response from AI
+ */
+export interface ResponseStructure {
+  title?: string;
+  sections: ResponseSection[];
+  summary?: string;
+  keyTakeaways?: string[];
+  nextSteps?: string[];
+}
+
+/**
+ * Refined AI response with formatting
+ */
+export interface RefinedResponse {
+  raw: string;
+  refined: string;
+  formattedHtml: string;
+  structure: ResponseStructure;
+  requestType: AIRequestType;
+}
+
+/**
+ * Enhanced request body for AI chat with prompt engineering
+ */
+export interface EnhancedFalkeAIChatRequest extends FalkeAIChatRequest {
+  requestType?: AIRequestType;
+  userLearningContext?: Partial<UserLearningContext>;
+}
+
+/**
+ * Enhanced response from AI chat with refined content
+ */
+export interface EnhancedFalkeAIChatResponse extends FalkeAIChatResponse {
+  refined?: RefinedResponse;
+  requestType?: AIRequestType;
+  provider?: string;
+  model?: string;
+  modelType?: string;
+}
+
+// ============================================
 // Assignment Types
 // ============================================
 

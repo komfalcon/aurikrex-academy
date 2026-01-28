@@ -140,3 +140,161 @@ export type FalkeAIChatContext = AIChatContext;
 export type FalkeAIChatRequest = AIChatRequest;
 export type FalkeAIChatResponse = AIChatResponse;
 export type FalkeAIErrorResponse = AIErrorResponse;
+
+// ============================================
+// Prompt Engineering System Types
+// ============================================
+
+/**
+ * Request types for AI interactions
+ * Each type triggers different system prompts and response formatting
+ */
+export type AIRequestType = 'teach' | 'question' | 'review' | 'hint' | 'explanation';
+
+/**
+ * Learning style preferences
+ */
+export type LearningStyle = 'visual' | 'textual' | 'kinesthetic' | 'auditory';
+
+/**
+ * Knowledge level for content adaptation
+ */
+export type KnowledgeLevel = 'beginner' | 'intermediate' | 'advanced';
+
+/**
+ * Preferred learning pace
+ */
+export type LearningPace = 'fast' | 'moderate' | 'slow';
+
+/**
+ * Detail level for responses
+ */
+export type DetailLevel = 'brief' | 'moderate' | 'detailed';
+
+/**
+ * User preferences for AI responses
+ */
+export interface UserPreferences {
+  includeExamples: boolean;
+  includeFormulas: boolean;
+  detailLevel: DetailLevel;
+  codeExamples: boolean;
+  historicalContext: boolean;
+}
+
+/**
+ * User context for personalized AI responses
+ * Contains learning profile information to tailor responses
+ */
+export interface UserLearningContext {
+  userId: string;
+  learningStyle: LearningStyle;
+  knowledgeLevel: KnowledgeLevel;
+  preferredPace: LearningPace;
+  previousTopics: string[];
+  strengths: string[];
+  weaknesses: string[];
+  preferences: UserPreferences;
+}
+
+/**
+ * Default user learning context for new users
+ */
+export const DEFAULT_USER_LEARNING_CONTEXT: UserLearningContext = {
+  userId: '',
+  learningStyle: 'textual',
+  knowledgeLevel: 'beginner',
+  preferredPace: 'moderate',
+  previousTopics: [],
+  strengths: [],
+  weaknesses: [],
+  preferences: {
+    includeExamples: true,
+    includeFormulas: true,
+    detailLevel: 'moderate',
+    codeExamples: true,
+    historicalContext: false,
+  },
+};
+
+/**
+ * Prompt enhancement result
+ * Contains the original request transformed into an optimal model prompt
+ */
+export interface PromptEnhancement {
+  originalRequest: string;
+  enhancedRequest: string;
+  systemPrompt: string;
+  context: string;
+  instructions: string;
+  requestType: AIRequestType;
+  detectedIntent: string;
+  estimatedComplexity: 'low' | 'medium' | 'high';
+}
+
+/**
+ * Section type for parsed response content
+ */
+export type SectionType = 
+  | 'text'
+  | 'concept'
+  | 'math'
+  | 'example'
+  | 'error'
+  | 'solution'
+  | 'misconception'
+  | 'practice'
+  | 'resource'
+  | 'understanding'
+  | 'approach'
+  | 'assessment'
+  | 'strength'
+  | 'improvement'
+  | 'feedback';
+
+/**
+ * Parsed section from AI response
+ */
+export interface ResponseSection {
+  heading: string;
+  content: string;
+  type: SectionType;
+}
+
+/**
+ * Structured response from AI
+ */
+export interface ResponseStructure {
+  title?: string;
+  sections: ResponseSection[];
+  summary?: string;
+  keyTakeaways?: string[];
+  nextSteps?: string[];
+}
+
+/**
+ * Refined AI response with formatting
+ */
+export interface RefinedResponse {
+  raw: string;
+  refined: string;
+  formattedHtml: string;
+  structure: ResponseStructure;
+  requestType: AIRequestType;
+}
+
+/**
+ * Extended AI chat request with request type
+ */
+export interface EnhancedAIChatRequest extends AIChatRequest {
+  requestType?: AIRequestType;
+  userLearningContext?: Partial<UserLearningContext>;
+}
+
+/**
+ * Extended AI chat response with refined content
+ */
+export interface EnhancedAIChatResponse extends AIChatResponse {
+  refined?: RefinedResponse;
+  requestType?: AIRequestType;
+}
