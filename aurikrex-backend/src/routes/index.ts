@@ -6,6 +6,8 @@ import userRoutes from "./userRoutes.mongo.js";
 import testRoutes from "./testRoutes.js";
 import healthRoutes from "./healthRoutes.js";
 import aiRoutes from "./aiRoutes.js";
+import assignmentRoutes from "./assignmentRoutes.js";
+import falkeaiAnalyticsRoutes from "./falkeaiAnalyticsRoutes.js";
 
 const router = Router();
 
@@ -15,7 +17,7 @@ router.use("/auth", authRoutes);
 // Lesson routes (MongoDB-based)
 router.use("/lessons", lessonRoutes);
 
-// Analytics routes (MongoDB-based)
+// Analytics routes (MongoDB-based - lesson analytics)
 router.use("/analytics", analyticsRoutes);
 
 // User routes (MongoDB-based)
@@ -29,5 +31,11 @@ router.use("/health", healthRoutes);
 
 // AI routes (FalkeAI integration)
 router.use("/ai", aiRoutes);
+
+// Assignment routes (assignments and solutions)
+router.use("/assignments", assignmentRoutes);
+
+// FalkeAI Analytics routes (activity tracking and user analytics)
+router.use("/falkeai-analytics", falkeaiAnalyticsRoutes);
 
 export default router;

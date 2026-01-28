@@ -4,6 +4,8 @@ export interface User {
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
+  firstName?: string;
+  provider?: string;
 }
 
 export interface AuthContextType {
@@ -58,4 +60,229 @@ export interface FalkeAIErrorResponse {
   status: 'error';
   message: string;
   code?: string;
+}
+
+// ============================================
+// Assignment Types
+// ============================================
+
+export type AssignmentType = 'problem' | 'essay' | 'code' | 'math' | 'creative';
+export type AssignmentStatus = 'pending' | 'analyzed' | 'attempted' | 'submitted' | 'graded';
+export type Difficulty = 'easy' | 'medium' | 'hard';
+
+export interface AssignmentHints {
+  conceptsInvolved: string[];
+  approachSuggestion: string;
+  commonMistakes: string[];
+  stepByStep: {
+    stepNumber: number;
+    guidance: string;
+    keyThink: string;
+  }[];
+  resources: string[];
+}
+
+export interface AssignmentAnalysis {
+  type: AssignmentType;
+  title: string;
+  description: string;
+  hints: AssignmentHints;
+  estimatedDifficulty: Difficulty;
+  estimatedTime: number;
+  rubric?: {
+    criteria: string;
+    points: number;
+  }[];
+}
+
+export interface Assignment {
+  _id: string;
+  studentId: string;
+  title: string;
+  description: string;
+  assignmentType: 'upload' | 'text';
+  fileUrl?: string;
+  fileName?: string;
+  fileType?: string;
+  textContent?: string;
+  analysis?: AssignmentAnalysis;
+  status: AssignmentStatus;
+  solutionIds: string[];
+  createdAt: string;
+  updatedAt: string;
+  deadline?: string;
+  lastAttemptAt?: string;
+}
+
+export interface AssignmentStats {
+  total: number;
+  pending: number;
+  analyzed: number;
+  attempted: number;
+  submitted: number;
+  graded: number;
+}
+
+// ============================================
+// Solution Types
+// ============================================
+
+export interface SolutionError {
+  type: string;
+  location: string;
+  issue: string;
+  correction: string;
+  explanation: string;
+}
+
+export interface SolutionVerification {
+  isCorrect: boolean;
+  accuracy: number;
+  strengths: string[];
+  weaknesses: string[];
+  errors: SolutionError[];
+  correctSolution: {
+    code?: string;
+    explanation: string;
+    alternativeApproaches?: string[];
+  };
+  rating: number;
+  feedback: string;
+  nextSteps: string[];
+  conceptsMastered: string[];
+  conceptsToReview: string[];
+}
+
+export interface Solution {
+  _id: string;
+  assignmentId: string;
+  studentId: string;
+  solutionType: 'file' | 'text';
+  fileUrl?: string;
+  fileName?: string;
+  fileType?: string;
+  textContent?: string;
+  verification?: SolutionVerification;
+  submittedAt: string;
+  gradedAt?: string;
+  attempt: number;
+}
+
+export interface SolutionStats {
+  totalSolutions: number;
+  averageAccuracy: number;
+  totalCorrect: number;
+  averageAttempts: number;
+  conceptsMastered: string[];
+  conceptsToReview: string[];
+}
+
+// ============================================
+// FalkeAI Analytics Types
+// ============================================
+
+export type FalkeAIActivityType = 
+  | 'chat_question'
+  | 'assignment_upload'
+  | 'assignment_analysis'
+  | 'solution_upload'
+  | 'solution_verification'
+  | 'quiz_explanation'
+  | 'progress_analysis'
+  | 'recommendation'
+  | 'concept_explanation'
+  | 'performance_review'
+  | 'lesson_generation';
+
+export type ResultType = 'success' | 'needs_improvement' | 'not_attempted' | 'error';
+
+export interface FalkeAIActivity {
+  _id: string;
+  userId: string;
+  timestamp: string;
+  activityType: FalkeAIActivityType;
+  courseId?: string;
+  lessonId?: string;
+  assignmentId?: string;
+  quizId?: string;
+  question?: string;
+  questionType?: string;
+  responseLength?: number;
+  userSatisfaction?: 1 | 2 | 3 | 4 | 5;
+  timeSpent: number;
+  helpfulRating?: number;
+  resultType?: ResultType;
+  resultScore?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UserAnalytics {
+  userId: string;
+  totalActivities: number;
+  activitiesByType: Record<FalkeAIActivityType, number>;
+  averageResponseQuality: number;
+  assignmentCompletionRate: number;
+  averageSolutionAccuracy: number;
+  topicsExplored: string[];
+  conceptsMastered: string[];
+  conceptsStruggling: string[];
+  peakLearningTime: string;
+  averageSessionDuration: number;
+  activityTimeline: {
+    date: string;
+    count: number;
+    types: Record<string, number>;
+  }[];
+  growthScore: number;
+  engagementTrend: 'increasing' | 'stable' | 'decreasing';
+  predictedNextChallenge?: string;
+  estimatedMasteryDate?: string;
+  recommendedFocusArea?: string;
+  lastUpdated: string;
+}
+
+export interface DashboardAnalytics {
+  overview: {
+    totalQuestions: number;
+    averageResponseQuality: number;
+    topicsMastered: number;
+    topicsStruggling: number;
+  };
+  assignments: AssignmentStats & {
+    completionRate: number;
+  };
+  solutions: SolutionStats;
+  learning: {
+    topicsExplored: string[];
+    conceptsMastered: string[];
+    conceptsToReview: string[];
+    peakLearningTime: string;
+    averageSessionDuration: number;
+  };
+  trends: {
+    activityTimeline: {
+      date: string;
+      count: number;
+      types: Record<string, number>;
+    }[];
+    growthScore: number;
+    engagementTrend: 'increasing' | 'stable' | 'decreasing';
+    activitiesByType: Record<string, number>;
+  };
+  insights: {
+    predictedNextChallenge?: string;
+    estimatedMasteryDate?: string;
+    recommendedFocusArea: string;
+  };
+  recentActivity: FalkeAIActivity[];
+  lastUpdated: string;
+}
+
+export interface ActivitySummary {
+  totalQuestions: number;
+  averageResponseQuality: number;
+  topicsMastered: number;
+  topicsStruggling: number;
+  recentActivity: FalkeAIActivity[];
+  activityByDay: { date: string; count: number }[];
 }
