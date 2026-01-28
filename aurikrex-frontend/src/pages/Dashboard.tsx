@@ -505,35 +505,94 @@ function DashboardPanel({ onLaunchFalkeAI }: DashboardPanelProps) {
   const [aiInsights, setAiInsights] = useState<AIInsight[]>([]);
   const [aiRecommendations, setAiRecommendations] = useState<AIRecommendation[]>([]);
   const [aiSummary, setAiSummary] = useState<string>("");
+  const [realStats, setRealStats] = useState<{
+    assignments: { total: number; pending: number; graded: number };
+    solutions: { averageAccuracy: number; totalCorrect: number };
+    activities: { totalQuestions: number };
+  } | null>(null);
+  const [recentAssignments, setRecentAssignments] = useState<Array<{
+    _id: string;
+    title: string;
+    status: string;
+    analysis?: { type?: string };
+    createdAt: string;
+  }>>([]);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
   
-  // Get firstName from authenticated user or fallback to mock data
-  const displayName = user?.firstName || user?.displayName || mockData.user.name.split(' ')[0];
+  // Get firstName from authenticated user or fallback
+  const displayName = user?.firstName || user?.displayName || 'Student';
 
-  // Prepare user progress data for AI analysis
+  // Fetch real statistics from backend
+  useEffect(() => {
+    const fetchRealStats = async () => {
+      if (!user?.uid) {
+        setIsLoadingStats(false);
+        return;
+      }
+      
+      try {
+        const [assignmentStatsRes, analyticsRes, assignmentsRes] = await Promise.all([
+          fetch('/api/assignments/stats', {
+            headers: { Authorization: `Bearer ${localStorage.getItem('aurikrex-token')}` }
+          }).catch(() => null),
+          fetch('/api/falkeai-analytics/summary', {
+            headers: { Authorization: `Bearer ${localStorage.getItem('aurikrex-token')}` }
+          }).catch(() => null),
+          fetch('/api/assignments?limit=3&sortBy=createdAt&sortOrder=desc', {
+            headers: { Authorization: `Bearer ${localStorage.getItem('aurikrex-token')}` }
+          }).catch(() => null),
+        ]);
+
+        const assignmentStats = assignmentStatsRes?.ok ? await assignmentStatsRes.json() : null;
+        const analytics = analyticsRes?.ok ? await analyticsRes.json() : null;
+        const assignments = assignmentsRes?.ok ? await assignmentsRes.json() : null;
+
+        if (assignmentStats?.data || analytics?.data) {
+          setRealStats({
+            assignments: assignmentStats?.data || { total: 0, pending: 0, graded: 0 },
+            solutions: { 
+              averageAccuracy: analytics?.data?.averageResponseQuality || 0,
+              totalCorrect: analytics?.data?.topicsMastered || 0
+            },
+            activities: { totalQuestions: analytics?.data?.totalQuestions || 0 }
+          });
+        }
+
+        if (assignments?.data?.assignments) {
+          setRecentAssignments(assignments.data.assignments);
+        }
+      } catch (error) {
+        console.error('Failed to fetch real stats:', error);
+      } finally {
+        setIsLoadingStats(false);
+      }
+    };
+
+    fetchRealStats();
+  }, [user?.uid]);
+
+  // Use real data if available, otherwise show zeros for new users
   const userProgress: UserProgress = {
-    lessonsCompleted: mockData.stats[0].value,
-    totalLessons: mockData.stats[0].total,
-    assignmentsCompleted: mockData.stats[1].value,
-    totalAssignments: mockData.stats[1].total,
-    averageScore: mockData.stats[2].value,
-    streak: mockData.user.streak,
-    subjects: mockData.subjects.map(s => ({
-      name: s.name,
-      progress: s.progress,
-      lessons: s.lessons,
-    })),
+    lessonsCompleted: realStats?.activities.totalQuestions || 0,
+    totalLessons: Math.max(10, realStats?.activities.totalQuestions || 0),
+    assignmentsCompleted: realStats?.assignments.graded || 0,
+    totalAssignments: realStats?.assignments.total || 0,
+    averageScore: realStats?.solutions.averageAccuracy || 0,
+    streak: 0, // Would need separate tracking
+    subjects: [], // Would need course enrollment data
   };
 
-  // Hero stats for the new progress component
+  // Hero stats using real data
   const heroStats = {
     lessonsCompleted: userProgress.lessonsCompleted,
     totalLessons: userProgress.totalLessons,
     assignmentsCompleted: userProgress.assignmentsCompleted,
     totalAssignments: userProgress.totalAssignments,
-    overallProgress: mockData.stats[3].value,
-    streak: mockData.user.streak,
-    level: mockData.user.level,
-    totalHours: 42,
+    overallProgress: realStats?.assignments.total ? 
+      Math.round((realStats.assignments.graded / realStats.assignments.total) * 100) : 0,
+    streak: 0, // Would need separate tracking
+    level: 1, // Would need level calculation
+    totalHours: Math.round((realStats?.activities.totalQuestions || 0) * 0.5), // Estimate based on activities
   };
 
   // Fetch AI insights on mount
@@ -552,44 +611,50 @@ function DashboardPanel({ onLaunchFalkeAI }: DashboardPanelProps) {
       setAiSummary(analysis.summary);
     } catch (error) {
       console.error('Failed to fetch AI insights:', error);
-      // Set fallback insights
+      // Set fallback insights based on real data
+      const hasActivity = (realStats?.activities.totalQuestions || 0) > 0;
       setAiInsights([
         {
           id: 'fallback-1',
-          type: 'strength',
-          title: 'Great Progress!',
-          description: `You've completed ${userProgress.lessonsCompleted} lessons. Keep up the momentum!`,
+          type: hasActivity ? 'strength' : 'suggestion',
+          title: hasActivity ? 'Great Progress!' : 'Welcome!',
+          description: hasActivity 
+            ? `You've asked ${realStats?.activities.totalQuestions || 0} questions. Keep learning!`
+            : 'Start your learning journey by uploading an assignment or asking FalkeAI a question.',
           priority: 'medium',
-          actionable: false,
+          actionable: !hasActivity,
+          action: hasActivity ? undefined : 'Get Started',
         },
         {
           id: 'fallback-2',
           type: 'suggestion',
-          title: 'Continue Learning',
-          description: 'Start a new lesson today to maintain your streak.',
+          title: 'Try FalkeAI',
+          description: 'Ask FalkeAI any question about your studies for instant help.',
           priority: 'high',
           actionable: true,
-          action: 'Start Lesson',
+          action: 'Ask FalkeAI',
         },
       ]);
       setAiRecommendations([
         {
           id: 'rec-fallback-1',
           type: 'lesson',
-          title: 'Continue Your Journey',
-          reason: 'Based on your recent activity',
-          confidence: 85,
-          duration: '30 min',
+          title: 'Upload an Assignment',
+          reason: 'Get AI-powered analysis and hints',
+          confidence: 90,
+          duration: '5 min',
         },
       ]);
     } finally {
       setIsLoadingAI(false);
     }
-  }, [user?.uid, displayName, userProgress.lessonsCompleted]);
+  }, [user?.uid, displayName, realStats]);
 
   useEffect(() => {
-    fetchAIInsights();
-  }, []);
+    if (!isLoadingStats) {
+      fetchAIInsights();
+    }
+  }, [isLoadingStats]);
 
   // Current lesson for resume learning
   const currentLesson = {
@@ -622,7 +687,7 @@ function DashboardPanel({ onLaunchFalkeAI }: DashboardPanelProps) {
             variant="grid"
           />
 
-          {/* Upcoming Assignments */}
+          {/* Recent Assignments - Using Real Data */}
           <motion.div
             initial={shouldReduceMotion ? {} : { opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -632,45 +697,69 @@ function DashboardPanel({ onLaunchFalkeAI }: DashboardPanelProps) {
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg font-bold flex items-center gap-2">
                   <ClipboardCheck className="w-5 h-5 text-orange-500" aria-hidden="true" />
-                  Upcoming Assignments
-                  <Badge variant="secondary" className="ml-auto text-xs">
-                    {mockData.assignments.length} pending
-                  </Badge>
+                  Recent Assignments
+                  {realStats?.assignments.total !== undefined && (
+                    <Badge variant="secondary" className="ml-auto text-xs">
+                      {realStats.assignments.pending || 0} pending
+                    </Badge>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {mockData.assignments.map((assignment, index) => {
-                  const statusConfig = {
-                    pending: { icon: Clock, color: "text-orange-500", bg: "bg-orange-500/10" },
-                    "in-progress": { icon: AlertCircle, color: "text-blue-500", bg: "bg-blue-500/10" },
-                    "not-started": { icon: CircleIcon, color: "text-gray-500", bg: "bg-gray-500/10" },
-                  };
-                  const config = statusConfig[assignment.status as keyof typeof statusConfig];
-                  const StatusIcon = config.icon;
+                {isLoadingStats ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="h-16 bg-secondary/50 rounded-xl animate-pulse" />
+                    ))}
+                  </div>
+                ) : recentAssignments.length === 0 ? (
+                  <div className="text-center py-8">
+                    <ClipboardCheck className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                    <p className="text-sm text-muted-foreground">No assignments yet</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Upload your first assignment to get started
+                    </p>
+                  </div>
+                ) : (
+                  recentAssignments.map((assignment, index) => {
+                    const statusConfig: Record<string, { icon: typeof Clock; color: string; bg: string }> = {
+                      pending: { icon: Clock, color: "text-orange-500", bg: "bg-orange-500/10" },
+                      analyzed: { icon: Brain, color: "text-purple-500", bg: "bg-purple-500/10" },
+                      attempted: { icon: AlertCircle, color: "text-blue-500", bg: "bg-blue-500/10" },
+                      submitted: { icon: Send, color: "text-cyan-500", bg: "bg-cyan-500/10" },
+                      graded: { icon: CheckCircle, color: "text-green-500", bg: "bg-green-500/10" },
+                    };
+                    const config = statusConfig[assignment.status] || statusConfig.pending;
+                    const StatusIcon = config.icon;
 
-                  return (
-                    <motion.div
-                      key={assignment.id}
-                      initial={shouldReduceMotion ? {} : { opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.2, delay: 0.4 + index * 0.05 }}
-                      whileHover={!shouldReduceMotion ? { x: 4 } : {}}
-                      className="p-3 rounded-xl bg-secondary/50 hover:bg-secondary transition-all duration-200 cursor-pointer"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className={`p-2 rounded-lg ${config.bg} flex-shrink-0`}>
-                          <StatusIcon className={`w-4 h-4 ${config.color}`} aria-hidden="true" />
+                    return (
+                      <motion.div
+                        key={assignment._id}
+                        initial={shouldReduceMotion ? {} : { opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.2, delay: 0.4 + index * 0.05 }}
+                        whileHover={!shouldReduceMotion ? { x: 4 } : {}}
+                        className="p-3 rounded-xl bg-secondary/50 hover:bg-secondary transition-all duration-200 cursor-pointer"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={`p-2 rounded-lg ${config.bg} flex-shrink-0`}>
+                            <StatusIcon className={`w-4 h-4 ${config.color}`} aria-hidden="true" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-sm truncate">{assignment.title}</h4>
+                            <p className="text-xs text-muted-foreground capitalize">
+                              {assignment.analysis?.type || 'Assignment'}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {new Date(assignment.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" aria-hidden="true" />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-sm truncate">{assignment.title}</h4>
-                          <p className="text-xs text-muted-foreground">{assignment.subject}</p>
-                          <p className="text-xs text-muted-foreground mt-1">Due: {assignment.dueDate}</p>
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" aria-hidden="true" />
-                      </div>
-                    </motion.div>
-                  );
-                })}
+                      </motion.div>
+                    );
+                  })
+                )}
               </CardContent>
             </Card>
           </motion.div>
@@ -682,11 +771,11 @@ function DashboardPanel({ onLaunchFalkeAI }: DashboardPanelProps) {
           <AIRecommendations
             insights={aiInsights}
             recommendations={aiRecommendations}
-            isLoading={isLoadingAI}
+            isLoading={isLoadingAI || isLoadingStats}
             onRefresh={fetchAIInsights}
             onActionClick={(action) => {
               console.log('AI action clicked:', action);
-              if (action.toLowerCase().includes('ai') || action.toLowerCase().includes('lesson')) {
+              if (action.toLowerCase().includes('ai') || action.toLowerCase().includes('lesson') || action.toLowerCase().includes('falke')) {
                 onLaunchFalkeAI();
               }
             }}
