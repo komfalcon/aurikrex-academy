@@ -321,7 +321,10 @@ export class FalkeAIActivityModel {
           peakHour = parseInt(hour);
         }
       }
-      const peakLearningTime = `${peakHour}:00-${peakHour + 2}:00`;
+      // Handle edge case when there are no activities
+      const peakLearningTime = maxCount > 0 
+        ? `${peakHour}:00-${peakHour + 2}:00` 
+        : 'No data';
 
       // Calculate activity timeline (last 30 days)
       const thirtyDaysAgo = new Date();

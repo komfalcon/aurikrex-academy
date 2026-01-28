@@ -69,6 +69,7 @@ import { AIRecommendations } from "@/components/dashboard/AIRecommendations";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { DashboardSkeleton, AIThinkingIndicator } from "@/components/dashboard/LoadingSkeletons";
 import type { FalkeAIChatPage } from "@/types";
+import { apiRequest } from "@/utils/api";
 // Import real data panels
 import AssignmentsPanelReal from "@/components/dashboard/AssignmentsPanelReal";
 import AnalyticsPanelReal from "@/components/dashboard/AnalyticsPanelReal";
@@ -532,15 +533,9 @@ function DashboardPanel({ onLaunchFalkeAI }: DashboardPanelProps) {
       
       try {
         const [assignmentStatsRes, analyticsRes, assignmentsRes] = await Promise.all([
-          fetch('/api/assignments/stats', {
-            headers: { Authorization: `Bearer ${localStorage.getItem('aurikrex-token')}` }
-          }).catch(() => null),
-          fetch('/api/falkeai-analytics/summary', {
-            headers: { Authorization: `Bearer ${localStorage.getItem('aurikrex-token')}` }
-          }).catch(() => null),
-          fetch('/api/assignments?limit=3&sortBy=createdAt&sortOrder=desc', {
-            headers: { Authorization: `Bearer ${localStorage.getItem('aurikrex-token')}` }
-          }).catch(() => null),
+          apiRequest('/assignments/stats').catch(() => null),
+          apiRequest('/falkeai-analytics/summary').catch(() => null),
+          apiRequest('/assignments?limit=3&sortBy=createdAt&sortOrder=desc').catch(() => null),
         ]);
 
         const assignmentStats = assignmentStatsRes?.ok ? await assignmentStatsRes.json() : null;

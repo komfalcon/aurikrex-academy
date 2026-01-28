@@ -26,7 +26,7 @@ const router = Router();
 // ============================================
 
 /**
- * @route   POST /api/analytics/track
+ * @route   POST /api/falkeai-analytics/track
  * @desc    Track a FalkeAI activity
  * @access  Private
  */
@@ -101,28 +101,28 @@ router.post(
 // ============================================
 
 /**
- * @route   GET /api/analytics
+ * @route   GET /api/falkeai-analytics
  * @desc    Get user analytics
  * @access  Private
  */
 router.get('/', authenticate, getUserAnalytics);
 
 /**
- * @route   GET /api/analytics/summary
+ * @route   GET /api/falkeai-analytics/summary
  * @desc    Get a quick summary of user analytics for the dashboard
  * @access  Private
  */
 router.get('/summary', authenticate, getAnalyticsSummary);
 
 /**
- * @route   GET /api/analytics/dashboard
+ * @route   GET /api/falkeai-analytics/dashboard
  * @desc    Get comprehensive dashboard analytics
  * @access  Private
  */
 router.get('/dashboard', authenticate, getDashboardAnalytics);
 
 /**
- * @route   GET /api/analytics/activities
+ * @route   GET /api/falkeai-analytics/activities
  * @desc    Get user activities with filtering
  * @access  Private
  */
@@ -168,7 +168,7 @@ router.get(
 );
 
 /**
- * @route   POST /api/analytics/rate/:activityId
+ * @route   POST /api/falkeai-analytics/rate/:activityId
  * @desc    Rate an activity
  * @access  Private
  */
@@ -189,7 +189,7 @@ router.post(
 );
 
 /**
- * @route   POST /api/analytics/refresh
+ * @route   POST /api/falkeai-analytics/refresh
  * @desc    Force refresh user analytics
  * @access  Private
  */
