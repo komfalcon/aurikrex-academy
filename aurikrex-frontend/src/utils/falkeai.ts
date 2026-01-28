@@ -21,6 +21,9 @@ import {
   FalkeAIChatContext,
   FalkeAIChatResponse,
   FalkeAIChatPage,
+  EnhancedFalkeAIChatResponse,
+  AIRequestType,
+  UserLearningContext,
 } from '../types';
 
 /**
@@ -248,8 +251,221 @@ export async function checkAIServiceHealth(): Promise<boolean> {
   }
 }
 
+/**
+ * Send an enhanced message to FalkeAI with prompt engineering
+ * 
+ * This uses the three-layer prompt engineering system:
+ * 1. REQUEST ENHANCEMENT - Transform input into optimal prompt
+ * 2. MODEL CALL - Send to AI with system prompt
+ * 3. RESPONSE REFINEMENT - Clean up and structure response
+ * 
+ * @param message - The message to send
+ * @param context - Context information (page, userId, username, course)
+ * @param requestType - Optional type of request (teach, question, review, hint, explanation)
+ * @param userLearningContext - Optional user learning profile for personalization
+ * @returns Promise<EnhancedFalkeAIChatResponse> - The enhanced response from FalkeAI
+ * 
+ * @example
+ * ```ts
+ * const response = await sendEnhancedMessageToFalkeAI(
+ *   'Teach me Quantum Mechanics',
+ *   {
+ *     page: 'Smart Lessons',
+ *     userId: 'user123',
+ *     username: 'John Doe'
+ *   },
+ *   'teach',
+ *   { knowledgeLevel: 'beginner' }
+ * );
+ * console.log(response.refined?.formattedHtml);
+ * ```
+ */
+export async function sendEnhancedMessageToFalkeAI(
+  message: string,
+  context: FalkeAIChatContext,
+  requestType?: AIRequestType,
+  userLearningContext?: Partial<UserLearningContext>
+): Promise<EnhancedFalkeAIChatResponse> {
+  const requestTimestamp = new Date().toISOString();
+  
+  // Validate inputs
+  if (!message || typeof message !== 'string' || message.trim().length === 0) {
+    console.error('[FalkeAI Enhanced] Error: Message is required');
+    throw new Error('Message is required');
+  }
+
+  if (!context.userId || !context.username || !context.page) {
+    console.error('[FalkeAI Enhanced] Error: Missing required context fields', {
+      hasUserId: !!context.userId,
+      hasUsername: !!context.username,
+      hasPage: !!context.page,
+    });
+    throw new Error('Context with userId, username, and page is required');
+  }
+
+  // Check token before making request
+  const token = getToken();
+  if (!token) {
+    console.error('[FalkeAI Enhanced] Error: No authentication token found');
+    throw new Error('Please sign in to use FalkeAI');
+  }
+
+  console.log('[FalkeAI Enhanced] 📤 Sending enhanced message', {
+    endpoint: '/ai/chat/enhanced',
+    page: context.page,
+    userId: context.userId,
+    requestType: requestType || 'auto-detect',
+    messageLength: message.trim().length,
+    messagePreview: message.substring(0, 50) + (message.length > 50 ? '...' : ''),
+    hasAuth: !!token,
+    timestamp: requestTimestamp,
+  });
+
+  try {
+    const response = await apiRequest('/ai/chat/enhanced', {
+      method: 'POST',
+      body: JSON.stringify({
+        message: message.trim(),
+        context: {
+          page: context.page,
+          course: context.course,
+          username: context.username,
+          userId: context.userId,
+        },
+        requestType,
+        userLearningContext,
+      }),
+    });
+
+    // Log response status for debugging
+    console.log('[FalkeAI Enhanced] 📥 Response received:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+    });
+
+    // Handle non-OK responses
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('[FalkeAI Enhanced] ❌ API Error:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorData,
+        timestamp: requestTimestamp,
+      });
+      
+      // Determine user-friendly error message based on status code
+      let errorMessage = errorData.message || `Request failed (${response.status})`;
+      
+      if (response.status === 401) {
+        errorMessage = 'Authentication failed. Please sign in again.';
+      } else if (response.status === 403) {
+        errorMessage = 'You do not have permission to use the AI chat.';
+      } else if (response.status === 503) {
+        errorMessage = 'AI service is temporarily unavailable. Please try again later.';
+      } else if (response.status === 504) {
+        errorMessage = 'AI service request timed out. Please try again.';
+      }
+      
+      throw new Error(errorMessage);
+    }
+
+    const data: EnhancedFalkeAIChatResponse = await response.json();
+
+    // Validate response structure
+    if (!data || typeof data.reply !== 'string') {
+      console.error('[FalkeAI Enhanced] ❌ Error: Invalid response structure', {
+        hasData: !!data,
+        hasReply: data ? typeof data.reply : 'no data',
+        receivedKeys: data ? Object.keys(data) : [],
+      });
+      throw new Error('Invalid response from AI service');
+    }
+
+    console.log('[FalkeAI Enhanced] ✅ Success:', {
+      replyLength: data.reply.length,
+      replyPreview: data.reply.substring(0, 100) + (data.reply.length > 100 ? '...' : ''),
+      timestamp: data.timestamp,
+      requestType: data.requestType,
+      hasRefined: !!data.refined,
+      provider: data.provider,
+      model: data.model,
+    });
+
+    return data;
+  } catch (error) {
+    // Log error details for debugging (avoid sensitive data)
+    const errorInstance = error instanceof Error ? error : new Error(String(error));
+    
+    console.error('[FalkeAI Enhanced] 🚨 Request failed:', {
+      errorType: errorInstance.name,
+      errorMessage: errorInstance.message,
+      page: context.page,
+      requestType,
+      timestamp: requestTimestamp,
+    });
+
+    // Handle specific error types using ApiError properties
+    if (error instanceof ApiError) {
+      if (error.isNetworkError) {
+        throw new Error('Network error: Unable to reach the server. Please check your connection.');
+      }
+      if (error.isTimeout) {
+        throw new Error('Request timed out. Please try again.');
+      }
+    }
+
+    throw error;
+  }
+}
+
+/**
+ * Simplified function to send an enhanced message to FalkeAI
+ * 
+ * @param message - The message to send
+ * @param page - The page context (Smart Lessons, Assignment, Dashboard, Ask FalkeAI)
+ * @param userId - The user's ID
+ * @param username - The user's display name
+ * @param requestType - Optional type of request (teach, question, review, hint, explanation)
+ * @param course - Optional course context
+ * @param userLearningContext - Optional user learning profile for personalization
+ * @returns Promise<EnhancedFalkeAIChatResponse> - The enhanced response from FalkeAI
+ * 
+ * @example
+ * ```ts
+ * const response = await sendEnhancedMessage(
+ *   'Help me understand derivatives',
+ *   'Smart Lessons',
+ *   'user123',
+ *   'John Doe',
+ *   'teach',
+ *   'Calculus 101',
+ *   { knowledgeLevel: 'intermediate' }
+ * );
+ * console.log(response.refined?.keyTakeaways);
+ * ```
+ */
+export async function sendEnhancedMessage(
+  message: string,
+  page: FalkeAIChatPage,
+  userId: string,
+  username: string,
+  requestType?: AIRequestType,
+  course?: string,
+  userLearningContext?: Partial<UserLearningContext>
+): Promise<EnhancedFalkeAIChatResponse> {
+  return sendEnhancedMessageToFalkeAI(message, {
+    page,
+    userId,
+    username,
+    course,
+  }, requestType, userLearningContext);
+}
+
 export default {
   sendMessageToFalkeAI,
   sendMessage,
+  sendEnhancedMessageToFalkeAI,
+  sendEnhancedMessage,
   checkAIServiceHealth,
 };
