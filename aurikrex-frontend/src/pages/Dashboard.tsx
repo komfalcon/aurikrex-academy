@@ -53,6 +53,7 @@ import {
   Activity,
   Eye,
   TrendingDown,
+  Library,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -73,6 +74,7 @@ import { apiRequest } from "@/utils/api";
 // Import real data panels
 import AssignmentsPanelReal from "@/components/dashboard/AssignmentsPanelReal";
 import AnalyticsPanelReal from "@/components/dashboard/AnalyticsPanelReal";
+import LibraryPanel from "@/components/dashboard/LibraryPanel";
 import {
   AreaChart,
   Area,
@@ -177,6 +179,7 @@ function Sidebar({ activePanel, setActivePanel, isCollapsed, setIsCollapsed, isM
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "lessons", label: "Smart Lessons", icon: BookOpen },
     { id: "assignments", label: "Assignments", icon: ClipboardCheck },
+    { id: "library", label: "Library", icon: Library },
     { id: "analytics", label: "AI Analytics", icon: BarChart3 },
     { id: "settings", label: "Settings", icon: Settings },
   ];
@@ -2705,6 +2708,9 @@ export default function Dashboard() {
       case "assignments":
         // Use real assignments panel with backend data
         return <AssignmentsPanelReal />;
+      case "library":
+        // Library panel for book reading
+        return <LibraryPanel />;
       case "analytics":
         // Use real analytics panel with backend data
         return <AnalyticsPanelReal />;

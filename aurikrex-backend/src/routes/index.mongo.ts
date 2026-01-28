@@ -7,6 +7,8 @@ import testRoutes from "./testRoutes.js";
 import healthRoutes from "./healthRoutes.js";
 import assignmentRoutes from "./assignmentRoutes.js";
 import falkeaiAnalyticsRoutes from "./falkeaiAnalyticsRoutes.js";
+import bookRoutes from "./bookRoutes.js";
+import userLibraryRoutes from "./userLibraryRoutes.js";
 
 const router = Router();
 
@@ -33,5 +35,11 @@ router.use("/assignments", assignmentRoutes);
 
 // FalkeAI Analytics routes (activity tracking and user analytics)
 router.use("/falkeai-analytics", falkeaiAnalyticsRoutes);
+
+// Book routes (library books)
+router.use("/books", bookRoutes);
+
+// User Library routes (reading progress)
+router.use("/user-library", userLibraryRoutes);
 
 export default router;

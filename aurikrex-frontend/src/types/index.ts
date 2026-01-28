@@ -286,3 +286,75 @@ export interface ActivitySummary {
   recentActivity: FalkeAIActivity[];
   activityByDay: { date: string; count: number }[];
 }
+
+// ============================================
+// Library Types
+// ============================================
+
+export type BookDifficulty = 'beginner' | 'intermediate' | 'advanced';
+export type ReadingStatus = 'want-to-read' | 'reading' | 'completed';
+
+export interface Book {
+  _id: string;
+  title: string;
+  author: string;
+  description: string;
+  category: string[];
+  difficulty: BookDifficulty;
+  coverImageUrl: string;
+  pdfUrl: string;
+  fileSize: number;
+  pages: number;
+  yearPublished: number;
+  rating: number;
+  reviewCount: number;
+  relatedCourses: string[];
+  concepts: string[];
+  targetAudience: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserLibraryEntry {
+  _id: string;
+  userId: string;
+  bookId: string;
+  status: ReadingStatus;
+  progress: number;
+  currentPage: number;
+  totalPages: number;
+  startedAt: string;
+  completedAt?: string;
+  lastReadAt: string;
+  personalRating?: number;
+  notes?: string;
+  book?: Book | null;
+}
+
+export interface ReadingStats {
+  totalBooks: number;
+  reading: number;
+  completed: number;
+  wantToRead: number;
+  totalPagesRead: number;
+}
+
+export interface BooksResponse {
+  books: Book[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface UserLibraryResponse {
+  entries: UserLibraryEntry[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
