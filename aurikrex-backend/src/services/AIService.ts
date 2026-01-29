@@ -37,6 +37,8 @@ const DEFAULT_TIMEOUT = 90000; // 90 seconds for complex questions
 const DEFAULT_TEMPERATURE = 0.7;
 const DEFAULT_MAX_TOKENS = 1024;
 const ENHANCED_MAX_TOKENS = 2000; // More tokens for enhanced responses
+const MAX_RETRIES = 3; // Maximum number of retry attempts
+const INITIAL_BACKOFF_MS = 1000; // Initial backoff delay (1 second)
 
 /**
  * Error codes for AI service errors
@@ -149,6 +151,95 @@ class AIService {
    */
   public isConfigured(): boolean {
     return !!this.openrouterKey || !!this.groqKey;
+  }
+
+  /**
+   * Sleep utility for retry backoff
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Calculate exponential backoff delay
+   * @param attempt - Current attempt number (1-indexed)
+   * @returns Delay in milliseconds with jitter
+   */
+  private calculateBackoff(attempt: number): number {
+    // Exponential backoff: 1s, 2s, 4s, etc.
+    const exponentialDelay = INITIAL_BACKOFF_MS * Math.pow(2, attempt - 1);
+    // Add jitter (±20%) to prevent thundering herd
+    const jitter = exponentialDelay * 0.2 * (Math.random() - 0.5);
+    return Math.min(exponentialDelay + jitter, 30000); // Cap at 30 seconds
+  }
+
+  /**
+   * Check if an error is retryable
+   * @param error - The error to check
+   * @returns Boolean indicating if the error can be retried
+   */
+  private isRetryableError(error: unknown): boolean {
+    if (error instanceof AIServiceError) {
+      // Rate limits and server errors are retryable
+      return error.errorCode === AIErrorCode.RATE_LIMITED ||
+             error.errorCode === AIErrorCode.SERVICE_UNAVAILABLE ||
+             error.errorCode === AIErrorCode.TIMEOUT ||
+             (error.statusCode !== undefined && error.statusCode >= 500);
+    }
+    // Network errors are generally retryable
+    if (error instanceof Error) {
+      const axiosError = error as AxiosError;
+      if (axiosError.code === 'ECONNRESET' || 
+          axiosError.code === 'ENOTFOUND' ||
+          axiosError.code === 'ETIMEDOUT' ||
+          axiosError.code === 'ECONNABORTED') {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Execute a function with retry logic and exponential backoff
+   * @param fn - The async function to execute
+   * @param operationName - Name for logging purposes
+   * @returns The result of the function
+   */
+  private async executeWithRetry<T>(
+    fn: () => Promise<T>,
+    operationName: string
+  ): Promise<T> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        return await fn();
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        
+        // Check if we should retry
+        if (attempt < MAX_RETRIES && this.isRetryableError(error)) {
+          const backoffMs = this.calculateBackoff(attempt);
+          log.warn(`⚠️ ${operationName} attempt ${attempt}/${MAX_RETRIES} failed, retrying in ${Math.round(backoffMs)}ms...`, {
+            error: lastError.message,
+            attempt,
+            backoffMs: Math.round(backoffMs),
+          });
+          await this.sleep(backoffMs);
+          continue;
+        }
+        
+        // Not retryable or max retries reached
+        log.error(`❌ ${operationName} failed after ${attempt} attempt(s)`, {
+          error: lastError.message,
+          finalAttempt: attempt,
+        });
+        throw error;
+      }
+    }
+
+    // This should never be reached, but TypeScript needs it
+    throw lastError || new Error(`${operationName} failed after ${MAX_RETRIES} attempts`);
   }
 
   /**
@@ -363,15 +454,18 @@ class AIService {
     let openrouterError: Error | null = null;
     let groqError: Error | null = null;
 
-    // Try OpenRouter first (PRIMARY)
+    // Try OpenRouter first (PRIMARY) with retry logic
     if (this.openrouterKey) {
       try {
-        log.info('📨 Trying OpenRouter (PRIMARY)...');
+        log.info('📨 Trying OpenRouter (PRIMARY) with retry logic...');
         const selectedModel = this.selectBestModel(request.message);
         log.info(`🧠 Question analysis suggests: ${selectedModel.type} model`);
         log.info(`📊 Using OpenRouter model: ${selectedModel.name}`);
 
-        const response = await this.callOpenRouter(request.message, selectedModel.id);
+        const response = await this.executeWithRetry(
+          () => this.callOpenRouter(request.message, selectedModel.id),
+          'OpenRouter API call'
+        );
         const latency = Date.now() - startTime;
         log.info(`✅ OpenRouter response received in ${latency}ms`);
 
@@ -384,17 +478,20 @@ class AIService {
         };
       } catch (error) {
         openrouterError = error instanceof Error ? error : new Error(String(error));
-        log.warn('⚠️ OpenRouter failed, trying Groq fallback...', {
+        log.warn('⚠️ OpenRouter failed after retries, trying Groq fallback...', {
           error: openrouterError.message,
         });
       }
     }
 
-    // Fallback to Groq (if OpenRouter fails completely)
+    // Fallback to Groq (if OpenRouter fails completely) with retry logic
     if (this.groqKey) {
       try {
-        log.info('📨 Trying Groq (FALLBACK)...');
-        const response = await this.callGroq(request.message);
+        log.info('📨 Trying Groq (FALLBACK) with retry logic...');
+        const response = await this.executeWithRetry(
+          () => this.callGroq(request.message),
+          'Groq API call'
+        );
         const latency = Date.now() - startTime;
         log.info(`✅ Groq response received in ${latency}ms`);
 
@@ -407,7 +504,7 @@ class AIService {
         };
       } catch (error) {
         groqError = error instanceof Error ? error : new Error(String(error));
-        log.error('❌ Groq also failed', {
+        log.error('❌ Groq also failed after retries', {
           error: groqError.message,
         });
       }
@@ -457,19 +554,22 @@ class AIService {
       enhancedLength: enhancement.enhancedRequest.length,
     });
 
-    // Try OpenRouter first (PRIMARY)
+    // Try OpenRouter first (PRIMARY) with retry logic
     if (this.openrouterKey) {
       try {
-        log.info('📨 Trying OpenRouter with ENHANCED prompt (PRIMARY)...');
+        log.info('📨 Trying OpenRouter with ENHANCED prompt (PRIMARY) with retry logic...');
         const selectedModel = this.selectBestModel(request.message);
         log.info(`🧠 Question analysis suggests: ${selectedModel.type} model`);
         log.info(`📊 Using OpenRouter model: ${selectedModel.name}`);
 
-        // Layer 2: MODEL CALL with system prompt
-        const response = await this.callOpenRouterEnhanced(
-          enhancement.enhancedRequest,
-          enhancement.systemPrompt,
-          selectedModel.id
+        // Layer 2: MODEL CALL with system prompt (with retry)
+        const response = await this.executeWithRetry(
+          () => this.callOpenRouterEnhanced(
+            enhancement.enhancedRequest,
+            enhancement.systemPrompt,
+            selectedModel.id
+          ),
+          'OpenRouter Enhanced API call'
         );
         const latency = Date.now() - startTime;
         log.info(`✅ OpenRouter enhanced response received in ${latency}ms`);
@@ -488,21 +588,24 @@ class AIService {
         };
       } catch (error) {
         openrouterError = error instanceof Error ? error : new Error(String(error));
-        log.warn('⚠️ OpenRouter failed, trying Groq fallback...', {
+        log.warn('⚠️ OpenRouter failed after retries, trying Groq fallback...', {
           error: openrouterError.message,
         });
       }
     }
 
-    // Fallback to Groq (if OpenRouter fails completely)
+    // Fallback to Groq (if OpenRouter fails completely) with retry logic
     if (this.groqKey) {
       try {
-        log.info('📨 Trying Groq with ENHANCED prompt (FALLBACK)...');
+        log.info('📨 Trying Groq with ENHANCED prompt (FALLBACK) with retry logic...');
         
-        // Layer 2: MODEL CALL with system prompt
-        const response = await this.callGroqEnhanced(
-          enhancement.enhancedRequest,
-          enhancement.systemPrompt
+        // Layer 2: MODEL CALL with system prompt (with retry)
+        const response = await this.executeWithRetry(
+          () => this.callGroqEnhanced(
+            enhancement.enhancedRequest,
+            enhancement.systemPrompt
+          ),
+          'Groq Enhanced API call'
         );
         const latency = Date.now() - startTime;
         log.info(`✅ Groq enhanced response received in ${latency}ms`);
@@ -521,7 +624,7 @@ class AIService {
         };
       } catch (error) {
         groqError = error instanceof Error ? error : new Error(String(error));
-        log.error('❌ Groq also failed', {
+        log.error('❌ Groq also failed after retries', {
           error: groqError.message,
         });
       }

@@ -9,6 +9,8 @@ import assignmentRoutes from "./assignmentRoutes.js";
 import falkeaiAnalyticsRoutes from "./falkeaiAnalyticsRoutes.js";
 import bookRoutes from "./bookRoutes.js";
 import userLibraryRoutes from "./userLibraryRoutes.js";
+import fileRoutes from "./fileRoutes.js";
+import conversationRoutes from "./conversationRoutes.js";
 
 const router = Router();
 
@@ -41,5 +43,11 @@ router.use("/books", bookRoutes);
 
 // User Library routes (reading progress)
 router.use("/user-library", userLibraryRoutes);
+
+// File routes (text extraction from images, PDFs, etc.)
+router.use("/files", fileRoutes);
+
+// Conversation routes (chat history with FalkeAI)
+router.use("/conversations", conversationRoutes);
 
 export default router;
