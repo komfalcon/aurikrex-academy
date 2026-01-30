@@ -804,14 +804,15 @@ export default function AssignmentsPanelReal() {
     return (
       <div className="space-y-6">
         {/* Chat-based Question Upload Interface */}
-        <div className="h-[600px]">
+        <div className="min-h-[500px] h-[60vh] max-h-[700px]">
           <UploadQuestionChat
             onQuestionUploaded={(questionId) => {
               // Track the question ID for the solution chat
               setChatQuestionId(questionId);
-              // Also update the selected question for the solution section
-              loadQuestionDetail(questionId);
-              // Refresh the data
+              // Update the selected question state and refresh data
+              loadQuestionDetail(questionId).catch(() => {
+                // Error is already handled in loadQuestionDetail
+              });
               loadAllData();
             }}
           />
@@ -830,7 +831,11 @@ export default function AssignmentsPanelReal() {
           </CardHeader>
           <CardContent className="space-y-3">
             {assignments.length === 0 ? (
-              <EmptyAssignments onCreateNew={() => {}} />
+              <div className="text-center py-8 text-muted-foreground">
+                <FileQuestion className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                <p className="text-sm">No questions uploaded yet</p>
+                <p className="text-xs mt-1">Use the chat above to upload your first question</p>
+              </div>
             ) : (
               assignments.map((assignment) => (
                 <AssignmentCard
@@ -839,7 +844,9 @@ export default function AssignmentsPanelReal() {
                   isSelected={chatQuestionId === assignment._id}
                   onClick={() => {
                     setChatQuestionId(assignment._id);
-                    loadQuestionDetail(assignment._id);
+                    loadQuestionDetail(assignment._id).catch(() => {
+                      // Error is already handled in loadQuestionDetail
+                    });
                   }}
                 />
               ))
@@ -1096,10 +1103,10 @@ export default function AssignmentsPanelReal() {
     return (
       <div className="space-y-6">
         {/* Chat-based Solution Upload Interface */}
-        <div className="h-[600px]">
+        <div className="min-h-[500px] h-[60vh] max-h-[700px]">
           <UploadSolutionChat
             questionId={chatQuestionId || selectedAssignment?._id || null}
-            onSolutionVerified={(solutionId) => {
+            onSolutionVerified={() => {
               // Refresh the data after solution is verified
               loadAllData();
             }}
@@ -1168,7 +1175,13 @@ export default function AssignmentsPanelReal() {
                   key={assignment._id}
                   assignment={assignment}
                   isSelected={false}
-                  onClick={() => loadQuestionDetail(assignment._id).then(() => setActiveSection('my-solutions'))}
+                  onClick={() => {
+                    loadQuestionDetail(assignment._id)
+                      .then(() => setActiveSection('my-solutions'))
+                      .catch(() => {
+                        // Error is already handled in loadQuestionDetail
+                      });
+                  }}
                 />
               ))
             )}
@@ -1181,12 +1194,14 @@ export default function AssignmentsPanelReal() {
   // Render History section - use the AssignmentHistory chat component
   const renderHistory = () => {
     return (
-      <div className="h-[700px]">
+      <div className="min-h-[600px] h-[70vh] max-h-[800px]">
         <AssignmentHistory
           onSelectQuestion={(questionId) => {
             // When a question is selected from history, navigate to its detail view
             setChatQuestionId(questionId);
-            loadQuestionDetail(questionId);
+            loadQuestionDetail(questionId).catch(() => {
+              // Error is already handled in loadQuestionDetail
+            });
             setActiveSection('upload-question');
           }}
         />
