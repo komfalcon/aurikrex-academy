@@ -23,6 +23,7 @@ import { Request, Response } from 'express';
 import { log } from '../utils/logger.js';
 import { aiService, AIServiceError, AIErrorCode } from '../services/AIService.js';
 import { AIChatRequest, EnhancedAIChatRequest, AIRequestType } from '../types/ai.types.js';
+import { FalkeAIActivityLogger } from '../services/FalkeAIActivityLogger.js';
 
 /**
  * POST /api/ai/chat
@@ -97,6 +98,18 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<void
 
     // Send to AI service and get response
     const response = await aiService.sendChatMessage(chatRequest);
+
+    // Log activity for analytics (async, don't block response)
+    const timeSpent = Math.round((Date.now() - new Date(requestTimestamp).getTime()) / 1000);
+    FalkeAIActivityLogger.logChatQuestion({
+      userId: context.userId,
+      question: message.trim(),
+      responseLength: response.reply.length,
+      timeSpent,
+      provider: response.provider,
+      model: response.model,
+      courseId: context.course,
+    }).catch(err => log.warn('Failed to log chat activity', { error: err.message }));
 
     log.info('✅ AI Response received successfully', {
       page: context.page,
@@ -263,6 +276,18 @@ export const sendEnhancedChatMessage = async (req: Request, res: Response): Prom
 
     // Send to enhanced AI service and get response
     const response = await aiService.sendEnhancedChatMessage(chatRequest);
+
+    // Log activity for analytics (async, don't block response)
+    const timeSpent = Math.round((Date.now() - new Date(requestTimestamp).getTime()) / 1000);
+    FalkeAIActivityLogger.logChatQuestion({
+      userId: context.userId,
+      question: message.trim(),
+      responseLength: response.reply.length,
+      timeSpent,
+      provider: response.provider,
+      model: response.model,
+      courseId: context.course,
+    }).catch(err => log.warn('Failed to log enhanced chat activity', { error: err.message }));
 
     log.info('✅ ENHANCED AI Response received successfully', {
       page: context.page,

@@ -11,6 +11,7 @@ import bookRoutes from "./bookRoutes.js";
 import userLibraryRoutes from "./userLibraryRoutes.js";
 import fileRoutes from "./fileRoutes.js";
 import conversationRoutes from "./conversationRoutes.js";
+import dashboardRoutes from "./dashboardRoutes.js";
 
 const router = Router();
 
@@ -49,5 +50,8 @@ router.use("/files", fileRoutes);
 
 // Conversation routes (chat history with FalkeAI)
 router.use("/conversations", conversationRoutes);
+
+// Dashboard routes (comprehensive dashboard data)
+router.use("/dashboard", dashboardRoutes);
 
 export default router;
