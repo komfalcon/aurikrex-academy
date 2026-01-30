@@ -7,6 +7,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import DOMPurify from 'dompurify';
 import { 
   Upload, 
   Send, 
@@ -394,7 +395,14 @@ export function UploadSolutionChat({ questionId, onSolutionVerified }: UploadSol
                     )}
                     
                     {!msg.verification && (
-                      <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                      msg.role === 'user' ? (
+                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                      ) : (
+                        <div 
+                          className="text-sm whitespace-pre-wrap prose prose-sm dark:prose-invert max-w-none"
+                          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(msg.content) }}
+                        />
+                      )
                     )}
                     
                     {/* Show verification for assistant messages */}
