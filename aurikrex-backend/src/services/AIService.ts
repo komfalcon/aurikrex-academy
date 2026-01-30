@@ -455,24 +455,37 @@ class AIService {
   /**
    * Get fallback chain of models based on question complexity
    * 
-   * For simple questions: Try Gemma only (it always works)
-   * For complex questions: Llama → Mistral → Gemma → Groq
+   * For simple/balanced questions: Uses Gemma (most reliable free model)
+   * For complex/coding questions: Llama → Mistral → Gemma → Groq (if configured)
+   * 
+   * The chain is built dynamically based on which providers have valid API keys.
    */
   private getModelChain(type: string): SelectedModel[] {
+    const chain: SelectedModel[] = [];
+
     if (type === 'fast' || type === 'balanced') {
-      // For simple/balanced questions: Gemma only (it always works)
-      return [
-        { id: 'google/gemma-3-4b-it:free', name: 'Gemma 3 4B', type: 'fast', provider: 'openrouter' },
-      ];
+      // For simple/balanced questions: Gemma is the most reliable free model
+      if (this.openrouterKey) {
+        chain.push({ id: 'google/gemma-3-4b-it:free', name: 'Gemma 3 4B', type: 'fast', provider: 'openrouter' });
+      }
+      // Add Groq as fallback if OpenRouter is not configured
+      if (this.groqKey) {
+        chain.push({ id: 'mixtral-8x7b-32768', name: 'Groq Mixtral', type: 'fallback', provider: 'groq' });
+      }
     } else {
       // For complex/coding questions: Llama → Mistral → Gemma → Groq
-      return [
-        { id: 'meta-llama/llama-3.3-70b-instruct:free', name: 'Llama 3.3 70B', type: 'smart', provider: 'openrouter' },
-        { id: 'mistralai/mistral-small-3.1-24b-instruct:free', name: 'Mistral Small 3.1', type: 'smart', provider: 'openrouter' },
-        { id: 'google/gemma-3-4b-it:free', name: 'Gemma 3 4B (Fallback)', type: 'fast', provider: 'openrouter' },
-        { id: 'mixtral-8x7b-32768', name: 'Groq Mixtral', type: 'fallback', provider: 'groq' },
-      ];
+      if (this.openrouterKey) {
+        chain.push({ id: 'meta-llama/llama-3.3-70b-instruct:free', name: 'Llama 3.3 70B', type: 'smart', provider: 'openrouter' });
+        chain.push({ id: 'mistralai/mistral-small-3.1-24b-instruct:free', name: 'Mistral Small 3.1', type: 'smart', provider: 'openrouter' });
+        chain.push({ id: 'google/gemma-3-4b-it:free', name: 'Gemma 3 4B (Fallback)', type: 'fast', provider: 'openrouter' });
+      }
+      // Groq is last resort only
+      if (this.groqKey) {
+        chain.push({ id: 'mixtral-8x7b-32768', name: 'Groq Mixtral', type: 'fallback', provider: 'groq' });
+      }
     }
+
+    return chain;
   }
 
   /**
@@ -486,7 +499,17 @@ class AIService {
     const selectedModel = this.selectBestModel(message);
     const modelChain = this.getModelChain(selectedModel.type);
     
-    log.info(`🔄 Starting AI call chain for ${selectedModel.type} question (${modelChain.length} fallbacks)`);
+    // Handle case when no providers are configured
+    if (modelChain.length === 0) {
+      log.error('❌ No AI providers available for this question type');
+      throw new AIServiceError(
+        'No AI providers available. Please configure OPENROUTER_API_KEY and/or GROQ_API_KEY',
+        503,
+        AIErrorCode.SERVICE_UNAVAILABLE
+      );
+    }
+    
+    log.info(`🔄 Starting AI call chain for ${selectedModel.type} question (${modelChain.length} models available)`);
 
     let lastError: Error | null = null;
 
@@ -533,7 +556,7 @@ class AIService {
   }
 
   /**
-   * Execute request with retry logic and smart fallback chain
+   * Execute request with smart fallback chain
    */
   private async executeRequestWithRetry(
     request: AIChatRequest,
@@ -552,11 +575,8 @@ class AIService {
     }
 
     try {
-      // Use smart fallback chain with retry logic for each model
-      const result = await this.executeWithRetry(
-        () => this.callAIWithFallback(request.message, messageHistory),
-        'AI call chain'
-      );
+      // Use smart fallback chain - the chain itself handles fallback logic
+      const result = await this.callAIWithFallback(request.message, messageHistory);
       
       const latency = Date.now() - startTime;
       log.info(`✅ AI response received in ${latency}ms from ${result.model.name}`);
@@ -710,18 +730,10 @@ class AIService {
     modelId: string,
     messageHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
   ): Promise<{ text: string }> {
-    // Build messages array: include history + current message
+    // Use message history if provided, otherwise create a single message array
+    // Note: When messageHistory is provided, it already includes the current message from the controller
     const messages = messageHistory && messageHistory.length > 0
-      ? [
-          ...messageHistory.map(msg => ({
-            role: msg.role,
-            content: msg.content
-          })),
-          {
-            role: 'user' as const,
-            content: message
-          }
-        ]
+      ? messageHistory.map(msg => ({ role: msg.role, content: msg.content }))
       : [{ role: 'user' as const, content: message }];
 
     log.info(`📡 Calling OpenRouter with model: ${modelId}, history: ${messageHistory?.length || 0} messages`);
@@ -816,18 +828,10 @@ class AIService {
     message: string,
     messageHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
   ): Promise<{ text: string }> {
-    // Build messages array: include history + current message
+    // Use message history if provided, otherwise create a single message array
+    // Note: When messageHistory is provided, it already includes the current message from the controller
     const messages = messageHistory && messageHistory.length > 0
-      ? [
-          ...messageHistory.map(msg => ({
-            role: msg.role,
-            content: msg.content
-          })),
-          {
-            role: 'user' as const,
-            content: message
-          }
-        ]
+      ? messageHistory.map(msg => ({ role: msg.role, content: msg.content }))
       : [{ role: 'user' as const, content: message }];
 
     log.info(`📡 Calling Groq with model: ${this.groqFallbackModel}, history: ${messageHistory?.length || 0} messages`);
