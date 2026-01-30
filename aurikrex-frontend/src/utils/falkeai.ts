@@ -31,6 +31,7 @@ import {
  * 
  * @param message - The message to send to FalkeAI
  * @param context - Context information (page, userId, username, course)
+ * @param conversationId - Optional conversation ID for message history
  * @returns Promise<FalkeAIChatResponse> - The response from FalkeAI
  * @throws Error if the request fails or returns an error
  * 
@@ -43,15 +44,17 @@ import {
  *     userId: 'user123',
  *     username: 'John Doe',
  *     course: 'Math 101'
- *   }
+ *   },
+ *   'conversation-id-123'
  * );
  * console.log(response.reply);
  * ```
  */
 export async function sendMessageToFalkeAI(
   message: string,
-  context: FalkeAIChatContext
-): Promise<FalkeAIChatResponse> {
+  context: FalkeAIChatContext,
+  conversationId?: string
+): Promise<FalkeAIChatResponse & { conversationId?: string; messageId?: string }> {
   const requestTimestamp = new Date().toISOString();
   
   // Validate inputs
@@ -80,6 +83,7 @@ export async function sendMessageToFalkeAI(
     endpoint: '/ai/chat',
     page: context.page,
     userId: context.userId,
+    conversationId: conversationId || '(new conversation)',
     messageLength: message.trim().length,
     messagePreview: message.substring(0, 50) + (message.length > 50 ? '...' : ''),
     hasAuth: !!token,
@@ -97,6 +101,7 @@ export async function sendMessageToFalkeAI(
           username: context.username,
           userId: context.userId,
         },
+        conversationId: conversationId || undefined,
       }),
     });
 
@@ -133,7 +138,7 @@ export async function sendMessageToFalkeAI(
       throw new Error(errorMessage);
     }
 
-    const data: FalkeAIChatResponse = await response.json();
+    const data: FalkeAIChatResponse & { conversationId?: string; messageId?: string } = await response.json();
 
     // Validate response structure
     if (!data || typeof data.reply !== 'string') {
@@ -149,6 +154,7 @@ export async function sendMessageToFalkeAI(
       replyLength: data.reply.length,
       replyPreview: data.reply.substring(0, 100) + (data.reply.length > 100 ? '...' : ''),
       timestamp: data.timestamp,
+      conversationId: data.conversationId,
     });
 
     return data;
@@ -185,6 +191,7 @@ export async function sendMessageToFalkeAI(
  * @param userId - The user's ID
  * @param username - The user's display name
  * @param course - Optional course context
+ * @param conversationId - Optional conversation ID for message history
  * @returns Promise<FalkeAIChatResponse> - The response from FalkeAI
  * 
  * @example
@@ -194,7 +201,8 @@ export async function sendMessageToFalkeAI(
  *   'Smart Lessons',
  *   'user123',
  *   'John Doe',
- *   'Algebra 101'
+ *   'Algebra 101',
+ *   'conversation-id-123'
  * );
  * console.log(response.reply);
  * ```
@@ -204,14 +212,15 @@ export async function sendMessage(
   page: FalkeAIChatPage,
   userId: string,
   username: string,
-  course?: string
-): Promise<FalkeAIChatResponse> {
+  course?: string,
+  conversationId?: string
+): Promise<FalkeAIChatResponse & { conversationId?: string; messageId?: string }> {
   return sendMessageToFalkeAI(message, {
     page,
     userId,
     username,
     course,
-  });
+  }, conversationId);
 }
 
 /**

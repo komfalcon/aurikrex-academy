@@ -86,6 +86,10 @@ router.post(
       .optional()
       .isString()
       .withMessage('Context course must be a string'),
+    body('conversationId')
+      .optional()
+      .isMongoId()
+      .withMessage('conversationId must be a valid MongoDB ObjectId'),
   ],
   validateRequest,
   sendChatMessage

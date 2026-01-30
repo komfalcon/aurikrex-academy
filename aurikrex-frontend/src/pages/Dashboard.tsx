@@ -75,6 +75,7 @@ import { apiRequest } from "@/utils/api";
 import AssignmentsPanelReal from "@/components/dashboard/AssignmentsPanelReal";
 import AnalyticsPanelReal from "@/components/dashboard/AnalyticsPanelReal";
 import LibraryPanel from "@/components/dashboard/LibraryPanel";
+import { ChatHistorySidebar } from "@/components/dashboard/ChatHistorySidebar";
 import {
   AreaChart,
   Area,
@@ -962,6 +963,11 @@ function LessonsPanel() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const shouldReduceMotion = useReducedMotion();
+  
+  // Conversation state for ChatHistorySidebar integration
+  const [selectedConversationId, setSelectedConversationId] = useState<string | undefined>(undefined);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const ACCEPTED_FILE_TYPES = ".txt,.pdf,.docx,.doc,.png,.jpg,.jpeg";
 
@@ -981,6 +987,43 @@ function LessonsPanel() {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Load conversation messages when a conversation is selected
+  const loadConversationMessages = useCallback(async (conversationId: string) => {
+    try {
+      const response = await apiRequest(`/conversations/${conversationId}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.data?.messages) {
+          const formattedMessages = data.data.messages.map((msg: { role: 'user' | 'assistant'; content: string; timestamp: string }) => ({
+            role: msg.role,
+            content: msg.content,
+            timestamp: new Date(msg.timestamp),
+          }));
+          setChatMessages(formattedMessages);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load conversation messages:', error);
+    }
+  }, []);
+
+  // Handle conversation selection from sidebar
+  const handleSelectConversation = useCallback((conversationId: string) => {
+    setSelectedConversationId(conversationId);
+    if (conversationId) {
+      loadConversationMessages(conversationId);
+    } else {
+      setChatMessages([]);
+    }
+  }, [loadConversationMessages]);
+
+  // Handle new conversation
+  const handleNewConversation = useCallback(() => {
+    setSelectedConversationId(undefined);
+    setChatMessages([]);
+    setRefreshKey(prev => prev + 1);
+  }, []);
+
   const handleSendMessage = async () => {
     if (!inputMessage.trim() && uploadedFiles.length === 0) return;
     
@@ -997,13 +1040,15 @@ function LessonsPanel() {
     setIsLoading(true);
 
     try {
-      // Call FalkeAI API through the backend
+      // Call FalkeAI API through the backend with conversation context
       const page: FalkeAIChatPage = 'Smart Lessons';
       const response = await sendMessage(
         messageContent,
         page,
         user?.uid || 'anonymous',
-        user?.displayName || user?.email || 'Student'
+        user?.displayName || user?.email || 'Student',
+        undefined, // course
+        selectedConversationId // conversationId
       );
 
       const assistantMessage = {
@@ -1012,6 +1057,12 @@ function LessonsPanel() {
         timestamp: new Date()
       };
       setChatMessages(prev => [...prev, assistantMessage]);
+      
+      // Update conversation ID if a new one was created
+      if (response.conversationId && !selectedConversationId) {
+        setSelectedConversationId(response.conversationId);
+        setRefreshKey(prev => prev + 1); // Refresh sidebar to show new conversation
+      }
     } catch (error) {
       // Handle errors gracefully with user-friendly message displayed as assistant response
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
@@ -1042,61 +1093,82 @@ function LessonsPanel() {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-6"
+      className="h-[calc(100vh-120px)] flex gap-4"
     >
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
-            Smart Lessons
-          </h1>
-          <p className="text-muted-foreground">AI-powered lessons tailored to your learning style</p>
-        </div>
-        <Badge className="w-fit flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary/20 to-accent/20 border border-primary/30">
-          <Brain className="w-4 h-4 text-primary" />
-          <span>Powered by FalkeAI</span>
-        </Badge>
-      </div>
-
-      {/* Instructions Card */}
-      <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Lightbulb className="w-5 h-5 text-primary" />
-            How to Use Smart Lessons
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-            <div className="flex items-start gap-3 p-3 rounded-xl bg-background/50">
-              <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                <MessageSquare className="w-4 h-4" />
-              </div>
-              <div>
-                <p className="font-medium">Ask Questions</p>
-                <p className="text-muted-foreground text-xs">Type any topic or concept you want to learn</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3 p-3 rounded-xl bg-background/50">
-              <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                <Upload className="w-4 h-4" />
-              </div>
-              <div>
-                <p className="font-medium">Upload Files</p>
-                <p className="text-muted-foreground text-xs">Share documents, images, or notes for analysis</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3 p-3 rounded-xl bg-background/50">
-              <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                <Sparkles className="w-4 h-4" />
-              </div>
-              <div>
-                <p className="font-medium">Get AI Lessons</p>
-                <p className="text-muted-foreground text-xs">Receive personalized explanations and materials</p>
-              </div>
-            </div>
+      {/* ChatHistorySidebar - Conversation History */}
+      <ChatHistorySidebar
+        key={refreshKey}
+        selectedConversationId={selectedConversationId}
+        onSelectConversation={handleSelectConversation}
+        onNewConversation={handleNewConversation}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+      />
+      
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
+              Smart Lessons
+            </h1>
+            <p className="text-muted-foreground">AI-powered lessons tailored to your learning style</p>
           </div>
-        </CardContent>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="p-2 rounded-lg hover:bg-secondary/50 transition-colors lg:hidden"
+              aria-label="Toggle sidebar"
+            >
+              <MessageSquare className="w-5 h-5" />
+            </button>
+            <Badge className="w-fit flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary/20 to-accent/20 border border-primary/30">
+              <Brain className="w-4 h-4 text-primary" />
+              <span>Powered by FalkeAI</span>
+            </Badge>
+          </div>
+        </div>
+
+        {/* Instructions Card */}
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5 mb-4">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Lightbulb className="w-5 h-5 text-primary" />
+              How to Use Smart Lessons
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-background/50">
+                <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                  <MessageSquare className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="font-medium">Ask Questions</p>
+                  <p className="text-muted-foreground text-xs">Type any topic or concept you want to learn</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-background/50">
+                <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                  <Upload className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="font-medium">Upload Files</p>
+                  <p className="text-muted-foreground text-xs">Share documents, images, or notes for analysis</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-background/50">
+                <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="font-medium">Get AI Lessons</p>
+                  <p className="text-muted-foreground text-xs">Receive personalized explanations and materials</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
       </Card>
 
       {/* Main Chat Area */}
@@ -1291,6 +1363,7 @@ function LessonsPanel() {
           </Card>
         </motion.div>
       </div>
+      </div>{/* End of Main Content Area */}
     </motion.div>
   );
 }
@@ -2432,7 +2505,7 @@ function SettingsPanel() {
 
 function FalkeAIPanel() {
   const { user } = useAuth();
-  const [conversationId, setConversationId] = useState(() => `chat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | undefined>(undefined);
   const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant' | 'system'; content: string; timestamp: Date }>>([
     {
       role: 'system',
@@ -2442,6 +2515,8 @@ function FalkeAIPanel() {
   ]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const shouldReduceMotion = useReducedMotion();
 
@@ -2449,6 +2524,40 @@ function FalkeAIPanel() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Load conversation messages when a conversation is selected
+  const loadConversationMessages = useCallback(async (conversationId: string) => {
+    try {
+      const response = await apiRequest(`/conversations/${conversationId}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.data?.messages) {
+          const formattedMessages = data.data.messages.map((msg: { role: 'user' | 'assistant'; content: string; timestamp: string }) => ({
+            role: msg.role,
+            content: msg.content,
+            timestamp: new Date(msg.timestamp),
+          }));
+          setMessages(formattedMessages);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load conversation messages:', error);
+    }
+  }, []);
+
+  // Handle conversation selection from sidebar
+  const handleSelectConversation = useCallback((conversationId: string) => {
+    setSelectedConversationId(conversationId);
+    if (conversationId) {
+      loadConversationMessages(conversationId);
+    } else {
+      setMessages([{
+        role: 'system',
+        content: '👋 Welcome to FalkeAI! I\'m your intelligent learning companion. Ask me anything about your studies, request explanations, or get help with assignments. How can I assist you today?',
+        timestamp: new Date()
+      }]);
+    }
+  }, [loadConversationMessages]);
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim()) return;
@@ -2465,13 +2574,15 @@ function FalkeAIPanel() {
     setIsLoading(true);
 
     try {
-      // Call FalkeAI API through the backend
+      // Call FalkeAI API through the backend with conversation context
       const page: FalkeAIChatPage = 'Ask FalkeAI';
       const response = await sendMessage(
         messageContent,
         page,
         user?.uid || 'anonymous',
-        user?.displayName || user?.email || 'Student'
+        user?.displayName || user?.email || 'Student',
+        undefined, // course
+        selectedConversationId // conversationId
       );
 
       const assistantMessage = {
@@ -2480,6 +2591,12 @@ function FalkeAIPanel() {
         timestamp: new Date()
       };
       setMessages(prev => [...prev, assistantMessage]);
+      
+      // Update conversation ID if a new one was created
+      if (response.conversationId && !selectedConversationId) {
+        setSelectedConversationId(response.conversationId);
+        setRefreshKey(prev => prev + 1); // Refresh sidebar to show new conversation
+      }
     } catch (error) {
       // Handle errors gracefully with user-friendly message displayed as assistant response
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
@@ -2510,21 +2627,34 @@ function FalkeAIPanel() {
     "Give me practice problems for...",
   ];
 
-  const handleNewConversation = () => {
-    setConversationId(`chat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
+  const handleNewConversation = useCallback(() => {
+    setSelectedConversationId(undefined);
     setMessages([{
       role: 'system',
       content: '👋 New conversation started! How can I help you learn today?',
       timestamp: new Date()
     }]);
-  };
+    setRefreshKey(prev => prev + 1);
+  }, []);
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="h-[calc(100vh-120px)] flex flex-col"
+      className="h-[calc(100vh-120px)] flex gap-4"
     >
+      {/* ChatHistorySidebar - Conversation History */}
+      <ChatHistorySidebar
+        key={refreshKey}
+        selectedConversationId={selectedConversationId}
+        onSelectConversation={handleSelectConversation}
+        onNewConversation={handleNewConversation}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+      />
+      
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -2663,7 +2793,7 @@ function FalkeAIPanel() {
           </div>
           <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
             <span>Press Enter to send, Shift+Enter for new line</span>
-            <span>Conversation ID: {conversationId}</span>
+            <span>Conversation ID: {selectedConversationId || 'New'}</span>
           </div>
         </div>
       </Card>
@@ -2680,6 +2810,7 @@ function FalkeAIPanel() {
           </div>
         </div>
       </div>
+      </div>{/* End of Main Chat Area */}
     </motion.div>
   );
 }
