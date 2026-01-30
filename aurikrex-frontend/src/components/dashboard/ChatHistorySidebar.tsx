@@ -222,10 +222,16 @@ export function ChatHistorySidebar({
       }
 
       const data = await response.json();
-      setConversations(data.data?.conversations || []);
+      // Backend returns { status, data: [conversations], total }
+      // data.data is already the array, not an object with 'conversations' property
+      const conversations = Array.isArray(data.data) ? data.data : 
+                           (data.data?.conversations || data.conversations || []);
+      setConversations(conversations);
     } catch (err) {
-      console.error('Failed to load conversations:', err);
-      setError('Failed to load conversations');
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      console.error('Failed to load conversations:', message);
+      setError(`Failed to load conversations${message !== 'Failed to load conversations' ? `: ${message}` : ''}`);
+      setConversations([]);  // Clear on error
     } finally {
       setLoading(false);
     }
