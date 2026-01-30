@@ -71,6 +71,7 @@ interface SelectedModel {
   id: string;
   name: string;
   type: string;
+  provider?: 'openrouter' | 'groq';
 }
 
 /**
@@ -452,86 +453,133 @@ class AIService {
   }
 
   /**
-   * Execute request with retry logic and provider fallback
+   * Get fallback chain of models based on question complexity
+   * 
+   * For simple questions: Try Gemma only (it always works)
+   * For complex questions: Llama → Mistral → Gemma → Groq
+   */
+  private getModelChain(type: string): SelectedModel[] {
+    if (type === 'fast' || type === 'balanced') {
+      // For simple/balanced questions: Gemma only (it always works)
+      return [
+        { id: 'google/gemma-3-4b-it:free', name: 'Gemma 3 4B', type: 'fast', provider: 'openrouter' },
+      ];
+    } else {
+      // For complex/coding questions: Llama → Mistral → Gemma → Groq
+      return [
+        { id: 'meta-llama/llama-3.3-70b-instruct:free', name: 'Llama 3.3 70B', type: 'smart', provider: 'openrouter' },
+        { id: 'mistralai/mistral-small-3.1-24b-instruct:free', name: 'Mistral Small 3.1', type: 'smart', provider: 'openrouter' },
+        { id: 'google/gemma-3-4b-it:free', name: 'Gemma 3 4B (Fallback)', type: 'fast', provider: 'openrouter' },
+        { id: 'mixtral-8x7b-32768', name: 'Groq Mixtral', type: 'fallback', provider: 'groq' },
+      ];
+    }
+  }
+
+  /**
+   * Call AI with smart fallback chain
+   * Tries each model in the chain until one succeeds
+   */
+  private async callAIWithFallback(
+    message: string,
+    messageHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
+  ): Promise<{ text: string; model: SelectedModel }> {
+    const selectedModel = this.selectBestModel(message);
+    const modelChain = this.getModelChain(selectedModel.type);
+    
+    log.info(`🔄 Starting AI call chain for ${selectedModel.type} question (${modelChain.length} fallbacks)`);
+
+    let lastError: Error | null = null;
+
+    for (let i = 0; i < modelChain.length; i++) {
+      const model = modelChain[i];
+      
+      try {
+        log.info(`📊 Attempting (${i + 1}/${modelChain.length}): ${model.name}`);
+        
+        let response: { text: string };
+        
+        if (model.provider === 'groq') {
+          response = await this.callGroq(message, messageHistory);
+        } else {
+          response = await this.callOpenRouter(message, model.id, messageHistory);
+        }
+        
+        log.info(`✅ ${model.name} succeeded!`);
+        return { text: response.text, model };
+        
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        const errorMsg = lastError.message;
+        log.warn(`⚠️ ${model.name} failed: ${errorMsg}`);
+        
+        // If this is the last model, throw error
+        if (i === modelChain.length - 1) {
+          log.error(`❌ All models failed. Chain exhausted.`);
+          throw new AIServiceError(
+            `All AI providers failed: ${errorMsg}`,
+            503,
+            AIErrorCode.SERVICE_UNAVAILABLE
+          );
+        }
+        
+        // Otherwise, continue to next model
+        log.info(`🔄 Trying next model in chain...`);
+        continue;
+      }
+    }
+
+    // This should never be reached, but TypeScript needs it
+    throw lastError || new AIServiceError('All AI providers failed', 503, AIErrorCode.SERVICE_UNAVAILABLE);
+  }
+
+  /**
+   * Execute request with retry logic and smart fallback chain
    */
   private async executeRequestWithRetry(
     request: AIChatRequest,
     messageHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
   ): Promise<AIChatResponse> {
     const startTime = Date.now();
-    let openrouterError: Error | null = null;
-    let groqError: Error | null = null;
 
-    // Try OpenRouter first (PRIMARY) with retry logic
-    if (this.openrouterKey) {
-      try {
-        log.info('📨 Trying OpenRouter (PRIMARY) with retry logic...');
-        const selectedModel = this.selectBestModel(request.message);
-        log.info(`🧠 Question analysis suggests: ${selectedModel.type} model`);
-        log.info(`📊 Using OpenRouter model: ${selectedModel.name}`);
-
-        const response = await this.executeWithRetry(
-          () => this.callOpenRouter(request.message, selectedModel.id, messageHistory),
-          'OpenRouter API call'
-        );
-        const latency = Date.now() - startTime;
-        log.info(`✅ OpenRouter response received in ${latency}ms`);
-
-        return {
-          reply: response.text,
-          timestamp: new Date().toISOString(),
-          provider: 'openrouter',
-          model: selectedModel.name,
-          modelType: selectedModel.type,
-        };
-      } catch (error) {
-        openrouterError = error instanceof Error ? error : new Error(String(error));
-        log.warn('⚠️ OpenRouter failed after retries, trying Groq fallback...', {
-          error: openrouterError.message,
-        });
-      }
+    // Check if at least one provider is configured
+    if (!this.openrouterKey && !this.groqKey) {
+      log.error('❌ No AI providers configured');
+      throw new AIServiceError(
+        'No AI providers configured. Please set OPENROUTER_API_KEY and/or GROQ_API_KEY',
+        503,
+        AIErrorCode.SERVICE_UNAVAILABLE
+      );
     }
 
-    // Fallback to Groq (if OpenRouter fails completely) with retry logic
-    if (this.groqKey) {
-      try {
-        log.info('📨 Trying Groq (FALLBACK) with retry logic...');
-        const response = await this.executeWithRetry(
-          () => this.callGroq(request.message, messageHistory),
-          'Groq API call'
-        );
-        const latency = Date.now() - startTime;
-        log.info(`✅ Groq response received in ${latency}ms`);
+    try {
+      // Use smart fallback chain with retry logic for each model
+      const result = await this.executeWithRetry(
+        () => this.callAIWithFallback(request.message, messageHistory),
+        'AI call chain'
+      );
+      
+      const latency = Date.now() - startTime;
+      log.info(`✅ AI response received in ${latency}ms from ${result.model.name}`);
 
-        return {
-          reply: response.text,
-          timestamp: new Date().toISOString(),
-          provider: 'groq',
-          model: 'Mixtral 8x7B (Groq Fallback)',
-          modelType: 'fallback',
-        };
-      } catch (error) {
-        groqError = error instanceof Error ? error : new Error(String(error));
-        log.error('❌ Groq also failed after retries', {
-          error: groqError.message,
-        });
-      }
+      return {
+        reply: result.text,
+        timestamp: new Date().toISOString(),
+        provider: result.model.provider || 'openrouter',
+        model: result.model.name,
+        modelType: result.model.type,
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      log.error('❌ All AI providers failed', {
+        error: errorMsg,
+      });
+
+      throw new AIServiceError(
+        `All AI providers failed: ${errorMsg}`,
+        503,
+        AIErrorCode.SERVICE_UNAVAILABLE
+      );
     }
-
-    // Both providers failed
-    const openrouterMsg = openrouterError?.message || 'No OpenRouter key configured';
-    const groqMsg = groqError?.message || 'No Groq key configured';
-
-    log.error('❌ All AI providers failed', {
-      openrouterError: openrouterMsg,
-      groqError: groqMsg,
-    });
-
-    throw new AIServiceError(
-      `All AI providers failed. OpenRouter: ${openrouterMsg}, Groq: ${groqMsg}`,
-      503,
-      AIErrorCode.SERVICE_UNAVAILABLE
-    );
   }
 
   /**
@@ -662,13 +710,21 @@ class AIService {
     modelId: string,
     messageHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
   ): Promise<{ text: string }> {
-    log.info(`📡 Calling OpenRouter with model: ${modelId}, history messages: ${messageHistory?.length || 0}`);
-
-    // Use message history if provided, otherwise create a single message array
-    // Note: When messageHistory is provided, it already includes the current message
+    // Build messages array: include history + current message
     const messages = messageHistory && messageHistory.length > 0
-      ? messageHistory.map(msg => ({ role: msg.role, content: msg.content }))
+      ? [
+          ...messageHistory.map(msg => ({
+            role: msg.role,
+            content: msg.content
+          })),
+          {
+            role: 'user' as const,
+            content: message
+          }
+        ]
       : [{ role: 'user' as const, content: message }];
+
+    log.info(`📡 Calling OpenRouter with model: ${modelId}, history: ${messageHistory?.length || 0} messages`);
 
     try {
       const response = await axios.post(
@@ -760,13 +816,21 @@ class AIService {
     message: string,
     messageHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
   ): Promise<{ text: string }> {
-    log.info(`📡 Calling Groq with model: ${this.groqFallbackModel}, history messages: ${messageHistory?.length || 0}`);
-
-    // Use message history if provided, otherwise create a single message array
-    // Note: When messageHistory is provided, it already includes the current message
+    // Build messages array: include history + current message
     const messages = messageHistory && messageHistory.length > 0
-      ? messageHistory.map(msg => ({ role: msg.role, content: msg.content }))
+      ? [
+          ...messageHistory.map(msg => ({
+            role: msg.role,
+            content: msg.content
+          })),
+          {
+            role: 'user' as const,
+            content: message
+          }
+        ]
       : [{ role: 'user' as const, content: message }];
+
+    log.info(`📡 Calling Groq with model: ${this.groqFallbackModel}, history: ${messageHistory?.length || 0} messages`);
 
     try {
       const response = await axios.post(
