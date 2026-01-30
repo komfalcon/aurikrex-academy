@@ -113,8 +113,17 @@ export class ResponseFormatterService {
    * Removes excessive formatting, fixes spacing, normalizes structure
    */
   static cleanRawText(text: string): string {
-    return text
-      .trim()
+    let cleaned = text.trim();
+    
+    // Remove HTML comments completely (loop to handle nested/multiple)
+    // This prevents potential HTML injection vulnerabilities
+    let previousLength: number;
+    do {
+      previousLength = cleaned.length;
+      cleaned = cleaned.replace(/<!--[\s\S]*?-->/g, '');
+    } while (cleaned.length !== previousLength && cleaned.includes('<!--'));
+    
+    return cleaned
       // Fix excessive newlines (max 2)
       .replace(/\n{3,}/g, '\n\n')
       // Remove trailing spaces on each line
@@ -132,8 +141,6 @@ export class ResponseFormatterService {
       .replace(/^[•●○]\s*/gm, '- ')
       // Fix numbered lists with inconsistent spacing
       .replace(/^(\d+)\.\s{2,}/gm, '$1. ')
-      // Remove HTML comments if any
-      .replace(/<!--[\s\S]*?-->/g, '')
       // Remove markdown escape characters that might be excessive
       .replace(/\\([*_`#])/g, '$1')
       // Ensure headers have proper spacing
@@ -509,6 +516,16 @@ export class ResponseFormatterService {
 
   /**
    * Convert markdown to clean HTML
+   * 
+   * Note: This is a simple regex-based converter suitable for AI-generated content.
+   * For complex markdown with deeply nested structures, consider using a library like 'marked'.
+   * The converter handles:
+   * - Headers (h1-h6)
+   * - Bold and italic text
+   * - Code blocks and inline code
+   * - Lists (bullet and numbered)
+   * - Links and blockquotes
+   * - Horizontal rules
    */
   static markdownToHTML(markdown: string): string {
     let html = markdown
@@ -550,26 +567,28 @@ export class ResponseFormatterService {
 
   /**
    * Process markdown lists to HTML
+   * Groups consecutive list items together and wraps in ul/ol tags
    */
   private static processLists(html: string): string {
-    // Process bullet lists
-    html = html.replace(/(^[-*]\s+.+$\n?)+/gm, (match) => {
+    // Process bullet lists - match consecutive lines starting with - or *
+    // The regex captures one or more consecutive list lines
+    html = html.replace(/((?:^[-*]\s+.+$\n?)+)/gm, (match) => {
       const items = match
         .split('\n')
-        .filter(line => line.trim())
-        .map(line => `<li>${line.replace(/^[-*]\s+/, '')}</li>`)
+        .filter(line => line.trim() && /^[-*]\s+/.test(line))
+        .map(line => `<li>${line.replace(/^[-*]\s+/, '').trim()}</li>`)
         .join('\n');
-      return `<ul>\n${items}\n</ul>\n`;
+      return items ? `<ul>\n${items}\n</ul>\n` : match;
     });
 
-    // Process numbered lists
-    html = html.replace(/(^\d+\.\s+.+$\n?)+/gm, (match) => {
+    // Process numbered lists - match consecutive lines starting with numbers
+    html = html.replace(/((?:^\d+\.\s+.+$\n?)+)/gm, (match) => {
       const items = match
         .split('\n')
-        .filter(line => line.trim())
-        .map(line => `<li>${line.replace(/^\d+\.\s+/, '')}</li>`)
+        .filter(line => line.trim() && /^\d+\.\s+/.test(line))
+        .map(line => `<li>${line.replace(/^\d+\.\s+/, '').trim()}</li>`)
         .join('\n');
-      return `<ol>\n${items}\n</ol>\n`;
+      return items ? `<ol>\n${items}\n</ol>\n` : match;
     });
 
     return html;

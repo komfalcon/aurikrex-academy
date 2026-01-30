@@ -162,7 +162,8 @@ export class DashboardDataService {
       const totalSeconds = userAnalytics?.averageSessionDuration 
         ? userAnalytics.averageSessionDuration * (userAnalytics.totalActivities || 0) 
         : 0;
-      const totalHours = Math.round(totalSeconds / 60) / 60;
+      // Convert seconds to hours: seconds / 3600
+      const totalHours = Math.round((totalSeconds / 3600) * 10) / 10; // Round to 1 decimal place
 
       // Calculate streak (consecutive days with activity)
       const streak = this.calculateStreak(userAnalytics);
