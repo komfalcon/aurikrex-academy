@@ -55,6 +55,9 @@ import {
 } from '@/utils/assignmentApi';
 import type { Assignment, Solution, AssignmentStats, SolutionVerification } from '@/types';
 
+// Import chat-based components for Assignment Tab
+import { UploadQuestionChat, UploadSolutionChat, AssignmentHistory } from '@/components/assignment';
+
 // Empty state component
 function EmptyAssignments({ onCreateNew }: { onCreateNew: () => void }) {
   return (
@@ -428,6 +431,9 @@ export default function AssignmentsPanelReal() {
   const [solutionText, setSolutionText] = useState('');
   const [solutionFiles, setSolutionFiles] = useState<File[]>([]);
   const [selectedQuestionForSolution, setSelectedQuestionForSolution] = useState<Assignment | null>(null);
+  
+  // Chat integration state - tracks the most recently uploaded question ID for the solution chat
+  const [chatQuestionId, setChatQuestionId] = useState<string | null>(null);
 
   const ACCEPTED_FILE_TYPES = ".txt,.pdf,.docx,.doc,.png,.jpg,.jpeg";
 
@@ -794,111 +800,23 @@ export default function AssignmentsPanelReal() {
       );
     }
 
-    // List view / Create new question
+    // Chat view for uploading questions - use the UploadQuestionChat component
     return (
       <div className="space-y-6">
-        {/* Upload New Question Form */}
-        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Upload className="w-5 h-5 text-primary" />
-              Upload Your Question
-            </CardTitle>
-            <CardDescription>
-              Upload or type your question. FalkeAI will analyze it and provide hints to help you solve it.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Title */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Title (Optional)</label>
-              <input
-                type="text"
-                value={questionTitle}
-                onChange={(e) => setQuestionTitle(e.target.value)}
-                placeholder="e.g., Calculus Problem, Physics Question..."
-                className="w-full p-3 rounded-xl bg-secondary/30 border border-border focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-              />
-            </div>
-
-            {/* Question Content */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Your Question</label>
-              <textarea
-                value={questionText}
-                onChange={(e) => setQuestionText(e.target.value)}
-                placeholder="Type or paste your question here. Include the full problem statement..."
-                className="w-full min-h-[150px] p-4 rounded-xl bg-secondary/30 border border-border focus:outline-none focus:ring-2 focus:ring-primary resize-y text-sm"
-              />
-              <p className="text-xs text-muted-foreground text-right">
-                {questionText.length} characters
-              </p>
-            </div>
-
-            {/* File Upload */}
-            <div className="space-y-3">
-              <label className="text-sm font-medium">Or Upload Files</label>
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all"
-              >
-                <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm font-medium">Click to upload files</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  .txt, .pdf, .docx, .png, .jpg
-                </p>
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept={ACCEPTED_FILE_TYPES}
-                multiple
-                className="hidden"
-                onChange={handleQuestionFileUpload}
-              />
-
-              {questionFiles.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {questionFiles.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <FileText className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm truncate">{file.name}</span>
-                      </div>
-                      <button
-                        onClick={() => setQuestionFiles(prev => prev.filter((_, i) => i !== index))}
-                        className="p-1 text-muted-foreground hover:text-destructive"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Submit */}
-            <div className="flex justify-end">
-              <button
-                onClick={handleUploadQuestion}
-                disabled={isSubmitting || (!questionText.trim() && questionFiles.length === 0)}
-                className="px-6 py-2.5 rounded-xl bg-gradient-primary text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-glow transition-all flex items-center gap-2"
-              >
-                {isSubmitting || isAnalyzing ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    {isAnalyzing ? 'Analyzing...' : 'Uploading...'}
-                  </>
-                ) : (
-                  <>
-                    <Brain className="w-4 h-4" />
-                    Upload & Get Hints
-                  </>
-                )}
-              </button>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Chat-based Question Upload Interface */}
+        <div className="min-h-[500px] h-[60vh] max-h-[700px]">
+          <UploadQuestionChat
+            onQuestionUploaded={(questionId) => {
+              // Track the question ID for the solution chat
+              setChatQuestionId(questionId);
+              // Update the selected question state and refresh data
+              loadQuestionDetail(questionId).catch(() => {
+                // Error is already handled in loadQuestionDetail
+              });
+              loadAllData();
+            }}
+          />
+        </div>
 
         {/* List of Previous Questions */}
         <Card className="border-border">
@@ -908,19 +826,28 @@ export default function AssignmentsPanelReal() {
               My Questions
             </CardTitle>
             <CardDescription>
-              Questions you've uploaded for analysis
+              Questions you've uploaded for analysis - click to view details
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {assignments.length === 0 ? (
-              <EmptyAssignments onCreateNew={() => {}} />
+              <div className="text-center py-8 text-muted-foreground">
+                <FileQuestion className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                <p className="text-sm">No questions uploaded yet</p>
+                <p className="text-xs mt-1">Use the chat above to upload your first question</p>
+              </div>
             ) : (
               assignments.map((assignment) => (
                 <AssignmentCard
                   key={assignment._id}
                   assignment={assignment}
-                  isSelected={false}
-                  onClick={() => loadQuestionDetail(assignment._id)}
+                  isSelected={chatQuestionId === assignment._id}
+                  onClick={() => {
+                    setChatQuestionId(assignment._id);
+                    loadQuestionDetail(assignment._id).catch(() => {
+                      // Error is already handled in loadQuestionDetail
+                    });
+                  }}
                 />
               ))
             )}
@@ -1172,36 +1099,59 @@ export default function AssignmentsPanelReal() {
       );
     }
 
-    // List view - show all solutions grouped by question
+    // Chat-based view for uploading solutions
     return (
       <div className="space-y-6">
-        {/* Submit New Solution Button */}
-        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold flex items-center gap-2">
-                  <CheckSquare className="w-5 h-5 text-primary" />
-                  Ready to submit a solution?
-                </h3>
+        {/* Chat-based Solution Upload Interface */}
+        <div className="min-h-[500px] h-[60vh] max-h-[700px]">
+          <UploadSolutionChat
+            questionId={chatQuestionId || selectedAssignment?._id || null}
+            onSolutionVerified={() => {
+              // Refresh the data after solution is verified
+              loadAllData();
+            }}
+          />
+        </div>
+
+        {/* Question Selection for Solutions */}
+        <Card className="border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <CheckSquare className="w-5 h-5 text-primary" />
+              Select Question
+            </CardTitle>
+            <CardDescription>
+              Select a question to submit your solution for. Click on any analyzed question below.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {assignments.filter(a => a.status === 'analyzed').length === 0 ? (
+              <div className="text-center py-8">
+                <FileQuestion className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                <p className="text-muted-foreground">No analyzed questions yet</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Upload your answer for a question and get detailed feedback
+                  Upload a question first in the "Upload Question" tab
                 </p>
               </div>
-              <button
-                onClick={() => setSubView('create')}
-                className="px-4 py-2 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                New Solution
-              </button>
-            </div>
+            ) : (
+              assignments.filter(a => a.status === 'analyzed').map((assignment) => (
+                <AssignmentCard
+                  key={assignment._id}
+                  assignment={assignment}
+                  isSelected={chatQuestionId === assignment._id}
+                  onClick={() => {
+                    setChatQuestionId(assignment._id);
+                    setSelectedAssignment(assignment);
+                  }}
+                />
+              ))
+            )}
           </CardContent>
         </Card>
 
-        {/* List of questions with solutions */}
+        {/* List of Previously Submitted Solutions */}
         <Card className="border-border">
-          <CardHeader>
+          <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <CheckSquare className="w-5 h-5 text-primary" />
               My Solutions
@@ -1216,7 +1166,7 @@ export default function AssignmentsPanelReal() {
                 <CheckSquare className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
                 <p className="text-muted-foreground">No solutions submitted yet</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Upload a question first, then submit your solution
+                  Submit your first solution above
                 </p>
               </div>
             ) : (
@@ -1225,7 +1175,13 @@ export default function AssignmentsPanelReal() {
                   key={assignment._id}
                   assignment={assignment}
                   isSelected={false}
-                  onClick={() => loadQuestionDetail(assignment._id).then(() => setActiveSection('my-solutions'))}
+                  onClick={() => {
+                    loadQuestionDetail(assignment._id)
+                      .then(() => setActiveSection('my-solutions'))
+                      .catch(() => {
+                        // Error is already handled in loadQuestionDetail
+                      });
+                  }}
                 />
               ))
             )}
@@ -1235,93 +1191,20 @@ export default function AssignmentsPanelReal() {
     );
   };
 
-  // Render History section
+  // Render History section - use the AssignmentHistory chat component
   const renderHistory = () => {
     return (
-      <div className="space-y-6">
-        <Card className="border-border">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <History className="w-5 h-5 text-primary" />
-                  Complete History
-                </CardTitle>
-                <CardDescription>
-                  All your questions and solutions in one place
-                </CardDescription>
-              </div>
-              <button
-                onClick={loadAllData}
-                className="p-2 rounded-xl bg-secondary hover:bg-secondary/80 transition-colors"
-                title="Refresh"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <AssignmentsSkeleton />
-            ) : assignments.length === 0 ? (
-              <div className="text-center py-8">
-                <History className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground">No history yet</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Start by uploading your first question
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {assignments.map((assignment) => {
-                  const solutionCount = assignment.solutionIds.length;
-                  const config = statusConfig[assignment.status] || statusConfig.pending;
-                  const StatusIcon = config.icon;
-                  
-                  return (
-                    <div 
-                      key={assignment._id}
-                      className="p-4 rounded-xl border border-border hover:bg-secondary/30 transition-all cursor-pointer"
-                      onClick={() => {
-                        loadQuestionDetail(assignment._id);
-                        setActiveSection('upload-question');
-                      }}
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <h4 className="font-medium">{assignment.title}</h4>
-                          <p className="text-sm text-muted-foreground truncate max-w-lg">
-                            {assignment.textContent?.substring(0, 100)}...
-                          </p>
-                        </div>
-                        <div className={`p-2 rounded-lg ${config.bg}`}>
-                          <StatusIcon className={`w-4 h-4 ${config.color}`} />
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {new Date(assignment.createdAt).toLocaleDateString()}
-                        </span>
-                        <Badge variant="outline" className="text-xs">{config.label}</Badge>
-                        {solutionCount > 0 && (
-                          <Badge variant="secondary" className="text-xs">
-                            {solutionCount} solution{solutionCount > 1 ? 's' : ''}
-                          </Badge>
-                        )}
-                        {assignment.analysis?.estimatedDifficulty && (
-                          <Badge variant="outline" className="text-xs capitalize">
-                            {assignment.analysis.estimatedDifficulty}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      <div className="min-h-[600px] h-[70vh] max-h-[800px]">
+        <AssignmentHistory
+          onSelectQuestion={(questionId) => {
+            // When a question is selected from history, navigate to its detail view
+            setChatQuestionId(questionId);
+            loadQuestionDetail(questionId).catch(() => {
+              // Error is already handled in loadQuestionDetail
+            });
+            setActiveSection('upload-question');
+          }}
+        />
       </div>
     );
   };
