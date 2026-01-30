@@ -246,9 +246,13 @@ class AIService {
    * Send a chat message to the AI service
    * 
    * @param request - The chat request containing message and context
+   * @param messageHistory - Optional array of previous messages for context
    * @returns Promise<AIChatResponse> - The response from the AI
    */
-  public async sendChatMessage(request: AIChatRequest): Promise<AIChatResponse> {
+  public async sendChatMessage(
+    request: AIChatRequest,
+    messageHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
+  ): Promise<AIChatResponse> {
     // Validate service configuration
     if (!this.isConfigured()) {
       log.error('❌ AIService not configured', {
@@ -271,6 +275,7 @@ class AIService {
       page: request.context.page,
       userId: request.context.userId,
       messageLength: request.message.length,
+      historyLength: messageHistory?.length || 0,
       timestamp: new Date().toISOString(),
     });
 
@@ -278,7 +283,7 @@ class AIService {
     return new Promise<AIChatResponse>((resolve, reject) => {
       this.requestQueue.push(async () => {
         try {
-          const response = await this.executeRequestWithRetry(request);
+          const response = await this.executeRequestWithRetry(request, messageHistory);
           resolve(response);
         } catch (error) {
           reject(error);
@@ -449,7 +454,10 @@ class AIService {
   /**
    * Execute request with retry logic and provider fallback
    */
-  private async executeRequestWithRetry(request: AIChatRequest): Promise<AIChatResponse> {
+  private async executeRequestWithRetry(
+    request: AIChatRequest,
+    messageHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
+  ): Promise<AIChatResponse> {
     const startTime = Date.now();
     let openrouterError: Error | null = null;
     let groqError: Error | null = null;
@@ -463,7 +471,7 @@ class AIService {
         log.info(`📊 Using OpenRouter model: ${selectedModel.name}`);
 
         const response = await this.executeWithRetry(
-          () => this.callOpenRouter(request.message, selectedModel.id),
+          () => this.callOpenRouter(request.message, selectedModel.id, messageHistory),
           'OpenRouter API call'
         );
         const latency = Date.now() - startTime;
@@ -489,7 +497,7 @@ class AIService {
       try {
         log.info('📨 Trying Groq (FALLBACK) with retry logic...');
         const response = await this.executeWithRetry(
-          () => this.callGroq(request.message),
+          () => this.callGroq(request.message, messageHistory),
           'Groq API call'
         );
         const latency = Date.now() - startTime;
@@ -649,20 +657,32 @@ class AIService {
   /**
    * Call OpenRouter API
    */
-  private async callOpenRouter(message: string, modelId: string): Promise<{ text: string }> {
-    log.info(`📡 Calling OpenRouter with model: ${modelId}`);
+  private async callOpenRouter(
+    message: string,
+    modelId: string,
+    messageHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
+  ): Promise<{ text: string }> {
+    log.info(`📡 Calling OpenRouter with model: ${modelId}, history messages: ${messageHistory?.length || 0}`);
+
+    // Build messages array - include history if provided
+    const messages = messageHistory && messageHistory.length > 0
+      ? messageHistory.map(msg => ({ role: msg.role, content: msg.content }))
+      : [{ role: 'user' as const, content: message }];
+
+    // If history doesn't include the current message at the end, add it
+    if (messageHistory && messageHistory.length > 0) {
+      const lastMessage = messageHistory[messageHistory.length - 1];
+      if (lastMessage.content !== message) {
+        messages.push({ role: 'user' as const, content: message });
+      }
+    }
 
     try {
       const response = await axios.post(
         this.openrouterBaseUrl,
         {
           model: modelId,
-          messages: [
-            {
-              role: 'user',
-              content: message,
-            },
-          ],
+          messages: messages,
           max_tokens: DEFAULT_MAX_TOKENS,
           temperature: DEFAULT_TEMPERATURE,
         },
@@ -743,20 +763,31 @@ class AIService {
   /**
    * Call Groq API
    */
-  private async callGroq(message: string): Promise<{ text: string }> {
-    log.info(`📡 Calling Groq with model: ${this.groqFallbackModel}`);
+  private async callGroq(
+    message: string,
+    messageHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
+  ): Promise<{ text: string }> {
+    log.info(`📡 Calling Groq with model: ${this.groqFallbackModel}, history messages: ${messageHistory?.length || 0}`);
+
+    // Build messages array - include history if provided
+    const messages = messageHistory && messageHistory.length > 0
+      ? messageHistory.map(msg => ({ role: msg.role, content: msg.content }))
+      : [{ role: 'user' as const, content: message }];
+
+    // If history doesn't include the current message at the end, add it
+    if (messageHistory && messageHistory.length > 0) {
+      const lastMessage = messageHistory[messageHistory.length - 1];
+      if (lastMessage.content !== message) {
+        messages.push({ role: 'user' as const, content: message });
+      }
+    }
 
     try {
       const response = await axios.post(
         this.groqBaseUrl,
         {
           model: this.groqFallbackModel,
-          messages: [
-            {
-              role: 'user',
-              content: message,
-            },
-          ],
+          messages: messages,
           max_tokens: DEFAULT_MAX_TOKENS,
           temperature: DEFAULT_TEMPERATURE,
         },

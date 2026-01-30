@@ -24,6 +24,8 @@ import { log } from '../utils/logger.js';
 import { aiService, AIServiceError, AIErrorCode } from '../services/AIService.js';
 import { AIChatRequest, EnhancedAIChatRequest, AIRequestType } from '../types/ai.types.js';
 import { FalkeAIActivityLogger } from '../services/FalkeAIActivityLogger.js';
+import { ResponseFormatterService } from '../services/ResponseFormatterService.js';
+import { ConversationModel, ChatMessageModel } from '../models/Conversation.model.js';
 
 /**
  * POST /api/ai/chat
@@ -54,10 +56,11 @@ import { FalkeAIActivityLogger } from '../services/FalkeAIActivityLogger.js';
  */
 export const sendChatMessage = async (req: Request, res: Response): Promise<void> => {
   const requestTimestamp = new Date().toISOString();
+  const startTime = Date.now();
   
   try {
     // Request body is already validated by express-validator middleware
-    const { message, context } = req.body as AIChatRequest;
+    const { message, context, conversationId } = req.body as AIChatRequest & { conversationId?: string };
 
     // Log incoming request with detailed info for debugging
     log.info('📨 AI Chat Request received', {
@@ -67,6 +70,7 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<void
       username: context.username,
       page: context.page,
       course: context.course || 'N/A',
+      conversationId: conversationId || 'new',
       timestamp: requestTimestamp,
     });
 
@@ -80,9 +84,49 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    log.info('🔄 Calling AI Service', {
+    // STEP 1: Get or create conversation
+    let conversation;
+    if (conversationId) {
+      // Existing conversation
+      conversation = await ConversationModel.findById(conversationId);
+      if (!conversation) {
+        res.status(404).json({ status: 'error', message: 'Conversation not found' });
+        return;
+      }
+    } else {
+      // New conversation - create it
+      conversation = await ConversationModel.create({
+        userId: context.userId,
+        title: message.length > 50 ? message.substring(0, 47) + '...' : message,
+        topic: context.course || 'General',
+      });
+    }
+
+    // STEP 2: Save user message
+    await ChatMessageModel.create({
+      conversationId: conversation._id.toString(),
+      userId: context.userId,
+      role: 'user',
+      content: message.trim(),
+    });
+
+    // STEP 3: Fetch previous messages for context
+    const previousMessages = await ChatMessageModel.getRecentMessages(
+      conversation._id.toString(),
+      10 // Get last 10 messages
+    );
+
+    // STEP 4: Build messages array for AI (include history!)
+    const messagesForAI = previousMessages.map(msg => ({
+      role: msg.role as 'user' | 'assistant',
+      content: msg.content
+    }));
+
+    log.info('🔄 Calling AI Service with conversation context', {
       openrouterConfigured: !!process.env.OPENROUTER_API_KEY,
       groqConfigured: !!process.env.GROQ_API_KEY,
+      conversationId: conversation._id.toString(),
+      historyMessageCount: messagesForAI.length,
     });
 
     // Build the request
@@ -96,8 +140,28 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<void
       },
     };
 
-    // Send to AI service and get response
-    const response = await aiService.sendChatMessage(chatRequest);
+    // STEP 5: Send to AI service with message history
+    const response = await aiService.sendChatMessage(chatRequest, messagesForAI);
+
+    // STEP 6: Save AI response
+    const aiMessage = await ChatMessageModel.create({
+      conversationId: conversation._id.toString(),
+      userId: context.userId,
+      role: 'assistant',
+      content: response.reply,
+      metadata: {
+        provider: response.provider,
+        model: response.model,
+        modelType: response.modelType,
+        processingTimeMs: Date.now() - startTime,
+      },
+    });
+
+    // STEP 7: Format the response using ResponseFormatterService
+    const formatted = ResponseFormatterService.formatResponse(
+      response.reply,
+      'question' // Default to question type for general chat
+    );
 
     // Log activity for analytics (async, don't block response)
     const timeSpent = Math.round((Date.now() - new Date(requestTimestamp).getTime()) / 1000);
@@ -114,6 +178,7 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<void
     log.info('✅ AI Response received successfully', {
       page: context.page,
       userId: context.userId,
+      conversationId: conversation._id.toString(),
       replyLength: response.reply.length,
       replyPreview: response.reply.substring(0, 100) + (response.reply.length > 100 ? '...' : ''),
       timestamp: response.timestamp,
@@ -122,8 +187,15 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<void
       modelType: response.modelType,
     });
 
-    // Return the response
-    res.status(200).json(response);
+    // STEP 8: Return the response with conversation info and formatted content
+    res.status(200).json({
+      ...response,
+      conversationId: conversation._id.toString(),
+      messageId: aiMessage._id?.toString(),
+      reply: formatted.html, // Send formatted HTML
+      plainText: formatted.plainText, // Optional: for fallback
+      structure: formatted.structure, // Optional: for UI structure
+    });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
     const errorStack = error instanceof Error ? error.stack : undefined;
