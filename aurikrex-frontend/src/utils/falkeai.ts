@@ -83,7 +83,7 @@ export async function sendMessageToFalkeAI(
     endpoint: '/ai/chat',
     page: context.page,
     userId: context.userId,
-    conversationId: conversationId || 'new',
+    conversationId: conversationId || '(new conversation)',
     messageLength: message.trim().length,
     messagePreview: message.substring(0, 50) + (message.length > 50 ? '...' : ''),
     hasAuth: !!token,

@@ -664,18 +664,11 @@ class AIService {
   ): Promise<{ text: string }> {
     log.info(`📡 Calling OpenRouter with model: ${modelId}, history messages: ${messageHistory?.length || 0}`);
 
-    // Build messages array - include history if provided
+    // Use message history if provided, otherwise create a single message array
+    // Note: When messageHistory is provided, it already includes the current message
     const messages = messageHistory && messageHistory.length > 0
       ? messageHistory.map(msg => ({ role: msg.role, content: msg.content }))
       : [{ role: 'user' as const, content: message }];
-
-    // If history doesn't include the current message at the end, add it
-    if (messageHistory && messageHistory.length > 0) {
-      const lastMessage = messageHistory[messageHistory.length - 1];
-      if (lastMessage.content !== message) {
-        messages.push({ role: 'user' as const, content: message });
-      }
-    }
 
     try {
       const response = await axios.post(
@@ -769,18 +762,11 @@ class AIService {
   ): Promise<{ text: string }> {
     log.info(`📡 Calling Groq with model: ${this.groqFallbackModel}, history messages: ${messageHistory?.length || 0}`);
 
-    // Build messages array - include history if provided
+    // Use message history if provided, otherwise create a single message array
+    // Note: When messageHistory is provided, it already includes the current message
     const messages = messageHistory && messageHistory.length > 0
       ? messageHistory.map(msg => ({ role: msg.role, content: msg.content }))
       : [{ role: 'user' as const, content: message }];
-
-    // If history doesn't include the current message at the end, add it
-    if (messageHistory && messageHistory.length > 0) {
-      const lastMessage = messageHistory[messageHistory.length - 1];
-      if (lastMessage.content !== message) {
-        messages.push({ role: 'user' as const, content: message });
-      }
-    }
 
     try {
       const response = await axios.post(

@@ -86,6 +86,8 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<void
 
     // STEP 1: Get or create conversation
     let conversation;
+    let isNewConversation = false;
+    
     if (conversationId) {
       // Existing conversation
       conversation = await ConversationModel.findById(conversationId);
@@ -93,34 +95,43 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<void
         res.status(404).json({ status: 'error', message: 'Conversation not found' });
         return;
       }
+      // Authorization: verify conversation belongs to the requesting user
+      if (conversation.userId !== context.userId) {
+        res.status(403).json({ status: 'error', message: 'Not authorized to access this conversation' });
+        return;
+      }
     } else {
       // New conversation - create it
+      // Sanitize title: remove newlines, trim whitespace, limit length
+      const sanitizedTitle = message.replace(/[\r\n]+/g, ' ').trim();
       conversation = await ConversationModel.create({
         userId: context.userId,
-        title: message.length > 50 ? message.substring(0, 47) + '...' : message,
+        title: sanitizedTitle.length > 50 ? sanitizedTitle.substring(0, 47) + '...' : sanitizedTitle,
         topic: context.course || 'General',
       });
+      isNewConversation = true;
     }
 
-    // STEP 2: Save user message
-    await ChatMessageModel.create({
-      conversationId: conversation._id.toString(),
-      userId: context.userId,
+    // STEP 2: Fetch previous messages for context BEFORE saving current message
+    // This prevents duplication of the current message in history
+    let messagesForAI: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+    
+    if (!isNewConversation) {
+      const previousMessages = await ChatMessageModel.getRecentMessages(
+        conversation._id.toString(),
+        10 // Get last 10 messages
+      );
+      messagesForAI = previousMessages.map(msg => ({
+        role: msg.role as 'user' | 'assistant',
+        content: msg.content
+      }));
+    }
+
+    // Add current message to the context
+    messagesForAI.push({
       role: 'user',
-      content: message.trim(),
+      content: message.trim()
     });
-
-    // STEP 3: Fetch previous messages for context
-    const previousMessages = await ChatMessageModel.getRecentMessages(
-      conversation._id.toString(),
-      10 // Get last 10 messages
-    );
-
-    // STEP 4: Build messages array for AI (include history!)
-    const messagesForAI = previousMessages.map(msg => ({
-      role: msg.role as 'user' | 'assistant',
-      content: msg.content
-    }));
 
     log.info('🔄 Calling AI Service with conversation context', {
       openrouterConfigured: !!process.env.OPENROUTER_API_KEY,
@@ -140,10 +151,18 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<void
       },
     };
 
-    // STEP 5: Send to AI service with message history
+    // STEP 3: Send to AI service with message history
     const response = await aiService.sendChatMessage(chatRequest, messagesForAI);
 
-    // STEP 6: Save AI response
+    // STEP 4: Save both user message and AI response after successful AI call
+    // This ensures we don't have orphaned messages if AI call fails
+    await ChatMessageModel.create({
+      conversationId: conversation._id.toString(),
+      userId: context.userId,
+      role: 'user',
+      content: message.trim(),
+    });
+
     const aiMessage = await ChatMessageModel.create({
       conversationId: conversation._id.toString(),
       userId: context.userId,
@@ -157,7 +176,7 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<void
       },
     });
 
-    // STEP 7: Format the response using ResponseFormatterService
+    // STEP 5: Format the response using ResponseFormatterService
     const formatted = ResponseFormatterService.formatResponse(
       response.reply,
       'question' // Default to question type for general chat
