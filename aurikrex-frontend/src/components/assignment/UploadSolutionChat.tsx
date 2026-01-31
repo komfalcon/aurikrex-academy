@@ -286,8 +286,8 @@ export function UploadSolutionChat({ questionId, onSolutionVerified }: UploadSol
         errorMsg = error.message;
       } else if (typeof error === 'object' && error !== null) {
         // Handle API error responses
-        const apiError = error as { response?: { data?: { message?: string; error?: string } }; message?: string };
-        errorMsg = apiError.response?.data?.message || apiError.response?.data?.error || apiError.message || errorMsg;
+        const errorObject = error as { response?: { data?: { message?: string; error?: string } }; message?: string };
+        errorMsg = errorObject.response?.data?.message || errorObject.response?.data?.error || errorObject.message || errorMsg;
       }
       
       const errorMessage: Message = {

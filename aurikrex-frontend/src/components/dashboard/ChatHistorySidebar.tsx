@@ -229,21 +229,15 @@ export function ChatHistorySidebar({
       // Handle different response formats:
       // Backend returns { status, data: [conversations], total }
       // But also handle { conversations: [] } or just [] for flexibility
-      let conversations: Conversation[] = [];
-      
-      if (Array.isArray(data)) {
-        // Direct array response
-        conversations = data;
-      } else if (Array.isArray(data.data)) {
-        // Standard backend format: { status, data: [...], total }
-        conversations = data.data;
-      } else if (data.data?.conversations && Array.isArray(data.data.conversations)) {
-        // Nested format: { data: { conversations: [...] } }
-        conversations = data.data.conversations;
-      } else if (Array.isArray(data.conversations)) {
-        // Alternative format: { conversations: [...] }
-        conversations = data.conversations;
-      }
+      const conversations: Conversation[] = Array.isArray(data) 
+        ? data 
+        : Array.isArray(data.data) 
+          ? data.data 
+          : data.data?.conversations && Array.isArray(data.data.conversations)
+            ? data.data.conversations
+            : Array.isArray(data.conversations)
+              ? data.conversations
+              : [];
       
       console.log('Parsed conversations count:', conversations.length);
       setConversations(conversations);
