@@ -6,11 +6,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { BookOpen, ChevronLeft, ChevronRight, Loader2, Plus } from 'lucide-react';
 import { BookCard } from '@/components/library/BookCard';
 import { BookSearch, type BookFilters } from '@/components/library/BookSearch';
+import { UploadBookModal } from '@/components/library/UploadBookModal';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { getBooks, getCategoriesFormatted } from '@/utils/libraryApi';
+import { useAuth } from '@/context/AuthContext';
 import type { Book, BookCategory } from '@/types';
 
 // Loading skeleton
@@ -42,6 +45,7 @@ function EmptyLibrary({ message }: { message: string }) {
 }
 
 export function Library() {
+  const { user } = useAuth();
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<BookCategory[]>([]);
@@ -55,6 +59,7 @@ export function Library() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [total, setTotal] = useState(0);
+  const [showUploadModal, setShowUploadModal] = useState(false);
 
   // Load categories on mount
   useEffect(() => {
@@ -142,11 +147,22 @@ export function Library() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-xl bg-primary/10">
-              <BookOpen className="w-8 h-8 text-primary" />
+          <div className="flex items-center justify-between flex-wrap gap-4 mb-2">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-primary/10">
+                <BookOpen className="w-8 h-8 text-primary" />
+              </div>
+              <h1 className="text-3xl font-bold">📚 Learning Library</h1>
             </div>
-            <h1 className="text-3xl font-bold">📚 Learning Library</h1>
+            {user && (
+              <Button 
+                onClick={() => setShowUploadModal(true)}
+                className="gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Upload Book
+              </Button>
+            )}
           </div>
           <p className="text-muted-foreground">
             Discover books, notes, slides, and materials from our community
@@ -251,6 +267,16 @@ export function Library() {
           </Card>
         )}
       </div>
+
+      {/* Upload Book Modal */}
+      <UploadBookModal
+        open={showUploadModal}
+        onOpenChange={setShowUploadModal}
+        onSuccess={() => {
+          // Refresh books list after successful upload
+          loadBooks();
+        }}
+      />
     </div>
   );
 }
