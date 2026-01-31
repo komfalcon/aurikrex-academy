@@ -2,17 +2,14 @@
  * Dashboard Data Service
  * 
  * Centralized service for fetching and aggregating dashboard data.
- * Combines data from multiple sources (assignments, analytics, conversations)
+ * Combines data from multiple sources (analytics)
  * to provide a comprehensive view of student activity and progress.
  * 
  * ALL DATA IS REAL - NO MOCK DATA
  */
 
 import { log } from '../utils/logger.js';
-import { AssignmentModel } from '../models/Assignment.model.js';
-import { SolutionModel } from '../models/Solution.model.js';
 import { FalkeAIActivityModel, UserAnalyticsDocument } from '../models/FalkeAIActivity.model.js';
-import { ConversationModel } from '../models/Conversation.model.js';
 
 /**
  * Dashboard overview statistics
@@ -20,7 +17,6 @@ import { ConversationModel } from '../models/Conversation.model.js';
 export interface OverviewStats {
   totalCoursesEnrolled: number;
   coursesCompleted: number;
-  assignmentsSubmitted: number;
   currentStreak: number;
   totalLearningHours: number;
   totalQuestions: number;
@@ -54,25 +50,12 @@ export interface CourseProgress {
  */
 export interface LearningAnalytics {
   averageQuestionQuality: number;
-  assignmentAccuracy: number;
   topicsExplored: string[];
   conceptsMastered: string[];
   conceptsStruggling: string[];
   growthScore: number;
   peakLearningTime: string;
   engagementTrend: 'increasing' | 'stable' | 'decreasing';
-}
-
-/**
- * Assignment summary
- */
-export interface AssignmentSummary {
-  _id: string;
-  title: string;
-  status: string;
-  createdAt: Date;
-  lastAttemptAt?: Date;
-  accuracy?: number;
 }
 
 /**
@@ -83,16 +66,6 @@ export interface DashboardData {
   recentActivity: RecentActivityItem[];
   courses: CourseProgress[];
   analytics: LearningAnalytics;
-  assignments: AssignmentSummary[];
-  conversations: {
-    total: number;
-    recent: {
-      _id: string;
-      title: string;
-      topic?: string;
-      lastUpdatedAt: Date;
-    }[];
-  };
 }
 
 /**
@@ -113,16 +86,12 @@ export class DashboardDataService {
         overviewStats,
         recentActivity,
         courses,
-        analytics,
-        assignments,
-        conversations
+        analytics
       ] = await Promise.all([
         this.getOverviewStats(userId),
         this.getRecentActivity(userId),
         this.getStudentCourses(userId),
         this.getAnalytics(userId),
-        this.getAssignments(userId),
-        this.getConversations(userId),
       ]);
 
       log.info('✅ Dashboard data fetched successfully', { userId });
@@ -132,8 +101,6 @@ export class DashboardDataService {
         recentActivity,
         courses,
         analytics,
-        assignments,
-        conversations,
       };
     } catch (error) {
       log.error('❌ Error fetching dashboard data', {
@@ -149,12 +116,6 @@ export class DashboardDataService {
    */
   static async getOverviewStats(userId: string): Promise<OverviewStats> {
     try {
-      // Get assignment stats
-      const assignmentStats = await AssignmentModel.getStats(userId);
-      
-      // Get solution stats
-      const solutionStats = await SolutionModel.getStats(userId);
-      
       // Get activity analytics
       const userAnalytics = await FalkeAIActivityModel.getUserAnalytics(userId);
 
@@ -171,11 +132,10 @@ export class DashboardDataService {
       return {
         totalCoursesEnrolled: 0, // Will be updated when courses feature is active
         coursesCompleted: 0,
-        assignmentsSubmitted: assignmentStats.submitted + assignmentStats.graded,
         currentStreak: streak,
         totalLearningHours: totalHours,
         totalQuestions: userAnalytics?.activitiesByType?.chat_question || 0,
-        averageScore: solutionStats.averageAccuracy,
+        averageScore: userAnalytics?.averageResponseQuality || 0,
       };
     } catch (error) {
       log.error('❌ Error getting overview stats', {
@@ -185,7 +145,6 @@ export class DashboardDataService {
       return {
         totalCoursesEnrolled: 0,
         coursesCompleted: 0,
-        assignmentsSubmitted: 0,
         currentStreak: 0,
         totalLearningHours: 0,
         totalQuestions: 0,
@@ -247,7 +206,6 @@ export class DashboardDataService {
         description: this.getActivityDescription(activity),
         timestamp: activity.timestamp,
         data: {
-          assignmentId: activity.assignmentId,
           lessonId: activity.lessonId,
           courseId: activity.courseId,
           resultScore: activity.resultScore,
@@ -273,10 +231,6 @@ export class DashboardDataService {
   }): string {
     const typeDescriptions: Record<string, string> = {
       'chat_question': 'Asked a question to FalkeAI',
-      'assignment_upload': 'Uploaded a new assignment',
-      'assignment_analysis': 'Assignment was analyzed by FalkeAI',
-      'solution_upload': 'Submitted a solution',
-      'solution_verification': 'Solution was reviewed by FalkeAI',
       'quiz_explanation': 'Received quiz explanation',
       'progress_analysis': 'Progress was analyzed',
       'recommendation': 'Received learning recommendation',
@@ -317,14 +271,12 @@ export class DashboardDataService {
   static async getAnalytics(userId: string): Promise<LearningAnalytics> {
     try {
       const userAnalytics = await FalkeAIActivityModel.getUserAnalytics(userId);
-      const solutionStats = await SolutionModel.getStats(userId);
 
       return {
         averageQuestionQuality: userAnalytics?.averageResponseQuality || 0,
-        assignmentAccuracy: solutionStats.averageAccuracy,
         topicsExplored: userAnalytics?.topicsExplored || [],
-        conceptsMastered: solutionStats.conceptsMastered || userAnalytics?.conceptsMastered || [],
-        conceptsStruggling: solutionStats.conceptsToReview || userAnalytics?.conceptsStruggling || [],
+        conceptsMastered: userAnalytics?.conceptsMastered || [],
+        conceptsStruggling: userAnalytics?.conceptsStruggling || [],
         growthScore: userAnalytics?.growthScore || 0,
         peakLearningTime: userAnalytics?.peakLearningTime || 'Not enough data',
         engagementTrend: userAnalytics?.engagementTrend || 'stable',
@@ -336,7 +288,6 @@ export class DashboardDataService {
       });
       return {
         averageQuestionQuality: 0,
-        assignmentAccuracy: 0,
         topicsExplored: [],
         conceptsMastered: [],
         conceptsStruggling: [],
@@ -348,79 +299,15 @@ export class DashboardDataService {
   }
 
   /**
-   * Get recent assignments
-   */
-  static async getAssignments(userId: string, limit: number = 5): Promise<AssignmentSummary[]> {
-    try {
-      const { assignments } = await AssignmentModel.findByStudentId(userId, {
-        limit,
-        sortBy: 'createdAt',
-        sortOrder: -1,
-      });
-
-      return assignments.map(assignment => ({
-        _id: assignment._id?.toString() || '',
-        title: assignment.title,
-        status: assignment.status,
-        createdAt: assignment.createdAt,
-        lastAttemptAt: assignment.lastAttemptAt,
-      }));
-    } catch (error) {
-      log.error('❌ Error getting assignments', {
-        error: error instanceof Error ? error.message : String(error),
-        userId,
-      });
-      return [];
-    }
-  }
-
-  /**
-   * Get conversation summary
-   */
-  static async getConversations(userId: string, limit: number = 5): Promise<{
-    total: number;
-    recent: {
-      _id: string;
-      title: string;
-      topic?: string;
-      lastUpdatedAt: Date;
-    }[];
-  }> {
-    try {
-      const { conversations, total } = await ConversationModel.findByUserId(userId, { limit });
-
-      return {
-        total,
-        recent: conversations.map(conv => ({
-          _id: conv._id.toString(),
-          title: conv.title,
-          topic: conv.topic,
-          lastUpdatedAt: conv.lastUpdatedAt,
-        })),
-      };
-    } catch (error) {
-      log.error('❌ Error getting conversations', {
-        error: error instanceof Error ? error.message : String(error),
-        userId,
-      });
-      return { total: 0, recent: [] };
-    }
-  }
-
-  /**
    * Get quick stats for dashboard header
    */
   static async getQuickStats(userId: string): Promise<{
     totalActivities: number;
-    assignmentsPending: number;
     questionsToday: number;
     growthScore: number;
   }> {
     try {
-      const [userAnalytics, assignmentStats] = await Promise.all([
-        FalkeAIActivityModel.getUserAnalytics(userId),
-        AssignmentModel.getStats(userId),
-      ]);
+      const userAnalytics = await FalkeAIActivityModel.getUserAnalytics(userId);
 
       // Count questions asked today
       const today = new Date();
@@ -434,7 +321,6 @@ export class DashboardDataService {
 
       return {
         totalActivities: userAnalytics?.totalActivities || 0,
-        assignmentsPending: assignmentStats.pending + assignmentStats.analyzed,
         questionsToday: todayEntry?.types?.chat_question || 0,
         growthScore: userAnalytics?.growthScore || 0,
       };
@@ -445,7 +331,6 @@ export class DashboardDataService {
       });
       return {
         totalActivities: 0,
-        assignmentsPending: 0,
         questionsToday: 0,
         growthScore: 0,
       };

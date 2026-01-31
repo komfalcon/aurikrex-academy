@@ -8,8 +8,6 @@
 import { Request, Response } from 'express';
 import { log } from '../utils/logger.js';
 import { FalkeAIActivityModel, FalkeAIActivityType } from '../models/FalkeAIActivity.model.js';
-import { AssignmentModel } from '../models/Assignment.model.js';
-import { SolutionModel } from '../models/Solution.model.js';
 
 // Helper to extract string from params
 const getParamId = (param: string | string[]): string => {
@@ -217,20 +215,11 @@ export const getDashboardAnalytics = async (req: Request, res: Response): Promis
     // Get all analytics data in parallel
     const [
       userAnalytics,
-      assignmentStats,
-      solutionStats,
       recentActivities
     ] = await Promise.all([
       FalkeAIActivityModel.getUserAnalytics(userId),
-      AssignmentModel.getStats(userId),
-      SolutionModel.getStats(userId),
       FalkeAIActivityModel.getActivities(userId, { limit: 10 })
     ]);
-
-    // Calculate additional metrics
-    const assignmentCompletionRate = assignmentStats.total > 0 
-      ? Math.round((assignmentStats.graded / assignmentStats.total) * 100) 
-      : 0;
 
     // Build comprehensive dashboard data
     const dashboardData = {
@@ -242,30 +231,11 @@ export const getDashboardAnalytics = async (req: Request, res: Response): Promis
         topicsStruggling: userAnalytics?.conceptsStruggling?.length || 0
       },
 
-      // Assignment metrics
-      assignments: {
-        total: assignmentStats.total,
-        pending: assignmentStats.pending,
-        analyzed: assignmentStats.analyzed,
-        attempted: assignmentStats.attempted,
-        submitted: assignmentStats.submitted,
-        graded: assignmentStats.graded,
-        completionRate: assignmentCompletionRate
-      },
-
-      // Solution performance
-      solutions: {
-        totalSolutions: solutionStats.totalSolutions,
-        averageAccuracy: solutionStats.averageAccuracy,
-        totalCorrect: solutionStats.totalCorrect,
-        averageAttempts: solutionStats.averageAttempts
-      },
-
       // Learning patterns
       learning: {
         topicsExplored: userAnalytics?.topicsExplored || [],
-        conceptsMastered: solutionStats.conceptsMastered || userAnalytics?.conceptsMastered || [],
-        conceptsToReview: solutionStats.conceptsToReview || userAnalytics?.conceptsStruggling || [],
+        conceptsMastered: userAnalytics?.conceptsMastered || [],
+        conceptsToReview: userAnalytics?.conceptsStruggling || [],
         peakLearningTime: userAnalytics?.peakLearningTime || 'No data',
         averageSessionDuration: userAnalytics?.averageSessionDuration || 0
       },
@@ -282,8 +252,7 @@ export const getDashboardAnalytics = async (req: Request, res: Response): Promis
       insights: {
         predictedNextChallenge: userAnalytics?.predictedNextChallenge,
         estimatedMasteryDate: userAnalytics?.estimatedMasteryDate,
-        recommendedFocusArea: userAnalytics?.recommendedFocusArea || 
-          (solutionStats.conceptsToReview?.[0] || 'Continue current learning path')
+        recommendedFocusArea: userAnalytics?.recommendedFocusArea || 'Continue current learning path'
       },
 
       // Recent activity

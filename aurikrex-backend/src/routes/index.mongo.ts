@@ -5,12 +5,10 @@ import analyticsRoutes from "./analyticsRoutes.mongo.js";
 import userRoutes from "./userRoutes.mongo.js";
 import testRoutes from "./testRoutes.js";
 import healthRoutes from "./healthRoutes.js";
-import assignmentRoutes from "./assignmentRoutes.js";
 import falkeaiAnalyticsRoutes from "./falkeaiAnalyticsRoutes.js";
 import bookRoutes from "./bookRoutes.js";
 import userLibraryRoutes from "./userLibraryRoutes.js";
 import fileRoutes from "./fileRoutes.js";
-import conversationRoutes from "./conversationRoutes.js";
 import dashboardRoutes from "./dashboardRoutes.js";
 
 const router = Router();
@@ -33,9 +31,6 @@ router.use("/test", testRoutes);
 // Health routes
 router.use("/health", healthRoutes);
 
-// Assignment routes (assignments and solutions)
-router.use("/assignments", assignmentRoutes);
-
 // FalkeAI Analytics routes (activity tracking and user analytics)
 router.use("/falkeai-analytics", falkeaiAnalyticsRoutes);
 
@@ -47,9 +42,6 @@ router.use("/user-library", userLibraryRoutes);
 
 // File routes (text extraction from images, PDFs, etc.)
 router.use("/files", fileRoutes);
-
-// Conversation routes (chat history with FalkeAI)
-router.use("/conversations", conversationRoutes);
 
 // Dashboard routes (comprehensive dashboard data)
 router.use("/dashboard", dashboardRoutes);

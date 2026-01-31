@@ -25,7 +25,6 @@ import { aiService, AIServiceError, AIErrorCode } from '../services/AIService.js
 import { AIChatRequest, EnhancedAIChatRequest, AIRequestType } from '../types/ai.types.js';
 import { FalkeAIActivityLogger } from '../services/FalkeAIActivityLogger.js';
 import { ResponseFormatterService } from '../services/ResponseFormatterService.js';
-import { ConversationModel, ChatMessageModel } from '../models/Conversation.model.js';
 
 /**
  * POST /api/ai/chat
@@ -60,7 +59,7 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<void
   
   try {
     // Request body is already validated by express-validator middleware
-    const { message, context, conversationId } = req.body as AIChatRequest & { conversationId?: string };
+    const { message, context } = req.body as AIChatRequest;
 
     // Log incoming request with detailed info for debugging
     log.info('📨 AI Chat Request received', {
@@ -70,7 +69,6 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<void
       username: context.username,
       page: context.page,
       course: context.course || 'N/A',
-      conversationId: conversationId || 'new',
       timestamp: requestTimestamp,
     });
 
@@ -84,60 +82,9 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    // STEP 1: Get or create conversation
-    let conversation;
-    let isNewConversation = false;
-    
-    if (conversationId) {
-      // Existing conversation
-      conversation = await ConversationModel.findById(conversationId);
-      if (!conversation) {
-        res.status(404).json({ status: 'error', message: 'Conversation not found' });
-        return;
-      }
-      // Authorization: verify conversation belongs to the requesting user
-      if (conversation.userId !== context.userId) {
-        res.status(403).json({ status: 'error', message: 'Not authorized to access this conversation' });
-        return;
-      }
-    } else {
-      // New conversation - create it
-      // Sanitize title: remove newlines, trim whitespace, limit length
-      const sanitizedTitle = message.replace(/[\r\n]+/g, ' ').trim();
-      conversation = await ConversationModel.create({
-        userId: context.userId,
-        title: sanitizedTitle.length > 50 ? sanitizedTitle.substring(0, 47) + '...' : sanitizedTitle,
-        topic: context.course || 'General',
-      });
-      isNewConversation = true;
-    }
-
-    // STEP 2: Fetch previous messages for context BEFORE saving current message
-    // This prevents duplication of the current message in history
-    let messagesForAI: Array<{ role: 'user' | 'assistant'; content: string }> = [];
-    
-    if (!isNewConversation) {
-      const previousMessages = await ChatMessageModel.getRecentMessages(
-        conversation._id.toString(),
-        10 // Get last 10 messages
-      );
-      messagesForAI = previousMessages.map(msg => ({
-        role: msg.role as 'user' | 'assistant',
-        content: msg.content
-      }));
-    }
-
-    // Add current message to the context
-    messagesForAI.push({
-      role: 'user',
-      content: message.trim()
-    });
-
-    log.info('🔄 Calling AI Service with conversation context', {
+    log.info('🔄 Calling AI Service', {
       openrouterConfigured: !!process.env.OPENROUTER_API_KEY,
       groqConfigured: !!process.env.GROQ_API_KEY,
-      conversationId: conversation._id.toString(),
-      historyMessageCount: messagesForAI.length,
     });
 
     // Build the request
@@ -151,32 +98,10 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<void
       },
     };
 
-    // STEP 3: Send to AI service with message history
-    const response = await aiService.sendChatMessage(chatRequest, messagesForAI);
+    // Send to AI service (no conversation history for now)
+    const response = await aiService.sendChatMessage(chatRequest);
 
-    // STEP 4: Save both user message and AI response after successful AI call
-    // This ensures we don't have orphaned messages if AI call fails
-    await ChatMessageModel.create({
-      conversationId: conversation._id.toString(),
-      userId: context.userId,
-      role: 'user',
-      content: message.trim(),
-    });
-
-    const aiMessage = await ChatMessageModel.create({
-      conversationId: conversation._id.toString(),
-      userId: context.userId,
-      role: 'assistant',
-      content: response.reply,
-      metadata: {
-        provider: response.provider,
-        model: response.model,
-        modelType: response.modelType,
-        processingTimeMs: Date.now() - startTime,
-      },
-    });
-
-    // STEP 5: Format the response using ResponseFormatterService
+    // Format the response using ResponseFormatterService
     const formatted = ResponseFormatterService.formatResponse(
       response.reply,
       'question' // Default to question type for general chat
@@ -197,20 +122,18 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<void
     log.info('✅ AI Response received successfully', {
       page: context.page,
       userId: context.userId,
-      conversationId: conversation._id.toString(),
       replyLength: response.reply.length,
       replyPreview: response.reply.substring(0, 100) + (response.reply.length > 100 ? '...' : ''),
       timestamp: response.timestamp,
       provider: response.provider,
       model: response.model,
       modelType: response.modelType,
+      processingTimeMs: Date.now() - startTime,
     });
 
-    // STEP 8: Return the response with conversation info and formatted content
+    // Return the response with formatted content
     res.status(200).json({
       ...response,
-      conversationId: conversation._id.toString(),
-      messageId: aiMessage._id?.toString(),
       reply: formatted.html, // Send formatted HTML
       plainText: formatted.plainText, // Optional: for fallback
       structure: formatted.structure, // Optional: for UI structure
