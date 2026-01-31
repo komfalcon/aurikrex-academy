@@ -10,6 +10,7 @@ import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import AuthCallback from './pages/AuthCallback';
+import Library from './pages/Library';
 
 // Protected Route Component
 interface ProtectedRouteProps {
@@ -38,6 +39,7 @@ function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
+      <Route path="/library" element={<Library />} />
       
       {/* Protected Routes */}
       <Route
