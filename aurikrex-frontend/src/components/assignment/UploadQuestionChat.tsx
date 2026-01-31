@@ -190,10 +190,23 @@ export function UploadQuestionChat({ onQuestionUploaded }: UploadQuestionChatPro
       if (fileInputRef.current) fileInputRef.current.value = '';
       
     } catch (error) {
+      // Log full error for debugging
+      console.error('Full error analyzing question:', error);
+      
+      // Extract detailed error message
+      let errorMsg = 'Failed to analyze question';
+      if (error instanceof Error) {
+        errorMsg = error.message;
+      } else if (typeof error === 'object' && error !== null) {
+        // Handle API error responses
+        const apiError = error as { response?: { data?: { message?: string; error?: string } }; message?: string };
+        errorMsg = apiError.response?.data?.message || apiError.response?.data?.error || apiError.message || errorMsg;
+      }
+      
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `Error: ${error instanceof Error ? error.message : 'Failed to analyze question'}`,
+        content: `Error: ${errorMsg}`,
         timestamp: new Date(),
         type: 'text',
       };

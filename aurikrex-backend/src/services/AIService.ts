@@ -928,18 +928,16 @@ class AIService {
     log.info(`📡 Calling OpenRouter ENHANCED with model: ${modelId}`);
 
     try {
+      // CRITICAL: Free tier models (Gemma, Llama) ignore system role messages.
+      // Embed the system prompt directly in the user message for identity to work.
       const response = await axios.post(
         this.openrouterBaseUrl,
         {
           model: modelId,
           messages: [
             {
-              role: 'system',
-              content: systemPrompt,
-            },
-            {
               role: 'user',
-              content: message,
+              content: `${systemPrompt}\n\n${message}`,
             },
           ],
           max_tokens: ENHANCED_MAX_TOKENS,
@@ -1029,18 +1027,16 @@ class AIService {
     log.info(`📡 Calling Groq ENHANCED with model: ${this.groqFallbackModel}`);
 
     try {
+      // CRITICAL: Free tier models may ignore system role messages.
+      // Embed the system prompt directly in the user message for identity to work.
       const response = await axios.post(
         this.groqBaseUrl,
         {
           model: this.groqFallbackModel,
           messages: [
             {
-              role: 'system',
-              content: systemPrompt,
-            },
-            {
               role: 'user',
-              content: message,
+              content: `${systemPrompt}\n\n${message}`,
             },
           ],
           max_tokens: ENHANCED_MAX_TOKENS,
