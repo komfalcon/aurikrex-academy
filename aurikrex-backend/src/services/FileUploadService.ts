@@ -103,11 +103,14 @@ class FileUploadService {
       .replace(/\.+/g, '.')
       .toLowerCase();
     
-    // In production, this would be the actual Cloudinary/S3 URL
-    // For now, we generate a placeholder URL
+    // PLACEHOLDER: This generates a local path URL for development.
+    // In production, replace this with actual cloud storage integration:
+    // - Cloudinary: cloudinary.v2.uploader.upload_stream(...)
+    // - AWS S3: s3.upload({ Bucket, Key, Body: file.buffer })
+    // - Azure Blob: blobServiceClient.getContainerClient(...).uploadData(file.buffer)
     const url = `/uploads/${folder}/${timestamp}-${sanitizedName}`;
 
-    log.info('📁 File prepared for upload', {
+    log.info('📁 File prepared for upload (placeholder URL - requires cloud storage integration)', {
       fileName: file.originalname,
       fileType,
       fileSize: file.size,

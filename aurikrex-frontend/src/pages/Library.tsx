@@ -7,7 +7,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { BookCard } from '@/components/library/BookCard';
 import { BookSearch, type BookFilters } from '@/components/library/BookSearch';
 import { Card } from '@/components/ui/card';
@@ -43,7 +42,6 @@ function EmptyLibrary({ message }: { message: string }) {
 }
 
 export function Library() {
-  const navigate = useNavigate();
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<BookCategory[]>([]);
@@ -128,12 +126,11 @@ export function Library() {
     setPage(1);
   };
 
-  // Handle book click
+  // Handle book click - book detail page can be implemented later
   const handleBookClick = (book: Book) => {
-    // Navigate to book detail page (if implemented)
-    // For now, just log the book
-    console.log('Selected book:', book);
-    // navigate(`/library/book/${book._id}`);
+    // TODO: Navigate to book detail page when implemented
+    // For now, log the book for debugging
+    console.log('Selected book:', book._id, book.title);
   };
 
   return (

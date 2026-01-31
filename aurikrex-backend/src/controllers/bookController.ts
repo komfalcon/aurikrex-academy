@@ -301,8 +301,11 @@ export const uploadBook = async (req: Request, res: Response): Promise<void> => 
     }
 
     // Generate cover
+    // NOTE: Currently passing empty buffer because files are uploaded via external URLs.
+    // When implementing direct file upload with multer, pass the actual file buffer here
+    // to enable PDF cover extraction: req.file.buffer
     const coverResult = await CoverGenerationService.generateCover(
-      Buffer.from(''), // In production, this would be the actual file buffer
+      Buffer.from(''), // TODO: Replace with req.file.buffer when implementing direct file upload
       fileType || 'pdf',
       title
     );

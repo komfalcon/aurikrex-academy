@@ -15,20 +15,22 @@ export interface CoverGenerationResult {
 class CoverGenerationService {
   /**
    * Extract cover from PDF (first page)
-   * Note: This requires pdf-parse or similar library
-   * For full implementation, consider using pdf-lib or pdfjs-dist
+   * 
+   * PLACEHOLDER: This function returns null as actual PDF-to-image extraction requires
+   * additional libraries like pdf-lib, pdfjs-dist, or sharp for rendering.
+   * 
+   * To implement:
+   * 1. Use pdfjs-dist to render the first page to a canvas
+   * 2. Convert canvas to image buffer
+   * 3. Upload to cloud storage and return URL
+   * 
+   * For now, the system falls back to generating placeholder covers.
    */
   async extractCoverFromPDF(_fileBuffer: Buffer): Promise<string | null> {
     try {
-      // Note: pdf-parse extracts text, not images
-      // For actual PDF-to-image conversion, you would need:
-      // - pdf-lib for PDF manipulation
-      // - pdfjs-dist for rendering
-      // - sharp for image processing
-      // - canvas for rendering
-      
-      // This is a placeholder - actual implementation depends on library choice
-      log.info('📄 PDF cover extraction attempted (placeholder)');
+      // TODO: Implement actual PDF cover extraction
+      // Requirements: pdfjs-dist, canvas, sharp
+      log.info('📄 PDF cover extraction not implemented - falling back to placeholder');
       return null;
     } catch (error) {
       log.error('❌ Failed to extract cover from PDF', { 
