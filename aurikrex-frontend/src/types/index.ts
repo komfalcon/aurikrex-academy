@@ -418,6 +418,10 @@ export interface ActivitySummary {
 
 export type BookDifficulty = 'beginner' | 'intermediate' | 'advanced';
 export type ReadingStatus = 'want-to-read' | 'reading' | 'completed';
+export type BookStatus = 'pending' | 'approved' | 'rejected';
+export type BookFileType = 'pdf' | 'epub' | 'doc' | 'docx' | 'ppt' | 'pptx' | 'txt' | 'png' | 'jpg';
+export type BookCategoryType = 'textbook' | 'reference' | 'notes' | 'slides' | 'research' | 'material' | 'other';
+export type CoverGenerationStatus = 'pending' | 'generated' | 'failed' | 'manual';
 
 export interface Book {
   _id: string;
@@ -436,8 +440,52 @@ export interface Book {
   relatedCourses: string[];
   concepts: string[];
   targetAudience: string;
+  // Upload workflow fields
+  uploadedBy?: string;
+  subject?: string;
+  bookCategory?: BookCategoryType;
+  fileName?: string;
+  fileType?: BookFileType;
+  coverGenerationStatus?: CoverGenerationStatus;
+  status?: BookStatus;
+  approvedBy?: string;
+  approvalDate?: string;
+  rejectionReason?: string;
+  views?: number;
+  downloads?: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface BookReview {
+  _id: string;
+  bookId: string;
+  userId: string;
+  rating: number;
+  reviewText?: string;
+  helpfulVotes: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BookCategory {
+  name: string;
+  icon: string;
+  color: string;
+  description?: string;
+  bookCount: number;
+}
+
+export interface BookUploadData {
+  title: string;
+  author?: string;
+  description?: string;
+  category?: BookCategoryType;
+  subject?: string;
+  fileUrl: string;
+  fileName?: string;
+  fileSize?: number;
+  fileType?: BookFileType;
 }
 
 export interface UserLibraryEntry {

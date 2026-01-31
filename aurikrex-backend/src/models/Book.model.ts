@@ -3,6 +3,10 @@ import { getDB } from '../config/mongodb.js';
 import { log } from '../utils/logger.js';
 
 export type BookDifficulty = 'beginner' | 'intermediate' | 'advanced';
+export type BookStatus = 'pending' | 'approved' | 'rejected';
+export type BookFileType = 'pdf' | 'epub' | 'doc' | 'docx' | 'ppt' | 'pptx' | 'txt' | 'png' | 'jpg';
+export type BookCategoryType = 'textbook' | 'reference' | 'notes' | 'slides' | 'research' | 'material' | 'other';
+export type CoverGenerationStatus = 'pending' | 'generated' | 'failed' | 'manual';
 
 export interface BookDocument {
   _id?: ObjectId;
@@ -24,6 +28,24 @@ export interface BookDocument {
   concepts: string[];
   targetAudience: string;
   
+  // Upload workflow fields
+  uploadedBy?: string;    // User ID who uploaded
+  subject?: string;       // Subject/topic
+  bookCategory?: BookCategoryType;  // Type of book content
+  fileName?: string;      // Original file name
+  fileType?: BookFileType;  // File extension type
+  coverGenerationStatus?: CoverGenerationStatus;
+  
+  // Approval workflow
+  status?: BookStatus;
+  approvedBy?: string;
+  approvalDate?: Date;
+  rejectionReason?: string;
+  
+  // Analytics
+  views?: number;
+  downloads?: number;
+  
   createdAt: Date;
   updatedAt: Date;
 }
@@ -34,8 +56,11 @@ export interface BookListOptions {
   category?: string;
   difficulty?: BookDifficulty;
   search?: string;
-  sortBy?: 'title' | 'rating' | 'newest' | 'popular';
+  sortBy?: 'title' | 'rating' | 'newest' | 'popular' | 'downloads';
   sortOrder?: 'asc' | 'desc';
+  status?: BookStatus;  // Filter by approval status
+  subject?: string;     // Filter by subject
+  uploadedBy?: string;  // Filter by uploader
 }
 
 export class BookModel {
@@ -48,7 +73,7 @@ export class BookModel {
   /**
    * Create a new book
    */
-  static async create(bookData: Omit<BookDocument, '_id' | 'createdAt' | 'updatedAt' | 'rating' | 'reviewCount'>): Promise<BookDocument> {
+  static async create(bookData: Omit<BookDocument, '_id' | 'createdAt' | 'updatedAt' | 'rating' | 'reviewCount' | 'views' | 'downloads'>): Promise<BookDocument> {
     try {
       const collection = this.getCollection();
       const now = new Date();
@@ -57,6 +82,9 @@ export class BookModel {
         ...bookData,
         rating: 0,
         reviewCount: 0,
+        views: 0,
+        downloads: 0,
+        status: bookData.status || 'pending',
         createdAt: now,
         updatedAt: now,
       };
@@ -124,6 +152,22 @@ export class BookModel {
         filter.difficulty = options.difficulty;
       }
 
+      // Status filter (approval status)
+      if (options.status) {
+        filter.status = options.status;
+      }
+
+      // Subject filter
+      if (options.subject) {
+        const subjectRegex = new RegExp(options.subject, 'i');
+        filter.subject = { $regex: subjectRegex };
+      }
+
+      // Uploaded by filter
+      if (options.uploadedBy) {
+        filter.uploadedBy = options.uploadedBy;
+      }
+
       // Search by title or author
       if (options.search) {
         const searchRegex = new RegExp(options.search, 'i');
@@ -152,6 +196,9 @@ export class BookModel {
             break;
           case 'popular':
             sort = { reviewCount: order };
+            break;
+          case 'downloads':
+            sort = { downloads: order };
             break;
         }
       }
@@ -301,6 +348,140 @@ export class BookModel {
   }
 
   /**
+   * Increment view count
+   */
+  static async incrementViews(bookId: string | ObjectId): Promise<BookDocument | null> {
+    try {
+      const collection = this.getCollection();
+      const _id = typeof bookId === 'string' ? new ObjectId(bookId) : bookId;
+
+      const result = await collection.findOneAndUpdate(
+        { _id },
+        { $inc: { views: 1 } },
+        { returnDocument: 'after' }
+      );
+
+      return result || null;
+    } catch (error) {
+      log.error('❌ Error incrementing views', { 
+        error: error instanceof Error ? error.message : String(error),
+        bookId 
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Increment download count
+   */
+  static async incrementDownloads(bookId: string | ObjectId): Promise<BookDocument | null> {
+    try {
+      const collection = this.getCollection();
+      const _id = typeof bookId === 'string' ? new ObjectId(bookId) : bookId;
+
+      const result = await collection.findOneAndUpdate(
+        { _id },
+        { $inc: { downloads: 1 } },
+        { returnDocument: 'after' }
+      );
+
+      if (result) {
+        log.info('✅ Download count incremented', { bookId: _id.toString() });
+      }
+
+      return result || null;
+    } catch (error) {
+      log.error('❌ Error incrementing downloads', { 
+        error: error instanceof Error ? error.message : String(error),
+        bookId 
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Approve a book
+   */
+  static async approve(bookId: string | ObjectId, approvedBy: string): Promise<BookDocument | null> {
+    try {
+      const collection = this.getCollection();
+      const _id = typeof bookId === 'string' ? new ObjectId(bookId) : bookId;
+
+      const result = await collection.findOneAndUpdate(
+        { _id },
+        {
+          $set: {
+            status: 'approved',
+            approvedBy,
+            approvalDate: new Date(),
+            updatedAt: new Date()
+          }
+        },
+        { returnDocument: 'after' }
+      );
+
+      if (result) {
+        log.info('✅ Book approved', { bookId: _id.toString(), approvedBy });
+      }
+
+      return result || null;
+    } catch (error) {
+      log.error('❌ Error approving book', { 
+        error: error instanceof Error ? error.message : String(error),
+        bookId 
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Reject a book
+   */
+  static async reject(bookId: string | ObjectId, rejectedBy: string, reason?: string): Promise<BookDocument | null> {
+    try {
+      const collection = this.getCollection();
+      const _id = typeof bookId === 'string' ? new ObjectId(bookId) : bookId;
+
+      const result = await collection.findOneAndUpdate(
+        { _id },
+        {
+          $set: {
+            status: 'rejected',
+            approvedBy: rejectedBy,
+            rejectionReason: reason || 'Content does not meet guidelines',
+            updatedAt: new Date()
+          }
+        },
+        { returnDocument: 'after' }
+      );
+
+      if (result) {
+        log.info('✅ Book rejected', { bookId: _id.toString(), rejectedBy, reason });
+      }
+
+      return result || null;
+    } catch (error) {
+      log.error('❌ Error rejecting book', { 
+        error: error instanceof Error ? error.message : String(error),
+        bookId 
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Get pending books for approval
+   */
+  static async getPendingBooks(options: { page?: number; limit?: number } = {}): Promise<{ books: BookDocument[]; total: number; page: number; limit: number }> {
+    return this.list({
+      ...options,
+      status: 'pending',
+      sortBy: 'newest',
+      sortOrder: 'desc'
+    });
+  }
+
+  /**
    * Create indexes for optimal performance
    */
   static async createIndexes(): Promise<void> {
@@ -314,6 +495,10 @@ export class BookModel {
         collection.createIndex({ rating: -1 }),
         collection.createIndex({ createdAt: -1 }),
         collection.createIndex({ reviewCount: -1 }),
+        collection.createIndex({ status: 1 }),
+        collection.createIndex({ uploadedBy: 1 }),
+        collection.createIndex({ downloads: -1 }),
+        collection.createIndex({ views: -1 }),
       ]);
 
       log.info('✅ Book indexes created successfully');

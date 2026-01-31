@@ -9,6 +9,14 @@ import {
   createBook,
   updateBook,
   deleteBook,
+  uploadBook,
+  downloadBook,
+  addReview,
+  getBookReviews,
+  getPendingBooks,
+  approveBook,
+  rejectBook,
+  getCategoriesFormatted,
 } from '../controllers/bookController.js';
 import { validateRequest } from '../middleware/validation.middleware.js';
 import { authenticate, authorize } from '../middleware/auth.middleware.js';
@@ -56,6 +64,30 @@ router.get(
  * @access  Public
  */
 router.get('/categories', getCategories);
+
+/**
+ * @route   GET /api/books/categories/all
+ * @desc    Get all book categories with icons and colors
+ * @access  Public
+ */
+router.get('/categories/all', getCategoriesFormatted);
+
+/**
+ * @route   GET /api/books/admin/pending
+ * @desc    Get pending books for approval
+ * @access  Private (admin only)
+ */
+router.get(
+  '/admin/pending',
+  authenticate,
+  authorize('admin'),
+  [
+    query('page').optional().isInt({ min: 1 }),
+    query('limit').optional().isInt({ min: 1, max: 100 }),
+  ],
+  validateRequest,
+  getPendingBooks
+);
 
 /**
  * @route   GET /api/books/category/:category
@@ -155,6 +187,110 @@ router.delete(
   ],
   validateRequest,
   deleteBook
+);
+
+/**
+ * @route   POST /api/books/upload
+ * @desc    Upload a book (student uploads)
+ * @access  Private (authenticated)
+ */
+router.post(
+  '/upload',
+  authenticate,
+  [
+    body('title').trim().notEmpty().withMessage('Title is required'),
+    body('author').optional().trim(),
+    body('description').optional().trim(),
+    body('category').optional().isIn(['textbook', 'reference', 'notes', 'slides', 'research', 'material', 'other']),
+    body('subject').optional().trim(),
+    body('fileUrl').notEmpty().withMessage('File URL is required'),
+    body('fileName').optional().trim(),
+    body('fileSize').optional().isFloat({ min: 0 }),
+    body('fileType').optional().isIn(['pdf', 'epub', 'doc', 'docx', 'ppt', 'pptx', 'txt', 'png', 'jpg']),
+  ],
+  validateRequest,
+  uploadBook
+);
+
+/**
+ * @route   POST /api/books/:id/download
+ * @desc    Track book download
+ * @access  Private (authenticated)
+ */
+router.post(
+  '/:id/download',
+  authenticate,
+  [
+    param('id').isMongoId().withMessage('Invalid book ID'),
+  ],
+  validateRequest,
+  downloadBook
+);
+
+/**
+ * @route   POST /api/books/:id/review
+ * @desc    Add a review to a book
+ * @access  Private (authenticated)
+ */
+router.post(
+  '/:id/review',
+  authenticate,
+  [
+    param('id').isMongoId().withMessage('Invalid book ID'),
+    body('rating').isInt({ min: 1, max: 5 }).withMessage('Rating must be between 1 and 5'),
+    body('reviewText').optional().trim(),
+  ],
+  validateRequest,
+  addReview
+);
+
+/**
+ * @route   GET /api/books/:id/reviews
+ * @desc    Get reviews for a book
+ * @access  Public
+ */
+router.get(
+  '/:id/reviews',
+  [
+    param('id').isMongoId().withMessage('Invalid book ID'),
+    query('page').optional().isInt({ min: 1 }),
+    query('limit').optional().isInt({ min: 1, max: 50 }),
+  ],
+  validateRequest,
+  getBookReviews
+);
+
+/**
+ * @route   PUT /api/books/admin/:id/approve
+ * @desc    Approve a book
+ * @access  Private (admin only)
+ */
+router.put(
+  '/admin/:id/approve',
+  authenticate,
+  authorize('admin'),
+  [
+    param('id').isMongoId().withMessage('Invalid book ID'),
+  ],
+  validateRequest,
+  approveBook
+);
+
+/**
+ * @route   PUT /api/books/admin/:id/reject
+ * @desc    Reject a book
+ * @access  Private (admin only)
+ */
+router.put(
+  '/admin/:id/reject',
+  authenticate,
+  authorize('admin'),
+  [
+    param('id').isMongoId().withMessage('Invalid book ID'),
+    body('reason').optional().trim(),
+  ],
+  validateRequest,
+  rejectBook
 );
 
 export default router;

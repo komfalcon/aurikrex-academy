@@ -11,6 +11,8 @@ import type {
   ReadingStats,
   BookDifficulty,
   ReadingStatus,
+  BookReview,
+  BookCategory,
 } from '@/types';
 
 // ============================================
@@ -340,4 +342,168 @@ export const removeFromLibrary = async (bookId: string): Promise<void> => {
   if (!response.ok) {
     throw new ApiError('Failed to remove book', { status: response.status });
   }
+};
+
+// ============================================
+// Book Upload & Review API
+// ============================================
+
+/**
+ * Upload a new book
+ */
+export const uploadBook = async (data: {
+  title: string;
+  author?: string;
+  description?: string;
+  category?: string;
+  subject?: string;
+  fileUrl: string;
+  fileName?: string;
+  fileSize?: number;
+  fileType?: string;
+}): Promise<{ id: string; title: string; status: string; coverImageUrl: string }> => {
+  const response = await apiRequest('/books/upload', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new ApiError(errorData.message || 'Failed to upload book', { status: response.status });
+  }
+  
+  const result = await response.json();
+  return result.data;
+};
+
+/**
+ * Download a book (tracks download count)
+ */
+export const downloadBook = async (bookId: string): Promise<{ downloadUrl: string; fileName: string }> => {
+  const response = await apiRequest(`/books/${bookId}/download`, {
+    method: 'POST',
+  });
+  
+  if (!response.ok) {
+    throw new ApiError('Failed to download book', { status: response.status });
+  }
+  
+  const result = await response.json();
+  return result.data;
+};
+
+/**
+ * Add a review to a book
+ */
+export const addBookReview = async (
+  bookId: string,
+  data: { rating: number; reviewText?: string }
+): Promise<BookReview> => {
+  const response = await apiRequest(`/books/${bookId}/review`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  
+  if (!response.ok) {
+    throw new ApiError('Failed to add review', { status: response.status });
+  }
+  
+  const result = await response.json();
+  return result.data;
+};
+
+/**
+ * Get reviews for a book
+ */
+export const getBookReviews = async (
+  bookId: string,
+  page: number = 1,
+  limit: number = 10
+): Promise<{ reviews: BookReview[]; pagination: { page: number; limit: number; total: number; totalPages: number } }> => {
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+  });
+  
+  const response = await apiRequest(`/books/${bookId}/reviews?${params}`);
+  
+  if (!response.ok) {
+    throw new ApiError('Failed to fetch reviews', { status: response.status });
+  }
+  
+  const result = await response.json();
+  return result.data;
+};
+
+/**
+ * Get all categories with formatting
+ */
+export const getCategoriesFormatted = async (): Promise<BookCategory[]> => {
+  const response = await apiRequest('/books/categories/all');
+  
+  if (!response.ok) {
+    throw new ApiError('Failed to fetch categories', { status: response.status });
+  }
+  
+  const result = await response.json();
+  return result.data;
+};
+
+// ============================================
+// Admin API
+// ============================================
+
+/**
+ * Get pending books for approval (admin only)
+ */
+export const getPendingBooks = async (
+  page: number = 1,
+  limit: number = 20
+): Promise<{ count: number; books: Book[]; pagination: { page: number; limit: number; total: number; totalPages: number } }> => {
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+  });
+  
+  const response = await apiRequest(`/books/admin/pending?${params}`);
+  
+  if (!response.ok) {
+    throw new ApiError('Failed to fetch pending books', { status: response.status });
+  }
+  
+  const result = await response.json();
+  return result.data;
+};
+
+/**
+ * Approve a book (admin only)
+ */
+export const approveBook = async (bookId: string): Promise<Book> => {
+  const response = await apiRequest(`/books/admin/${bookId}/approve`, {
+    method: 'PUT',
+  });
+  
+  if (!response.ok) {
+    throw new ApiError('Failed to approve book', { status: response.status });
+  }
+  
+  const result = await response.json();
+  return result.data;
+};
+
+/**
+ * Reject a book (admin only)
+ */
+export const rejectBook = async (bookId: string, reason?: string): Promise<Book> => {
+  const response = await apiRequest(`/books/admin/${bookId}/reject`, {
+    method: 'PUT',
+    body: JSON.stringify({ reason }),
+  });
+  
+  if (!response.ok) {
+    throw new ApiError('Failed to reject book', { status: response.status });
+  }
+  
+  const result = await response.json();
+  return result.data;
 };
