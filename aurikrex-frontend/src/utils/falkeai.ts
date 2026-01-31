@@ -7,7 +7,7 @@
  * For React components, consider using the useFalkeAI hook instead.
  * 
  * Used by:
- * - Smart Lessons (chat + file context later)
+ * - Study Partner (chat + file context later)
  * - Assignment (typed submission help)
  * - Ask FalkeAI (full chat UI)
  * - Future dashboard widgets

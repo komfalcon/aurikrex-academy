@@ -309,7 +309,7 @@ function Hero() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
             >
-              Aurikrex Academy fuses AI intelligence with human curiosity — empowering students,
+              Aurikrex fuses AI intelligence with human curiosity — empowering students,
               teachers, and dreamers to learn, create, and evolve.
             </motion.p>
 
@@ -485,7 +485,7 @@ function About() {
           transition={{ duration: 0.6 }}
           className="max-w-3xl mx-auto text-center mb-16"
         >
-          <h2 className="text-3xl lg:text-5xl font-bold mb-6">About Aurikrex Academy</h2>
+          <h2 className="text-3xl lg:text-5xl font-bold mb-6">About Aurikrex</h2>
           <p className="text-lg text-muted-foreground leading-relaxed">
             To revolutionize learning through AI — we believe education should be adaptive,
             accessible, and inspiring. Our mission is to empower every learner with intelligent
@@ -825,7 +825,7 @@ function Roadmap() {
           className="max-w-3xl mx-auto text-center mb-16"
         >
           <h2 className="text-3xl lg:text-5xl font-bold mb-6">
-            Aurikrex Academy Innovation Roadmap (Phase 1–5)
+            Aurikrex Innovation Roadmap (Phase 1–5)
           </h2>
           <p className="text-lg text-muted-foreground">
             Our journey to transform global education — built in public.
@@ -967,7 +967,7 @@ function Testimonials() {
       name: "Sarah Chen",
       role: "High School Teacher",
       quote:
-        "Aurikrex Academy has transformed my classroom. I can now spend more time engaging with students instead of grading papers. The AI insights are incredibly helpful!",
+        "Aurikrex has transformed my classroom. I can now spend more time engaging with students instead of grading papers. The AI insights are incredibly helpful!",
       avatar: "SC",
     },
     {

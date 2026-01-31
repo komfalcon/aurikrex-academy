@@ -87,7 +87,7 @@ export default function Sidebar({ activePanel, setActivePanel }: SidebarProps) {
               <h2 className="font-bold text-lg bg-gradient-primary bg-clip-text text-transparent">
                 Aurikrex
               </h2>
-              <p className="text-xs text-muted-foreground">Academy</p>
+              <p className="text-xs text-muted-foreground">Your AI Learning Companion</p>
             </div>
           </div>
         </div>

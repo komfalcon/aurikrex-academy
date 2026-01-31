@@ -1,5 +1,5 @@
 /**
- * Comprehensive World Languages List for Aurikrex Academy
+ * Comprehensive World Languages List for Aurikrex
  * 
  * This list includes:
  * - Major global languages
