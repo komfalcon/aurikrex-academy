@@ -215,22 +215,36 @@ export function ChatHistorySidebar({
       setLoading(true);
       setError(null);
       
+      console.log('Loading conversations...');
       const response = await apiRequest('/conversations?limit=50');
+      console.log('Response status:', response.status);
       
       if (!response.ok) {
-        throw new Error('Failed to load conversations');
+        throw new Error(`HTTP ${response.status}: Failed to load conversations`);
       }
 
       const data = await response.json();
+      console.log('Conversations response data:', data);
+      
+      // Handle different response formats:
       // Backend returns { status, data: [conversations], total }
-      // data.data is already the array, not an object with 'conversations' property
-      const conversations = Array.isArray(data.data) ? data.data : 
-                           (data.data?.conversations || data.conversations || []);
+      // But also handle { conversations: [] } or just [] for flexibility
+      const conversations: Conversation[] = Array.isArray(data) 
+        ? data 
+        : Array.isArray(data.data) 
+          ? data.data 
+          : data.data?.conversations && Array.isArray(data.data.conversations)
+            ? data.data.conversations
+            : Array.isArray(data.conversations)
+              ? data.conversations
+              : [];
+      
+      console.log('Parsed conversations count:', conversations.length);
       setConversations(conversations);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      console.error('Failed to load conversations:', message);
-      setError(`Failed to load conversations${message !== 'Failed to load conversations' ? `: ${message}` : ''}`);
+      console.error('Full error loading conversations:', err);
+      setError(`Failed to load conversations: ${message}`);
       setConversations([]);  // Clear on error
     } finally {
       setLoading(false);

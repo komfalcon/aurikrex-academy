@@ -277,10 +277,23 @@ export function UploadSolutionChat({ questionId, onSolutionVerified }: UploadSol
       if (fileInputRef.current) fileInputRef.current.value = '';
       
     } catch (error) {
+      // Log full error for debugging
+      console.error('Full error verifying solution:', error);
+      
+      // Extract detailed error message
+      let errorMsg = 'Failed to verify solution';
+      if (error instanceof Error) {
+        errorMsg = error.message;
+      } else if (typeof error === 'object' && error !== null) {
+        // Handle API error responses
+        const errorObject = error as { response?: { data?: { message?: string; error?: string } }; message?: string };
+        errorMsg = errorObject.response?.data?.message || errorObject.response?.data?.error || errorObject.message || errorMsg;
+      }
+      
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `Error: ${error instanceof Error ? error.message : 'Failed to verify solution'}`,
+        content: `Error: ${errorMsg}`,
         timestamp: new Date(),
         type: 'text',
       };
