@@ -117,46 +117,6 @@ function useTheme() {
 }
 
 // ============================================================================
-// MOCK DATA (Replace with real backend)
-// ============================================================================
-
-const mockData = {
-  user: {
-    name: "Alex Johnson",
-    avatar: "",
-    streak: 12,
-    level: 8,
-  },
-  stats: [
-    { title: "Lessons Completed", value: 24, total: 36, icon: BookOpen, color: "text-blue-500", bgColor: "bg-blue-500/10" },
-    { title: "Assignments Done", value: 15, total: 20, icon: ClipboardCheck, color: "text-orange-500", bgColor: "bg-orange-500/10" },
-    { title: "AI Accuracy", value: 92, total: 100, icon: Brain, color: "text-purple-500", bgColor: "bg-purple-500/10", suffix: "%" },
-    { title: "Overall Progress", value: 78, total: 100, icon: TrendingUp, color: "text-green-500", bgColor: "bg-green-500/10", suffix: "%" },
-  ],
-  subjects: [
-    { name: "Mathematics", progress: 75, color: "bg-blue-500", lessons: 12 },
-    { name: "Physics", progress: 60, color: "bg-purple-500", lessons: 8 },
-    { name: "Chemistry", progress: 85, color: "bg-green-500", lessons: 15 },
-    { name: "Biology", progress: 45, color: "bg-orange-500", lessons: 6 },
-  ],
-  assignments: [
-    { id: 1, title: "Calculus Problem Set", subject: "Mathematics", dueDate: "Tomorrow", status: "pending" },
-    { id: 2, title: "Newton's Laws Essay", subject: "Physics", dueDate: "3 days", status: "in-progress" },
-    { id: 3, title: "Periodic Table Quiz", subject: "Chemistry", dueDate: "1 week", status: "not-started" },
-  ],
-  aiInsights: [
-    { id: 1, type: "strength", text: "You excel at geometry problems", icon: Award },
-    { id: 2, type: "improvement", text: "Focus more on organic chemistry concepts", icon: Target },
-    { id: 3, type: "suggestion", text: "Try the new quantum physics module", icon: Lightbulb },
-  ],
-  notifications: [
-    { id: 1, text: "New lesson available: Trigonometry Basics", time: "5 min ago", unread: true },
-    { id: 2, text: "Assignment due: Calculus Problem Set", time: "1 hour ago", unread: true },
-    { id: 3, text: "Achievement unlocked: 7-day streak!", time: "Yesterday", unread: false },
-  ],
-};
-
-// ============================================================================
 // SIDEBAR COMPONENT
 // ============================================================================
 
@@ -331,15 +291,17 @@ interface HeaderProps {
   onToggleSidebar: () => void;
   isSidebarCollapsed: boolean;
   onToggleMobileSidebar: () => void;
+  currentStreak?: number;
 }
 
-function Header({ onToggleSidebar, isSidebarCollapsed, onToggleMobileSidebar }: HeaderProps) {
+function Header({ onToggleSidebar, isSidebarCollapsed, onToggleMobileSidebar, currentStreak = 0 }: HeaderProps) {
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const isMobile = useIsMobile();
   const [showNotifications, setShowNotifications] = useState(false);
   const shouldReduceMotion = useReducedMotion();
   const [isScrolled, setIsScrolled] = useState(false);
+  const [notifications, setNotifications] = useState<Array<{ id: number; text: string; time: string; unread: boolean }>>([]);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 10);
@@ -347,7 +309,14 @@ function Header({ onToggleSidebar, isSidebarCollapsed, onToggleMobileSidebar }: 
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const unreadCount = mockData.notifications.filter(n => n.unread).length;
+  // Fetch real notifications from backend (empty for now, will be populated when notifications feature is implemented)
+  useEffect(() => {
+    // Notifications feature will be populated from backend when implemented
+    // For now, show empty state
+    setNotifications([]);
+  }, []);
+
+  const unreadCount = notifications.filter(n => n.unread).length;
 
   return (
     <motion.header
@@ -389,7 +358,7 @@ function Header({ onToggleSidebar, isSidebarCollapsed, onToggleMobileSidebar }: 
           {/* Streak Badge */}
           <Badge variant="outline" className="hidden md:flex items-center gap-1 px-3 py-1">
             <Zap className="w-3 h-3 text-orange-500" aria-hidden="true" />
-            <span className="font-semibold">{mockData.user.streak} day streak</span>
+            <span className="font-semibold">{currentStreak > 0 ? `${currentStreak} day streak` : 'Start your streak!'}</span>
           </Badge>
 
           {/* Theme Toggle */}
@@ -438,17 +407,25 @@ function Header({ onToggleSidebar, isSidebarCollapsed, onToggleMobileSidebar }: 
                     <h3 className="font-semibold">Notifications</h3>
                   </div>
                   <div className="max-h-96 overflow-y-auto">
-                    {mockData.notifications.map(notif => (
-                      <div
-                        key={notif.id}
-                        className={`p-4 border-b border-border hover:bg-secondary/50 transition-colors cursor-pointer ${
-                          notif.unread ? "bg-primary/5" : ""
-                        }`}
-                      >
-                        <p className="text-sm font-medium">{notif.text}</p>
-                        <p className="text-xs text-muted-foreground mt-1">{notif.time}</p>
+                    {notifications.length === 0 ? (
+                      <div className="p-6 text-center">
+                        <Bell className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">No notifications yet</p>
+                        <p className="text-xs text-muted-foreground mt-1">Start learning to receive updates</p>
                       </div>
-                    ))}
+                    ) : (
+                      notifications.map(notif => (
+                        <div
+                          key={notif.id}
+                          className={`p-4 border-b border-border hover:bg-secondary/50 transition-colors cursor-pointer ${
+                            notif.unread ? "bg-primary/5" : ""
+                          }`}
+                        >
+                          <p className="text-sm font-medium">{notif.text}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{notif.time}</p>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </motion.div>
               )}
@@ -457,8 +434,8 @@ function Header({ onToggleSidebar, isSidebarCollapsed, onToggleMobileSidebar }: 
 
           {/* User Avatar with Profile Dropdown */}
           <ProfileDropdown 
-            userName={user?.displayName || user?.firstName || mockData.user.name}
-            userAvatar={user?.photoURL || mockData.user.avatar}
+            userName={user?.displayName || user?.firstName || 'Student'}
+            userAvatar={user?.photoURL || ''}
           />
         </div>
       </div>
@@ -485,6 +462,10 @@ function DashboardPanel({ onLaunchFalkeAI }: DashboardPanelProps) {
     assignments: { total: number; pending: number; graded: number };
     solutions: { averageAccuracy: number; totalCorrect: number };
     activities: { totalQuestions: number };
+    streak: number;
+    learningHours: number;
+    level: number;
+    growthScore: number;
   } | null>(null);
   const [recentAssignments, setRecentAssignments] = useState<Array<{
     _id: string;
@@ -494,52 +475,64 @@ function DashboardPanel({ onLaunchFalkeAI }: DashboardPanelProps) {
     createdAt: string;
   }>>([]);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   
   // Get firstName from authenticated user or fallback
   const displayName = user?.firstName || user?.displayName || 'Student';
 
   // Fetch real statistics from backend
-  useEffect(() => {
-    const fetchRealStats = async () => {
-      if (!user?.uid) {
-        setIsLoadingStats(false);
-        return;
+  const fetchRealStats = useCallback(async () => {
+    if (!user?.uid) {
+      setIsLoadingStats(false);
+      return;
+    }
+    
+    try {
+      const [assignmentStatsRes, analyticsRes, assignmentsRes, overviewRes] = await Promise.all([
+        apiRequest('/assignments/stats').catch(() => null),
+        apiRequest('/falkeai-analytics/summary').catch(() => null),
+        apiRequest('/assignments?limit=3&sortBy=createdAt&sortOrder=desc').catch(() => null),
+        apiRequest('/dashboard/overview').catch(() => null),
+      ]);
+
+      const assignmentStats = assignmentStatsRes?.ok ? await assignmentStatsRes.json() : null;
+      const analytics = analyticsRes?.ok ? await analyticsRes.json() : null;
+      const assignments = assignmentsRes?.ok ? await assignmentsRes.json() : null;
+      const overview = overviewRes?.ok ? await overviewRes.json() : null;
+
+      setRealStats({
+        assignments: assignmentStats?.data || { total: 0, pending: 0, graded: 0 },
+        solutions: { 
+          averageAccuracy: analytics?.data?.averageResponseQuality || 0,
+          totalCorrect: analytics?.data?.topicsMastered || 0
+        },
+        activities: { totalQuestions: analytics?.data?.totalQuestions || 0 },
+        streak: overview?.data?.currentStreak || 0,
+        learningHours: overview?.data?.totalLearningHours || 0,
+        level: Math.floor((overview?.data?.totalQuestions || 0) / 10) + 1, // Level up every 10 questions
+        growthScore: analytics?.data?.growthScore || overview?.data?.growthScore || 0,
+      });
+
+      if (assignments?.data?.assignments) {
+        setRecentAssignments(assignments.data.assignments);
       }
       
-      try {
-        const [assignmentStatsRes, analyticsRes, assignmentsRes] = await Promise.all([
-          apiRequest('/assignments/stats').catch(() => null),
-          apiRequest('/falkeai-analytics/summary').catch(() => null),
-          apiRequest('/assignments?limit=3&sortBy=createdAt&sortOrder=desc').catch(() => null),
-        ]);
-
-        const assignmentStats = assignmentStatsRes?.ok ? await assignmentStatsRes.json() : null;
-        const analytics = analyticsRes?.ok ? await analyticsRes.json() : null;
-        const assignments = assignmentsRes?.ok ? await assignmentsRes.json() : null;
-
-        if (assignmentStats?.data || analytics?.data) {
-          setRealStats({
-            assignments: assignmentStats?.data || { total: 0, pending: 0, graded: 0 },
-            solutions: { 
-              averageAccuracy: analytics?.data?.averageResponseQuality || 0,
-              totalCorrect: analytics?.data?.topicsMastered || 0
-            },
-            activities: { totalQuestions: analytics?.data?.totalQuestions || 0 }
-          });
-        }
-
-        if (assignments?.data?.assignments) {
-          setRecentAssignments(assignments.data.assignments);
-        }
-      } catch (error) {
-        console.error('Failed to fetch real stats:', error);
-      } finally {
-        setIsLoadingStats(false);
-      }
-    };
-
-    fetchRealStats();
+      setLastUpdated(new Date());
+    } catch (error) {
+      console.error('Failed to fetch real stats:', error);
+    } finally {
+      setIsLoadingStats(false);
+    }
   }, [user?.uid]);
+
+  // Initial fetch and polling
+  useEffect(() => {
+    fetchRealStats();
+    
+    // Poll for updates every 30 seconds
+    const interval = setInterval(fetchRealStats, 30000);
+    return () => clearInterval(interval);
+  }, [fetchRealStats]);
 
   // Use real data if available, otherwise show zeros for new users
   const userProgress: UserProgress = {
@@ -548,7 +541,7 @@ function DashboardPanel({ onLaunchFalkeAI }: DashboardPanelProps) {
     assignmentsCompleted: realStats?.assignments.graded || 0,
     totalAssignments: realStats?.assignments.total || 0,
     averageScore: realStats?.solutions.averageAccuracy || 0,
-    streak: 0, // Would need separate tracking
+    streak: realStats?.streak || 0,
     subjects: [], // Would need course enrollment data
   };
 
@@ -560,9 +553,9 @@ function DashboardPanel({ onLaunchFalkeAI }: DashboardPanelProps) {
     totalAssignments: userProgress.totalAssignments,
     overallProgress: realStats?.assignments.total ? 
       Math.round((realStats.assignments.graded / realStats.assignments.total) * 100) : 0,
-    streak: 0, // Would need separate tracking
-    level: 1, // Would need level calculation
-    totalHours: Math.round((realStats?.activities.totalQuestions || 0) * 0.5), // Estimate based on activities
+    streak: realStats?.streak || 0,
+    level: realStats?.level || 1,
+    totalHours: realStats?.learningHours || 0,
   };
 
   // Fetch AI insights on mount
@@ -766,33 +759,19 @@ function DashboardPanel({ onLaunchFalkeAI }: DashboardPanelProps) {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {mockData.subjects.map((subject, index) => (
-                    <motion.div
-                      key={subject.name}
-                      initial={shouldReduceMotion ? {} : { opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, delay: 0.6 + index * 0.1 }}
-                      className="p-4 rounded-xl bg-secondary/30 hover:bg-secondary/50 transition-colors"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-3 h-3 rounded-full ${subject.color}`} />
-                          <span className="text-sm font-medium">{subject.name}</span>
-                        </div>
-                        <span className="text-sm font-semibold">{subject.progress}%</span>
-                      </div>
-                      <div className="relative h-2 bg-secondary rounded-full overflow-hidden">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${subject.progress}%` }}
-                          transition={{ duration: 1, delay: 0.8 + index * 0.1, ease: "easeOut" }}
-                          className={`absolute top-0 left-0 h-full ${subject.color}`}
-                        />
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-2">{subject.lessons} lessons</p>
-                    </motion.div>
-                  ))}
+                {/* Empty state - subjects will be populated when courses are enrolled */}
+                <div className="text-center py-8">
+                  <Target className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-sm font-medium text-muted-foreground">No subjects yet</p>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                    Start using FalkeAI to track your learning progress across different subjects.
+                  </p>
+                  <button 
+                    onClick={onLaunchFalkeAI}
+                    className="mt-4 px-4 py-2 text-sm bg-primary/10 text-primary rounded-xl hover:bg-primary/20 transition-colors"
+                  >
+                    Start Learning
+                  </button>
                 </div>
               </CardContent>
             </Card>
@@ -1325,709 +1304,6 @@ function LessonsPanel() {
         </motion.div>
       </div>
       </div>{/* End of Main Content Area */}
-    </motion.div>
-  );
-}
-
-function AssignmentsPanel() {
-  const [assignmentText, setAssignmentText] = useState("");
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [selectedAssignment, setSelectedAssignment] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const shouldReduceMotion = useReducedMotion();
-
-  const ACCEPTED_FILE_TYPES = ".txt,.pdf,.docx,.doc,.png,.jpg,.jpeg,.ppt,.pptx,.xlsx,.xls";
-
-  const mockAssignments = [
-    { id: '1', title: 'Calculus Problem Set', subject: 'Mathematics', dueDate: 'Tomorrow', status: 'pending' },
-    { id: '2', title: 'Newton\'s Laws Lab Report', subject: 'Physics', dueDate: '3 days', status: 'in-progress' },
-    { id: '3', title: 'Periodic Table Quiz', subject: 'Chemistry', dueDate: '1 week', status: 'not-started' },
-  ];
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      const validFiles = Array.from(files).filter(file => {
-        const ext = file.name.split('.').pop()?.toLowerCase();
-        return ['txt', 'pdf', 'docx', 'doc', 'png', 'jpg', 'jpeg', 'ppt', 'pptx', 'xlsx', 'xls'].includes(ext || '');
-      });
-      setUploadedFiles(prev => [...prev, ...validFiles]);
-    }
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const removeFile = (index: number) => {
-    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const getFileIcon = (fileName: string) => {
-    const ext = fileName.split('.').pop()?.toLowerCase();
-    if (['png', 'jpg', 'jpeg'].includes(ext || '')) return '🖼️';
-    if (['pdf'].includes(ext || '')) return '📄';
-    if (['docx', 'doc'].includes(ext || '')) return '📝';
-    if (['ppt', 'pptx'].includes(ext || '')) return '📊';
-    if (['xlsx', 'xls'].includes(ext || '')) return '📈';
-    return '📎';
-  };
-
-  const handleSubmit = async () => {
-    if (!assignmentText.trim() && uploadedFiles.length === 0) return;
-    
-    setIsSubmitting(true);
-    setSubmitStatus('idle');
-
-    // Simulate submission (placeholder for backend integration)
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setSubmitStatus('success');
-      // Reset after showing success
-      setTimeout(() => {
-        setAssignmentText("");
-        setUploadedFiles([]);
-        setSubmitStatus('idle');
-        setSelectedAssignment(null);
-      }, 3000);
-    }, 2000);
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-6"
-    >
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
-            Assignments
-          </h1>
-          <p className="text-muted-foreground">Submit assignments and get AI-powered feedback</p>
-        </div>
-        <Badge className="w-fit flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500/20 to-primary/20 border border-orange-500/30">
-          <ClipboardCheck className="w-4 h-4 text-orange-500" />
-          <span>{mockAssignments.length} Active Assignments</span>
-        </Badge>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Assignment List */}
-        <div className="lg:col-span-1 space-y-4">
-          <Card className="border-border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Clock className="w-5 h-5 text-orange-500" />
-                Pending Assignments
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {mockAssignments.map((assignment) => {
-                const statusColors = {
-                  'pending': 'border-l-orange-500 bg-orange-500/5',
-                  'in-progress': 'border-l-blue-500 bg-blue-500/5',
-                  'not-started': 'border-l-gray-500 bg-gray-500/5',
-                };
-                const isSelected = selectedAssignment === assignment.id;
-                
-                return (
-                  <motion.div
-                    key={assignment.id}
-                    whileHover={!shouldReduceMotion ? { x: 4 } : {}}
-                    onClick={() => setSelectedAssignment(assignment.id)}
-                    className={`p-4 rounded-xl border-l-4 cursor-pointer transition-all ${statusColors[assignment.status as keyof typeof statusColors]} ${isSelected ? 'ring-2 ring-primary' : ''}`}
-                  >
-                    <h4 className="font-semibold text-sm mb-1">{assignment.title}</h4>
-                    <p className="text-xs text-muted-foreground">{assignment.subject}</p>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="text-xs text-muted-foreground">Due: {assignment.dueDate}</span>
-                      <Badge variant="outline" className="text-xs capitalize">{assignment.status.replace('-', ' ')}</Badge>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Right: Submission Area */}
-        <div className="lg:col-span-2">
-          <Card className="border-border h-full">
-            <CardHeader className="border-b border-border">
-              <CardTitle className="text-xl flex items-center gap-2">
-                <Upload className="w-5 h-5 text-primary" />
-                Submit Assignment
-                {selectedAssignment && (
-                  <Badge className="ml-2 bg-primary/20 text-primary">
-                    {mockAssignments.find(a => a.id === selectedAssignment)?.title}
-                  </Badge>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6 space-y-6">
-              {/* Text Input Area */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium flex items-center gap-2">
-                  <FileText className="w-4 h-4" />
-                  Write Your Answer
-                </label>
-                <textarea
-                  value={assignmentText}
-                  onChange={(e) => setAssignmentText(e.target.value)}
-                  placeholder="Type your assignment response here. You can include explanations, solutions, or any text content..."
-                  className="w-full min-h-[200px] p-4 rounded-xl bg-secondary/30 border border-border focus:outline-none focus:ring-2 focus:ring-primary resize-y text-sm"
-                  aria-label="Assignment text input"
-                />
-                <p className="text-xs text-muted-foreground text-right">
-                  {assignmentText.length} characters
-                </p>
-              </div>
-
-              {/* File Upload Area */}
-              <div className="space-y-3">
-                <label className="text-sm font-medium flex items-center gap-2">
-                  <Upload className="w-4 h-4" />
-                  Upload Files
-                </label>
-                
-                {/* Drop Zone */}
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all"
-                >
-                  <Upload className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-sm font-medium">Click to upload files</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Supports: .txt, .pdf, .docx, .png, .jpg, .ppt, .xlsx
-                  </p>
-                </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept={ACCEPTED_FILE_TYPES}
-                  multiple
-                  className="hidden"
-                  onChange={handleFileUpload}
-                  aria-label="Upload assignment files"
-                />
-
-                {/* Uploaded Files Preview */}
-                {uploadedFiles.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">Uploaded files ({uploadedFiles.length}):</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {uploadedFiles.map((file, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg border border-border">
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <span className="text-lg">{getFileIcon(file.name)}</span>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium truncate">{file.name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {(file.size / 1024).toFixed(1)} KB
-                              </p>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => removeFile(index)}
-                            className="p-1 text-muted-foreground hover:text-destructive transition-colors"
-                            aria-label={`Remove ${file.name}`}
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Status Feedback */}
-              {submitStatus !== 'idle' && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`p-4 rounded-xl flex items-center gap-3 ${
-                    submitStatus === 'success' 
-                      ? 'bg-green-500/10 border border-green-500/30 text-green-600' 
-                      : 'bg-destructive/10 border border-destructive/30 text-destructive'
-                  }`}
-                >
-                  {submitStatus === 'success' ? (
-                    <>
-                      <CheckCircle className="w-5 h-5" />
-                      <div>
-                        <p className="font-medium">Assignment Submitted Successfully!</p>
-                        <p className="text-sm opacity-80">FalkeAI will analyze your work and provide feedback shortly.</p>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <AlertCircle className="w-5 h-5" />
-                      <div>
-                        <p className="font-medium">Submission Failed</p>
-                        <p className="text-sm opacity-80">Please try again or contact support.</p>
-                      </div>
-                    </>
-                  )}
-                </motion.div>
-              )}
-
-              {/* Submit Button */}
-              <div className="flex items-center justify-between pt-4 border-t border-border">
-                <p className="text-xs text-muted-foreground">
-                  {assignmentText.trim() || uploadedFiles.length > 0 
-                    ? `Ready to submit: ${assignmentText.trim() ? '1 text response' : ''}${assignmentText.trim() && uploadedFiles.length > 0 ? ' + ' : ''}${uploadedFiles.length > 0 ? `${uploadedFiles.length} file(s)` : ''}`
-                    : 'Add text or files to submit'}
-                </p>
-                <button
-                  onClick={handleSubmit}
-                  disabled={isSubmitting || (!assignmentText.trim() && uploadedFiles.length === 0)}
-                  className="px-6 py-3 rounded-xl bg-gradient-primary text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-glow transition-all flex items-center gap-2"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Submitting...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4" />
-                      Submit Assignment
-                    </>
-                  )}
-                </button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* AI Review Info */}
-      <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5">
-        <CardContent className="p-6">
-          <div className="flex items-start gap-4">
-            <div className="p-3 rounded-xl bg-primary/10">
-              <Brain className="w-6 h-6 text-primary" />
-            </div>
-            <div>
-              <h4 className="font-semibold mb-1">AI-Powered Review</h4>
-              <p className="text-sm text-muted-foreground">
-                After submission, FalkeAI will analyze your work and provide detailed feedback including:
-              </p>
-              <div className="flex flex-wrap gap-2 mt-3">
-                <Badge variant="outline">Accuracy Check</Badge>
-                <Badge variant="outline">Improvement Tips</Badge>
-                <Badge variant="outline">Score Prediction</Badge>
-                <Badge variant="outline">Similar Examples</Badge>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </motion.div>
-  );
-}
-
-function AnalyticsPanel() {
-  const [dateRange, setDateRange] = useState("7d");
-  const [lessonType, setLessonType] = useState("all");
-  const [userGroup, setUserGroup] = useState("personal");
-  const shouldReduceMotion = useReducedMotion();
-
-  // Mock analytics data
-  const learningProgressData = [
-    { day: 'Mon', lessons: 4, time: 45, score: 85 },
-    { day: 'Tue', lessons: 3, time: 30, score: 78 },
-    { day: 'Wed', lessons: 5, time: 60, score: 92 },
-    { day: 'Thu', lessons: 2, time: 25, score: 70 },
-    { day: 'Fri', lessons: 6, time: 75, score: 88 },
-    { day: 'Sat', lessons: 4, time: 50, score: 95 },
-    { day: 'Sun', lessons: 3, time: 35, score: 82 },
-  ];
-
-  const subjectDistribution = [
-    { name: 'Mathematics', value: 35, color: '#3B82F6' },
-    { name: 'Physics', value: 25, color: '#8B5CF6' },
-    { name: 'Chemistry', value: 20, color: '#10B981' },
-    { name: 'Biology', value: 20, color: '#F59E0B' },
-  ];
-
-  const engagementData = [
-    { week: 'W1', views: 120, interactions: 45, completions: 30 },
-    { week: 'W2', views: 150, interactions: 60, completions: 42 },
-    { week: 'W3', views: 180, interactions: 75, completions: 55 },
-    { week: 'W4', views: 200, interactions: 90, completions: 68 },
-  ];
-
-  const assignmentStats = [
-    { status: 'Completed', count: 15, color: '#10B981' },
-    { status: 'In Progress', count: 5, color: '#3B82F6' },
-    { status: 'Pending', count: 3, color: '#F59E0B' },
-    { status: 'Overdue', count: 1, color: '#EF4444' },
-  ];
-
-  const kpiCards = [
-    { title: 'Total Learning Time', value: '42h 30m', change: '+12%', trend: 'up', icon: Clock, color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
-    { title: 'Lessons Completed', value: '24', change: '+8%', trend: 'up', icon: BookOpen, color: 'text-green-500', bgColor: 'bg-green-500/10' },
-    { title: 'Average Score', value: '87%', change: '+5%', trend: 'up', icon: Target, color: 'text-purple-500', bgColor: 'bg-purple-500/10' },
-    { title: 'Active Streak', value: '12 days', change: '+3', trend: 'up', icon: Zap, color: 'text-orange-500', bgColor: 'bg-orange-500/10' },
-  ];
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-6"
-    >
-      {/* Header with Filters */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
-            FalkeAI Analytics
-          </h1>
-          <p className="text-muted-foreground">Deep insights into your learning patterns and progress</p>
-        </div>
-        
-        {/* Filters */}
-        <div className="flex flex-wrap gap-3">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-muted-foreground" />
-            <Select value={dateRange} onValueChange={setDateRange}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Date Range" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7d">Last 7 days</SelectItem>
-                <SelectItem value="30d">Last 30 days</SelectItem>
-                <SelectItem value="90d">Last 90 days</SelectItem>
-                <SelectItem value="1y">Last year</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <BookOpen className="w-4 h-4 text-muted-foreground" />
-            <Select value={lessonType} onValueChange={setLessonType}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Lesson Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Lessons</SelectItem>
-                <SelectItem value="math">Mathematics</SelectItem>
-                <SelectItem value="physics">Physics</SelectItem>
-                <SelectItem value="chemistry">Chemistry</SelectItem>
-                <SelectItem value="biology">Biology</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-muted-foreground" />
-            <Select value={userGroup} onValueChange={setUserGroup}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="User Group" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="personal">Personal</SelectItem>
-                <SelectItem value="class">My Class</SelectItem>
-                <SelectItem value="school">My School</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </div>
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {kpiCards.map((kpi, index) => {
-          const Icon = kpi.icon;
-          return (
-            <motion.div
-              key={kpi.title}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: index * 0.1 }}
-              whileHover={!shouldReduceMotion ? { scale: 1.02, y: -4 } : {}}
-            >
-              <Card className="border-border bg-card/50 backdrop-blur-sm hover:shadow-lg transition-all">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground font-medium">{kpi.title}</p>
-                      <h3 className="text-3xl font-bold mt-2">{kpi.value}</h3>
-                      <div className="flex items-center gap-1 mt-2">
-                        {kpi.trend === 'up' ? (
-                          <TrendingUp className="w-4 h-4 text-green-500" />
-                        ) : (
-                          <TrendingDown className="w-4 h-4 text-red-500" />
-                        )}
-                        <span className={`text-sm font-medium ${kpi.trend === 'up' ? 'text-green-500' : 'text-red-500'}`}>
-                          {kpi.change}
-                        </span>
-                        <span className="text-xs text-muted-foreground">vs last period</span>
-                      </div>
-                    </div>
-                    <div className={`p-3 rounded-xl ${kpi.bgColor}`}>
-                      <Icon className={`w-6 h-6 ${kpi.color}`} />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          );
-        })}
-      </div>
-
-      {/* Charts Row 1 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Learning Progress Chart */}
-        <Card className="border-border bg-card/50 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Activity className="w-5 h-5 text-primary" />
-              Learning Activity
-            </CardTitle>
-            <CardDescription>Daily lessons, time spent, and scores</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
-              <AreaChart data={learningProgressData}>
-                <defs>
-                  <linearGradient id="colorLessons" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="day" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                <RechartsTooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(var(--card))', 
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px'
-                  }}
-                />
-                <Area type="monotone" dataKey="lessons" stroke="#3B82F6" fillOpacity={1} fill="url(#colorLessons)" name="Lessons" />
-                <Area type="monotone" dataKey="score" stroke="#10B981" fillOpacity={1} fill="url(#colorScore)" name="Score %" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Subject Distribution */}
-        <Card className="border-border bg-card/50 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Target className="w-5 h-5 text-primary" />
-              Subject Distribution
-            </CardTitle>
-            <CardDescription>Time spent by subject</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-center">
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie
-                    data={subjectDistribution}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {subjectDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <RechartsTooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--card))', 
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px'
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="grid grid-cols-2 gap-2 mt-4">
-              {subjectDistribution.map((subject) => (
-                <div key={subject.name} className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: subject.color }} />
-                  <span className="text-sm">{subject.name}</span>
-                  <span className="text-sm text-muted-foreground ml-auto">{subject.value}%</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Charts Row 2 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Engagement Metrics */}
-        <Card className="border-border bg-card/50 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Eye className="w-5 h-5 text-primary" />
-              Engagement Metrics
-            </CardTitle>
-            <CardDescription>Views, interactions, and completions over time</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={engagementData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="week" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                <RechartsTooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(var(--card))', 
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px'
-                  }}
-                />
-                <Bar dataKey="views" fill="#3B82F6" radius={[4, 4, 0, 0]} name="Views" />
-                <Bar dataKey="interactions" fill="#8B5CF6" radius={[4, 4, 0, 0]} name="Interactions" />
-                <Bar dataKey="completions" fill="#10B981" radius={[4, 4, 0, 0]} name="Completions" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Assignment Stats */}
-        <Card className="border-border bg-card/50 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <ClipboardCheck className="w-5 h-5 text-primary" />
-              Assignment Statistics
-            </CardTitle>
-            <CardDescription>Current assignment status breakdown</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {assignmentStats.map((stat, index) => (
-                <motion.div
-                  key={stat.status}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.1 }}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: stat.color }} />
-                      <span className="text-sm font-medium">{stat.status}</span>
-                    </div>
-                    <span className="text-sm text-muted-foreground">{stat.count} assignments</span>
-                  </div>
-                  <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${(stat.count / 24) * 100}%` }}
-                      transition={{ duration: 1, delay: 0.5 + index * 0.1 }}
-                      className="h-full rounded-full"
-                      style={{ backgroundColor: stat.color }}
-                    />
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-            <div className="mt-6 p-4 rounded-xl bg-secondary/50">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Total Assignments</span>
-                <span className="text-2xl font-bold">{assignmentStats.reduce((a, b) => a + b.count, 0)}</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* AI Insights - Powered by FalkeAI */}
-      <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Brain className="w-5 h-5 text-primary" />
-                FalkeAI Learning Insights
-                <Badge className="ml-2 bg-green-500/20 text-green-600 border-green-500/30 text-xs">
-                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5 animate-pulse" />
-                  Live
-                </Badge>
-              </CardTitle>
-              <CardDescription>Personalized recommendations based on your analytics data</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <motion.div 
-              initial={shouldReduceMotion ? {} : { opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="p-4 rounded-xl bg-background/50 border border-green-500/20 hover:border-green-500/40 transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <Award className="w-5 h-5 text-green-500" />
-                <span className="font-medium text-green-500">Strength</span>
-              </div>
-              <p className="text-sm">Your performance in Mathematics is excellent! Consider tackling advanced calculus topics.</p>
-              <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-                <Sparkles className="w-3 h-3" /> AI confidence: 92%
-              </p>
-            </motion.div>
-            <motion.div 
-              initial={shouldReduceMotion ? {} : { opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="p-4 rounded-xl bg-background/50 border border-orange-500/20 hover:border-orange-500/40 transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <Target className="w-5 h-5 text-orange-500" />
-                <span className="font-medium text-orange-500">Focus Area</span>
-              </div>
-              <p className="text-sm">Chemistry scores could improve. Try the organic chemistry review module this week.</p>
-              <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-                <Sparkles className="w-3 h-3" /> Priority: High
-              </p>
-            </motion.div>
-            <motion.div 
-              initial={shouldReduceMotion ? {} : { opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="p-4 rounded-xl bg-background/50 border border-blue-500/20 hover:border-blue-500/40 transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <Lightbulb className="w-5 h-5 text-blue-500" />
-                <span className="font-medium text-blue-500">Recommendation</span>
-              </div>
-              <p className="text-sm">Based on your learning style, try video-based lessons for better retention.</p>
-              <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-                <Sparkles className="w-3 h-3" /> Personalized for you
-              </p>
-            </motion.div>
-          </div>
-          
-          {/* AI Status Bar */}
-          <div className="mt-4 p-3 rounded-xl bg-primary/5 border border-primary/20">
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground flex items-center gap-2">
-                <Brain className="w-4 h-4 text-primary" />
-                FalkeAI analyzes your performance data to provide personalized insights
-              </p>
-              <Badge variant="outline" className="text-xs">
-                Updated just now
-              </Badge>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </motion.div>
   );
 }
@@ -2778,10 +2054,35 @@ function FalkeAIPanel() {
 // ============================================================================
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const [activePanel, setActivePanel] = useState("dashboard");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [currentStreak, setCurrentStreak] = useState(0);
   const shouldReduceMotion = useReducedMotion();
+
+  // Fetch real streak data from backend
+  useEffect(() => {
+    const fetchStreak = async () => {
+      if (!user?.uid) return;
+      
+      try {
+        const response = await apiRequest('/dashboard/overview');
+        if (response.ok) {
+          const data = await response.json();
+          setCurrentStreak(data.data?.currentStreak || 0);
+        }
+      } catch (error) {
+        console.error('Failed to fetch streak:', error);
+      }
+    };
+
+    fetchStreak();
+    
+    // Refresh streak every 60 seconds
+    const interval = setInterval(fetchStreak, 60000);
+    return () => clearInterval(interval);
+  }, [user?.uid]);
 
   // Handler to navigate to FalkeAI chat panel
   const handleLaunchFalkeAI = useCallback(() => {
@@ -2825,6 +2126,7 @@ export default function Dashboard() {
           onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
           isSidebarCollapsed={isSidebarCollapsed}
           onToggleMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+          currentStreak={currentStreak}
         />
         
         <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
