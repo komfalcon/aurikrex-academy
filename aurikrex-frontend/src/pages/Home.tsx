@@ -1250,17 +1250,17 @@ function Footer() {
             <a
               href="#home"
               className="flex items-center gap-2 mb-4 group focus:outline-none focus:ring-2 focus:ring-primary rounded-xl"
-              aria-label="Aurikrex Academy Home"
+              aria-label="Aurikrex Home"
             >
               <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
                 <Sparkles className="w-6 h-6 text-white" aria-hidden="true" />
               </div>
               <span className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                Aurikrex Academy
+                Aurikrex
               </span>
             </a>
             <p className="text-sm text-muted-foreground mb-6 max-w-xs">
-              Revolutionizing education through AI — empowering learners and educators worldwide.
+              Your AI-powered learning platform with personalized lessons and an intelligent library.
             </p>
 
             {/* Social Links */}
@@ -1302,8 +1302,11 @@ function Footer() {
 
         {/* Bottom Bar */}
         <div className="pt-8 border-t border-border text-center">
+          <p className="text-sm text-muted-foreground mb-2">
+            © {currentYear} Aurikrex — All rights reserved.
+          </p>
           <p className="text-sm text-muted-foreground">
-            © {currentYear} Aurikrex Academy — All rights reserved.
+            Founded by <strong>Korede Omotosho</strong> | Powered by FalkeAI
           </p>
         </div>
       </div>
