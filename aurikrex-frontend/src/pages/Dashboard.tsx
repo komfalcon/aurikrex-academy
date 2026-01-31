@@ -509,7 +509,9 @@ function DashboardPanel({ onLaunchFalkeAI }: DashboardPanelProps) {
         activities: { totalQuestions: analytics?.data?.totalQuestions || 0 },
         streak: overview?.data?.currentStreak || 0,
         learningHours: overview?.data?.totalLearningHours || 0,
-        level: Math.floor((overview?.data?.totalQuestions || 0) / 10) + 1, // Level up every 10 questions
+        // Level calculation: 1 level per 10 questions asked
+        // TODO: Consider moving this to backend or a config file for easier adjustment
+        level: Math.floor((overview?.data?.totalQuestions || 0) / 10) + 1,
         growthScore: analytics?.data?.growthScore || overview?.data?.growthScore || 0,
       });
 
@@ -529,8 +531,8 @@ function DashboardPanel({ onLaunchFalkeAI }: DashboardPanelProps) {
   useEffect(() => {
     fetchRealStats();
     
-    // Poll for updates every 30 seconds
-    const interval = setInterval(fetchRealStats, 30000);
+    // Poll for updates every 2 minutes (120 seconds) - learning stats don't change frequently
+    const interval = setInterval(fetchRealStats, 120000);
     return () => clearInterval(interval);
   }, [fetchRealStats]);
 
@@ -2079,8 +2081,8 @@ export default function Dashboard() {
 
     fetchStreak();
     
-    // Refresh streak every 60 seconds
-    const interval = setInterval(fetchStreak, 60000);
+    // Refresh streak every 5 minutes (300 seconds) - streak typically changes once per day
+    const interval = setInterval(fetchStreak, 300000);
     return () => clearInterval(interval);
   }, [user?.uid]);
 
