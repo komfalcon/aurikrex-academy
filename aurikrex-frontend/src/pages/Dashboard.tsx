@@ -73,10 +73,8 @@ import { DashboardSkeleton, AIThinkingIndicator } from "@/components/dashboard/L
 import type { FalkeAIChatPage } from "@/types";
 import { apiRequest } from "@/utils/api";
 // Import real data panels
-import AssignmentsPanelReal from "@/components/dashboard/AssignmentsPanelReal";
 import AnalyticsPanelReal from "@/components/dashboard/AnalyticsPanelReal";
 import LibraryPanel from "@/components/dashboard/LibraryPanel";
-import { ChatHistorySidebar } from "@/components/dashboard/ChatHistorySidebar";
 import {
   AreaChart,
   Area,
@@ -180,7 +178,6 @@ function Sidebar({ activePanel, setActivePanel, isCollapsed, setIsCollapsed, isM
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "lessons", label: "Smart Lessons", icon: BookOpen },
-    { id: "assignments", label: "Assignments", icon: ClipboardCheck },
     { id: "library", label: "Library", icon: Library },
     { id: "analytics", label: "AI Analytics", icon: BarChart3 },
     { id: "settings", label: "Settings", icon: Settings },
@@ -1096,16 +1093,6 @@ function LessonsPanel() {
       animate={{ opacity: 1, y: 0 }}
       className="h-[calc(100vh-120px)] flex gap-4"
     >
-      {/* ChatHistorySidebar - Conversation History */}
-      <ChatHistorySidebar
-        key={refreshKey}
-        selectedConversationId={selectedConversationId}
-        onSelectConversation={handleSelectConversation}
-        onNewConversation={handleNewConversation}
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-      />
-      
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header Section */}
@@ -1117,13 +1104,6 @@ function LessonsPanel() {
             <p className="text-muted-foreground">AI-powered lessons tailored to your learning style</p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-2 rounded-lg hover:bg-secondary/50 transition-colors lg:hidden"
-              aria-label="Toggle sidebar"
-            >
-              <MessageSquare className="w-5 h-5" />
-            </button>
             <Badge className="w-fit flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary/20 to-accent/20 border border-primary/30">
               <Brain className="w-4 h-4 text-primary" />
               <span>Powered by FalkeAI</span>
@@ -2651,16 +2631,6 @@ function FalkeAIPanel() {
       animate={{ opacity: 1, y: 0 }}
       className="h-[calc(100vh-120px)] flex gap-4"
     >
-      {/* ChatHistorySidebar - Conversation History */}
-      <ChatHistorySidebar
-        key={refreshKey}
-        selectedConversationId={selectedConversationId}
-        onSelectConversation={handleSelectConversation}
-        onNewConversation={handleNewConversation}
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-      />
-      
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
@@ -2851,9 +2821,6 @@ export default function Dashboard() {
         return <DashboardPanel onLaunchFalkeAI={handleLaunchFalkeAI} />;
       case "lessons":
         return <LessonsPanel />;
-      case "assignments":
-        // Use real assignments panel with backend data
-        return <AssignmentsPanelReal />;
       case "library":
         // Library panel for book reading
         return <LibraryPanel />;
