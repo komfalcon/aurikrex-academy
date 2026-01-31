@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* === Aurikrex Academy Design System === */
+/* === Aurikrex Design System === */
 @layer base {
   :root {
     --background: 0 0% 100%;

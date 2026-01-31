@@ -24,7 +24,7 @@ export interface AuthContextType {
 /**
  * Valid page values for the FalkeAI chat context
  */
-export type FalkeAIChatPage = 'Smart Lessons' | 'Assignment' | 'Dashboard' | 'Ask FalkeAI';
+export type FalkeAIChatPage = 'Study Partner' | 'Assignment' | 'Dashboard' | 'Ask FalkeAI';
 
 /**
  * Context information for the FalkeAI chat request

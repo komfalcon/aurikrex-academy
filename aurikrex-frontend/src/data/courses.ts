@@ -1,5 +1,5 @@
 /**
- * Comprehensive Courses List for Aurikrex Academy
+ * Comprehensive Courses List for Aurikrex
  * 
  * This list includes:
  * - Primary and Secondary School subjects

@@ -1,7 +1,7 @@
 /**
  * Profile Page Component
  * 
- * A comprehensive profile page for Aurikrex Academy users.
+ * A comprehensive profile page for Aurikrex users.
  * 
  * DATA SOURCE DOCUMENTATION:
  * ===========================

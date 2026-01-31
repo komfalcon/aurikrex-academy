@@ -1,5 +1,5 @@
 /**
- * Comprehensive Digital Skills Taxonomy for Aurikrex Academy
+ * Comprehensive Digital Skills Taxonomy for Aurikrex
  * 
  * This list includes:
  * - Software development (all stacks)

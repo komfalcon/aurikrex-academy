@@ -1,6 +1,6 @@
 /*
  * ============================================================================
- * AURIKREX ACADEMY DASHBOARD — PRODUCTION-READY, INVESTOR-GRADE
+ * AURIKREX DASHBOARD — PRODUCTION-READY, INVESTOR-GRADE
  * ============================================================================
  * 
  * Features:
@@ -177,7 +177,7 @@ function Sidebar({ activePanel, setActivePanel, isCollapsed, setIsCollapsed, isM
 
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { id: "lessons", label: "Smart Lessons", icon: BookOpen },
+    { id: "lessons", label: "Study Partner", icon: Brain },
     { id: "library", label: "Library", icon: Library },
     { id: "analytics", label: "AI Analytics", icon: BarChart3 },
     { id: "settings", label: "Settings", icon: Settings },
@@ -186,11 +186,6 @@ function Sidebar({ activePanel, setActivePanel, isCollapsed, setIsCollapsed, isM
   const handleLogout = () => {
     logout();
     navigate("/");
-  };
-
-  const handleNavigateToFalkeAI = () => {
-    setActivePanel("falkeai");
-    if (isMobile) setIsMobileOpen(false);
   };
 
   const handleNavigation = useCallback((itemId: string) => {
@@ -261,7 +256,7 @@ function Sidebar({ activePanel, setActivePanel, isCollapsed, setIsCollapsed, isM
                   <h2 className="font-bold text-lg bg-gradient-primary bg-clip-text text-transparent whitespace-nowrap">
                     Aurikrex
                   </h2>
-                  <p className="text-xs text-muted-foreground whitespace-nowrap">Academy</p>
+                  <p className="text-xs text-muted-foreground whitespace-nowrap">Your AI Learning Companion</p>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -310,28 +305,6 @@ function Sidebar({ activePanel, setActivePanel, isCollapsed, setIsCollapsed, isM
             );
           })}
         </nav>
-
-        {/* FalkeAI Quick Access */}
-        <div className="p-4 border-t border-border">
-          <motion.div
-            whileHover={!shouldReduceMotion ? { scale: 1.02 } : {}}
-            className="p-4 rounded-2xl bg-gradient-primary/10 border border-primary/20 hover:border-primary/40 transition-colors duration-200"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <Brain className="w-5 h-5 text-primary" aria-hidden="true" />
-              {!isCollapsed && <span className="font-semibold text-sm">FalkeAI Tutor</span>}
-            </div>
-            {!isCollapsed && (
-              <p className="text-xs text-muted-foreground mb-3">Get instant help from AI</p>
-            )}
-            <button 
-              onClick={handleNavigateToFalkeAI}
-              className="w-full px-3 py-2 bg-gradient-primary text-white rounded-2xl text-sm font-medium hover:shadow-glow hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm"
-            >
-              {isCollapsed ? <Sparkles className="w-4 h-4 mx-auto" /> : "Ask FalkeAI"}
-            </button>
-          </motion.div>
-        </div>
 
         {/* Logout */}
         <div className="p-4 border-t border-border">
@@ -893,14 +866,14 @@ function FalkeAITutorCard({ onLaunchFalkeAI }: FalkeAITutorCardProps) {
 
         <CardContent className="relative z-10 space-y-4">
           <p className="text-muted-foreground">
-            Ask questions, get instant explanations, generate smart lessons, and receive AI-powered assignment reviews.
+            Ask questions, get instant explanations, generate personalized lessons, and receive AI-powered assignment reviews.
           </p>
 
           {/* Feature Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
             {[
               { icon: MessageSquare, title: "Instant Answers", desc: "Get explanations in seconds" },
-              { icon: Lightbulb, title: "Smart Lessons", desc: "AI-generated study materials" },
+              { icon: Lightbulb, title: "Study Partner", desc: "AI-generated study materials" },
               { icon: CheckCircle, title: "Assignment Review", desc: "Detailed feedback & tips" },
             ].map((feature, index) => (
               <motion.div
@@ -1039,7 +1012,7 @@ function LessonsPanel() {
 
     try {
       // Call FalkeAI API through the backend with conversation context
-      const page: FalkeAIChatPage = 'Smart Lessons';
+      const page: FalkeAIChatPage = 'Study Partner';
       const response = await sendMessage(
         messageContent,
         page,
@@ -1099,7 +1072,7 @@ function LessonsPanel() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
-              Smart Lessons
+              Study Partner
             </h1>
             <p className="text-muted-foreground">AI-powered lessons tailored to your learning style</p>
           </div>
@@ -1116,7 +1089,7 @@ function LessonsPanel() {
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <Lightbulb className="w-5 h-5 text-primary" />
-              How to Use Smart Lessons
+              How to Use Study Partner
             </CardTitle>
           </CardHeader>
           <CardContent>
