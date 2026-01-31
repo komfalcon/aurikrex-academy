@@ -221,6 +221,12 @@ export const getDashboardAnalytics = async (req: Request, res: Response): Promis
       FalkeAIActivityModel.getActivities(userId, { limit: 10 })
     ]);
 
+    // Calculate assignment stats from activity data
+    const assignmentUploadCount = userAnalytics?.activitiesByType?.assignment_upload || 0;
+    const assignmentAnalysisCount = userAnalytics?.activitiesByType?.assignment_analysis || 0;
+    const solutionUploadCount = userAnalytics?.activitiesByType?.solution_upload || 0;
+    const solutionVerificationCount = userAnalytics?.activitiesByType?.solution_verification || 0;
+
     // Build comprehensive dashboard data
     const dashboardData = {
       // Overview KPIs
@@ -229,6 +235,29 @@ export const getDashboardAnalytics = async (req: Request, res: Response): Promis
         averageResponseQuality: userAnalytics?.averageResponseQuality || 0,
         topicsMastered: userAnalytics?.conceptsMastered?.length || 0,
         topicsStruggling: userAnalytics?.conceptsStruggling?.length || 0
+      },
+
+      // Assignment stats
+      assignments: {
+        total: assignmentUploadCount + assignmentAnalysisCount,
+        pending: Math.max(0, assignmentUploadCount - assignmentAnalysisCount),
+        analyzed: assignmentAnalysisCount,
+        attempted: solutionUploadCount,
+        submitted: solutionVerificationCount,
+        graded: solutionVerificationCount,
+        completionRate: assignmentUploadCount > 0 
+          ? Math.round((solutionVerificationCount / assignmentUploadCount) * 100) 
+          : 0
+      },
+
+      // Solution stats
+      solutions: {
+        totalSolutions: solutionUploadCount,
+        averageAccuracy: userAnalytics?.averageSolutionAccuracy || 0,
+        totalCorrect: Math.round((userAnalytics?.averageSolutionAccuracy || 0) * solutionUploadCount / 100),
+        averageAttempts: solutionUploadCount > 0 ? 1 : 0,
+        conceptsMastered: userAnalytics?.conceptsMastered || [],
+        conceptsToReview: userAnalytics?.conceptsStruggling || []
       },
 
       // Learning patterns
