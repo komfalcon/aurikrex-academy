@@ -55,6 +55,7 @@ import {
   TrendingDown,
   Library,
 } from "lucide-react";
+import DOMPurify from "dompurify";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -1233,7 +1234,14 @@ function LessonsPanel() {
                         {msg.role === 'user' ? 'You' : 'FalkeAI'} • {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
-                    <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+                    {msg.role === 'user' ? (
+                      <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+                    ) : (
+                      <div 
+                        className="whitespace-pre-wrap text-sm prose prose-sm dark:prose-invert max-w-none"
+                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(msg.content) }}
+                      />
+                    )}
                   </div>
                 </motion.div>
               ))
@@ -2715,7 +2723,14 @@ function FalkeAIPanel() {
                     <p className="text-xs opacity-70 mb-2">
                       {msg.role === 'user' ? 'You' : 'FalkeAI'} • {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
-                    <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.content}</p>
+                    {msg.role === 'user' ? (
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.content}</p>
+                    ) : (
+                      <div 
+                        className="whitespace-pre-wrap text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none"
+                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(msg.content) }}
+                      />
+                    )}
                   </div>
                 </div>
               </div>
