@@ -130,13 +130,13 @@ function NavBar() {
           <a
             href="#home"
             className="flex items-center gap-2 group focus:outline-none focus:ring-2 focus:ring-primary rounded-lg"
-            aria-label="Aurikrex Academy Home"
+            aria-label="Aurikrex Home"
           >
             <div className="w-8 h-8 lg:w-10 lg:h-10 bg-gradient-primary rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
               <Sparkles className="w-5 h-5 lg:w-6 lg:h-6 text-white" aria-hidden="true" />
             </div>
             <span className="text-lg lg:text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              Aurikrex Academy
+              Aurikrex
             </span>
           </a>
 
