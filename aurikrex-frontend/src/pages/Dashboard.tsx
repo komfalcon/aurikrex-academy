@@ -75,6 +75,8 @@ import { apiRequest } from "@/utils/api";
 // Import real data panels
 import AnalyticsPanelReal from "@/components/dashboard/AnalyticsPanelReal";
 import LibraryPanel from "@/components/dashboard/LibraryPanel";
+// Import activity event broadcaster for real-time updates
+import activityEventBroadcaster from "@/services/ActivityEventBroadcaster";
 import {
   AreaChart,
   Area,
@@ -527,13 +529,29 @@ function DashboardPanel({ onLaunchFalkeAI }: DashboardPanelProps) {
     }
   }, [user?.uid]);
 
-  // Initial fetch and polling
+  // Initial fetch and polling with activity event subscriptions
   useEffect(() => {
     fetchRealStats();
     
-    // Poll for updates every 2 minutes (120 seconds) - learning stats don't change frequently
-    const interval = setInterval(fetchRealStats, 120000);
-    return () => clearInterval(interval);
+    // Subscribe to activity events for immediate refresh
+    const handleActivity = () => {
+      console.log('Activity detected, refreshing dashboard stats...');
+      fetchRealStats();
+    };
+
+    const unsubQuestions = activityEventBroadcaster.subscribe('question-asked', handleActivity);
+    const unsubLessons = activityEventBroadcaster.subscribe('lesson-completed', handleActivity);
+    const unsubAssignments = activityEventBroadcaster.subscribe('assignment-submitted', handleActivity);
+    
+    // Backup polling every 10 minutes (600 seconds) - less frequent now due to event-based updates
+    const interval = setInterval(fetchRealStats, 600000);
+    
+    return () => {
+      unsubQuestions();
+      unsubLessons();
+      unsubAssignments();
+      clearInterval(interval);
+    };
   }, [fetchRealStats]);
 
   // Use real data if available, otherwise show zeros for new users
@@ -1009,6 +1027,12 @@ function LessonsPanel() {
         timestamp: new Date()
       };
       setChatMessages(prev => [...prev, assistantMessage]);
+      
+      // Broadcast question-asked event for real-time analytics updates
+      activityEventBroadcaster.broadcast('question-asked', { 
+        message: messageContent,
+        metadata: { page: 'Study Partner' }
+      });
       
       // Update conversation ID if a new one was created
       if (response.conversationId && !selectedConversationId) {
@@ -1831,6 +1855,12 @@ function FalkeAIPanel() {
       };
       setMessages(prev => [...prev, assistantMessage]);
       
+      // Broadcast question-asked event for real-time analytics updates
+      activityEventBroadcaster.broadcast('question-asked', { 
+        message: messageContent,
+        metadata: { page: 'Ask FalkeAI' }
+      });
+      
       // Update conversation ID if a new one was created
       if (response.conversationId && !selectedConversationId) {
         setSelectedConversationId(response.conversationId);
@@ -2081,9 +2111,19 @@ export default function Dashboard() {
 
     fetchStreak();
     
-    // Refresh streak every 5 minutes (300 seconds) - streak typically changes once per day
-    const interval = setInterval(fetchStreak, 300000);
-    return () => clearInterval(interval);
+    // Subscribe to activity events to refresh streak
+    const handleActivity = () => fetchStreak();
+    const unsubQuestions = activityEventBroadcaster.subscribe('question-asked', handleActivity);
+    const unsubLessons = activityEventBroadcaster.subscribe('lesson-completed', handleActivity);
+    
+    // Refresh streak every 15 minutes (900 seconds) - streak typically changes once per day
+    const interval = setInterval(fetchStreak, 900000);
+    
+    return () => {
+      unsubQuestions();
+      unsubLessons();
+      clearInterval(interval);
+    };
   }, [user?.uid]);
 
   // Handler to navigate to FalkeAI chat panel

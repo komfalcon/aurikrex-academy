@@ -39,13 +39,12 @@ import {
   PieChart,
   Pie,
   Cell,
-  BarChart,
-  Bar,
 } from 'recharts';
 import {
   getDashboardAnalytics,
   refreshAnalytics,
 } from '@/utils/analyticsApi';
+import activityEventBroadcaster from '@/services/ActivityEventBroadcaster';
 import type { DashboardAnalytics } from '@/types';
 
 // Empty state for no data
@@ -193,8 +192,33 @@ export default function AnalyticsPanelReal() {
     }
   };
 
+  // Initial load and activity event subscriptions for real-time updates
   useEffect(() => {
     loadAnalytics();
+
+    // Subscribe to activity events for immediate refresh
+    const handleActivity = () => {
+      console.log('Activity detected, refreshing analytics...');
+      loadAnalytics();
+    };
+
+    const unsubQuestions = activityEventBroadcaster.subscribe('question-asked', handleActivity);
+    const unsubLessons = activityEventBroadcaster.subscribe('lesson-completed', handleActivity);
+    const unsubAssignments = activityEventBroadcaster.subscribe('assignment-submitted', handleActivity);
+    const unsubSolutions = activityEventBroadcaster.subscribe('solution-verified', handleActivity);
+
+    // Backup polling every 15 minutes (900 seconds) - less frequent now due to event-based updates
+    const pollInterval = setInterval(() => {
+      loadAnalytics();
+    }, 15 * 60 * 1000);
+
+    return () => {
+      unsubQuestions();
+      unsubLessons();
+      unsubAssignments();
+      unsubSolutions();
+      clearInterval(pollInterval);
+    };
   }, [loadAnalytics]);
 
   // Loading state
