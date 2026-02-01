@@ -47,6 +47,9 @@ import {
 import activityEventBroadcaster from '@/services/ActivityEventBroadcaster';
 import type { DashboardAnalytics } from '@/types';
 
+// Backup polling interval (15 minutes) - primary updates are event-driven
+const BACKUP_POLL_INTERVAL_MS = 15 * 60 * 1000;
+
 // Empty state for no data
 function NoAnalyticsData({ onStartLearning }: { onStartLearning?: () => void }) {
   return (
@@ -207,10 +210,10 @@ export default function AnalyticsPanelReal() {
     const unsubAssignments = activityEventBroadcaster.subscribe('assignment-submitted', handleActivity);
     const unsubSolutions = activityEventBroadcaster.subscribe('solution-verified', handleActivity);
 
-    // Backup polling every 15 minutes (900 seconds) - less frequent now due to event-based updates
+    // Backup polling - less frequent now due to event-based updates
     const pollInterval = setInterval(() => {
       loadAnalytics();
-    }, 15 * 60 * 1000);
+    }, BACKUP_POLL_INTERVAL_MS);
 
     return () => {
       unsubQuestions();

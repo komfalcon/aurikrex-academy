@@ -79,7 +79,10 @@ class ActivityEventBroadcaster {
         timestamp: data?.timestamp || new Date(),
       };
       
-      console.log(`[ActivityEvent] Broadcasting ${eventType}`, eventData);
+      // Only log in development mode to avoid cluttering production logs
+      if (import.meta.env.DEV) {
+        console.log(`[ActivityEvent] Broadcasting ${eventType}`, eventData);
+      }
       
       callbacks.forEach(cb => {
         try {
