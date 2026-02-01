@@ -39,14 +39,16 @@ import {
   PieChart,
   Pie,
   Cell,
-  BarChart,
-  Bar,
 } from 'recharts';
 import {
   getDashboardAnalytics,
   refreshAnalytics,
 } from '@/utils/analyticsApi';
+import activityEventBroadcaster from '@/services/ActivityEventBroadcaster';
 import type { DashboardAnalytics } from '@/types';
+
+// Backup polling interval (15 minutes) - primary updates are event-driven
+const BACKUP_POLL_INTERVAL_MS = 15 * 60 * 1000;
 
 // Empty state for no data
 function NoAnalyticsData({ onStartLearning }: { onStartLearning?: () => void }) {
@@ -193,8 +195,33 @@ export default function AnalyticsPanelReal() {
     }
   };
 
+  // Initial load and activity event subscriptions for real-time updates
   useEffect(() => {
     loadAnalytics();
+
+    // Subscribe to activity events for immediate refresh
+    const handleActivity = () => {
+      console.log('Activity detected, refreshing analytics...');
+      loadAnalytics();
+    };
+
+    const unsubQuestions = activityEventBroadcaster.subscribe('question-asked', handleActivity);
+    const unsubLessons = activityEventBroadcaster.subscribe('lesson-completed', handleActivity);
+    const unsubAssignments = activityEventBroadcaster.subscribe('assignment-submitted', handleActivity);
+    const unsubSolutions = activityEventBroadcaster.subscribe('solution-verified', handleActivity);
+
+    // Backup polling - less frequent now due to event-based updates
+    const pollInterval = setInterval(() => {
+      loadAnalytics();
+    }, BACKUP_POLL_INTERVAL_MS);
+
+    return () => {
+      unsubQuestions();
+      unsubLessons();
+      unsubAssignments();
+      unsubSolutions();
+      clearInterval(pollInterval);
+    };
   }, [loadAnalytics]);
 
   // Loading state
