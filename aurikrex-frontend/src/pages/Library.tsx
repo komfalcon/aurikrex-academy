@@ -12,6 +12,7 @@ import { BookSearch, type BookFilters } from '@/components/library/BookSearch';
 import { UploadBookModal } from '@/components/library/UploadBookModal';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/use-toast';
 import { getBooks, getCategoriesFormatted } from '@/utils/libraryApi';
 import { useAuth } from '@/context/AuthContext';
 import type { Book, BookCategory } from '@/types';
@@ -46,6 +47,7 @@ function EmptyLibrary({ message }: { message: string }) {
 
 export function Library() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<BookCategory[]>([]);
@@ -138,6 +140,19 @@ export function Library() {
     console.log('Selected book:', book._id, book.title);
   };
 
+  // Handle upload button click - show login prompt if not authenticated
+  const handleUploadClick = () => {
+    if (!user) {
+      toast({
+        title: 'Sign in required',
+        description: 'Please sign in to upload books to the library.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setShowUploadModal(true);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/20 p-6">
       <div className="max-w-7xl mx-auto">
@@ -154,15 +169,13 @@ export function Library() {
               </div>
               <h1 className="text-3xl font-bold">📚 Learning Library</h1>
             </div>
-            {user && (
-              <Button 
-                onClick={() => setShowUploadModal(true)}
-                className="gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Upload Book
-              </Button>
-            )}
+            <Button 
+              onClick={handleUploadClick}
+              className="gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Upload Book
+            </Button>
           </div>
           <p className="text-muted-foreground">
             Discover books, notes, slides, and materials from our community
