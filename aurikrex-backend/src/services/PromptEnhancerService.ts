@@ -79,16 +79,11 @@ export class PromptEnhancerService {
    * @throws PromptValidationError if validation fails
    */
   public validateRequest(userRequest: string): void {
-    // DEBUG: Log the exact incoming payload before any validation
+    // DEBUG: Log the incoming payload metadata before any validation (no sensitive content)
     log.info('🔍 [DEBUG] validateRequest() - Incoming request payload:', {
       receivedType: typeof userRequest,
       isNull: userRequest === null,
       isUndefined: userRequest === undefined,
-      rawValue: userRequest === null ? 'null' : 
-                userRequest === undefined ? 'undefined' : 
-                typeof userRequest === 'string' ? 
-                  (userRequest.length > 200 ? userRequest.substring(0, 200) + '...[truncated]' : userRequest) :
-                  JSON.stringify(userRequest),
       rawLength: typeof userRequest === 'string' ? userRequest.length : 'N/A',
       validationRules: {
         mustBeString: true,
@@ -125,7 +120,6 @@ export class PromptEnhancerService {
         code: error.code,
         field: error.field,
         receivedType: typeof userRequest,
-        receivedValue: JSON.stringify(userRequest),
         expectedType: 'string',
       });
       throw error;
@@ -145,7 +139,6 @@ export class PromptEnhancerService {
         originalLength: userRequest.length,
         trimmedLength: trimmedRequest.length,
         minRequired: VALIDATION_LIMITS.MIN_MESSAGE_LENGTH,
-        rawValue: userRequest.length > 50 ? userRequest.substring(0, 50) + '...' : userRequest,
       });
       throw error;
     }
