@@ -373,21 +373,24 @@ ${context.preferences.includeExamples ? '- Provide concrete examples' : ''}
     // Validate the user request
     this.validateRequest(userRequest);
     
+    // Trim the request after validation for consistent processing
+    const trimmedRequest = userRequest.trim();
+    
     // Validate and sanitize context
     const fullContext = this.validateAndSanitizeContext(userContext);
 
     // Detect intent if not specified
-    const detectedIntent = this.detectIntent(userRequest);
+    const detectedIntent = this.detectIntent(trimmedRequest);
     const finalRequestType = requestType || detectedIntent;
     
     // Estimate complexity
-    const complexity = this.estimateComplexity(userRequest);
+    const complexity = this.estimateComplexity(trimmedRequest);
     
     // Get system prompt
     const systemPrompt = getSystemPrompt(finalRequestType);
     
     // Build instructions
-    const instructions = this.buildInstructions(finalRequestType, userRequest, fullContext);
+    const instructions = this.buildInstructions(finalRequestType, trimmedRequest, fullContext);
     
     // Build user profile
     const userProfile = this.buildUserProfile(fullContext);
@@ -399,18 +402,18 @@ USER CONTEXT:
 ${userProfile}
 
 USER REQUEST:
-${userRequest}`;
+${trimmedRequest}`;
 
     log.info(`📋 Prompt enhanced`, {
       requestType: finalRequestType,
       detectedIntent,
       complexity,
-      originalLength: userRequest.length,
+      originalLength: trimmedRequest.length,
       enhancedLength: enhancedRequest.length,
     });
 
     return {
-      originalRequest: userRequest,
+      originalRequest: trimmedRequest,
       enhancedRequest,
       systemPrompt,
       context: userProfile,

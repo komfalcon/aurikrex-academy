@@ -104,7 +104,7 @@ class AIService {
   private readonly timeout: number;
 
   // OpenRouter models - Updated Phase 4 Model Configuration
-  // Primary: NVIDIA Nemotron Nano 12B 2 VL (multimodal, 128K context, free tier)
+  // Primary: NVIDIA Nemotron Nano 12B VL (multimodal, 128K context, free tier)
   // Fallback: Google Gemma 3 12B (text + image, 33K context, free tier)
   // See: https://openrouter.ai/models (filter by free)
   private readonly models = {
