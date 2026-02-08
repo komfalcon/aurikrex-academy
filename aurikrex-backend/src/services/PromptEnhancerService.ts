@@ -7,6 +7,7 @@
  * - Complexity estimation
  * - System prompt selection
  * - User context building
+ * - Input validation with graceful error handling
  */
 
 import { log } from '../utils/logger.js';
@@ -17,6 +18,36 @@ import {
   DEFAULT_USER_LEARNING_CONTEXT,
 } from '../types/ai.types.js';
 import { getSystemPrompt } from './prompts/systemPrompts.js';
+
+/**
+ * Validation constraints for prompt enhancement
+ */
+const VALIDATION_LIMITS = {
+  MIN_MESSAGE_LENGTH: 1,
+  MAX_MESSAGE_LENGTH: 10000,
+  MAX_CONTEXT_STRING_LENGTH: 500,
+  MAX_ARRAY_LENGTH: 50,
+};
+
+/**
+ * Graceful fallback message for validation failures
+ */
+export const FALKEAI_VALIDATION_ERROR_MESSAGE = "I'm having trouble thinking right now — try again.";
+
+/**
+ * Custom error class for validation errors
+ */
+export class PromptValidationError extends Error {
+  public readonly code: string;
+  public readonly field?: string;
+  
+  constructor(message: string, code: string, field?: string) {
+    super(message);
+    this.name = 'PromptValidationError';
+    this.code = code;
+    this.field = field;
+  }
+}
 
 /**
  * Keywords for detecting request intent
@@ -43,6 +74,156 @@ const COMPLEXITY_INDICATORS = {
  * Enhances user requests with context, system prompts, and instructions
  */
 export class PromptEnhancerService {
+  /**
+   * Validate the user request input
+   * @throws PromptValidationError if validation fails
+   */
+  public validateRequest(userRequest: string): void {
+    // Check for null/undefined
+    if (userRequest === null || userRequest === undefined) {
+      const error = new PromptValidationError(
+        'User request is required',
+        'MISSING_REQUEST',
+        'userRequest'
+      );
+      log.error('❌ Prompt validation failed: missing request', { 
+        code: error.code,
+        field: error.field 
+      });
+      throw error;
+    }
+
+    // Check type
+    if (typeof userRequest !== 'string') {
+      const error = new PromptValidationError(
+        'User request must be a string',
+        'INVALID_TYPE',
+        'userRequest'
+      );
+      log.error('❌ Prompt validation failed: invalid type', { 
+        code: error.code,
+        field: error.field,
+        receivedType: typeof userRequest
+      });
+      throw error;
+    }
+
+    // Check minimum length
+    const trimmedRequest = userRequest.trim();
+    if (trimmedRequest.length < VALIDATION_LIMITS.MIN_MESSAGE_LENGTH) {
+      const error = new PromptValidationError(
+        'User request cannot be empty',
+        'EMPTY_REQUEST',
+        'userRequest'
+      );
+      log.error('❌ Prompt validation failed: empty request', { 
+        code: error.code,
+        field: error.field 
+      });
+      throw error;
+    }
+
+    // Check maximum length
+    if (trimmedRequest.length > VALIDATION_LIMITS.MAX_MESSAGE_LENGTH) {
+      const error = new PromptValidationError(
+        `User request exceeds maximum length of ${VALIDATION_LIMITS.MAX_MESSAGE_LENGTH} characters`,
+        'REQUEST_TOO_LONG',
+        'userRequest'
+      );
+      log.error('❌ Prompt validation failed: request too long', { 
+        code: error.code,
+        field: error.field,
+        length: trimmedRequest.length,
+        maxLength: VALIDATION_LIMITS.MAX_MESSAGE_LENGTH
+      });
+      throw error;
+    }
+
+    log.debug('✅ Request validation passed', { 
+      length: trimmedRequest.length 
+    });
+  }
+
+  /**
+   * Validate user learning context
+   * @returns Sanitized context or default context if invalid
+   */
+  public validateAndSanitizeContext(
+    userContext?: Partial<UserLearningContext>
+  ): UserLearningContext {
+    try {
+      // If no context provided, use defaults
+      if (!userContext) {
+        return { ...DEFAULT_USER_LEARNING_CONTEXT };
+      }
+
+      // Validate and sanitize learning style
+      const validLearningStyles = ['visual', 'textual', 'kinesthetic', 'auditory'];
+      const learningStyle = validLearningStyles.includes(userContext.learningStyle || '')
+        ? userContext.learningStyle!
+        : DEFAULT_USER_LEARNING_CONTEXT.learningStyle;
+
+      // Validate and sanitize knowledge level
+      const validKnowledgeLevels = ['beginner', 'intermediate', 'advanced'];
+      const knowledgeLevel = validKnowledgeLevels.includes(userContext.knowledgeLevel || '')
+        ? userContext.knowledgeLevel!
+        : DEFAULT_USER_LEARNING_CONTEXT.knowledgeLevel;
+
+      // Validate and sanitize preferred pace
+      const validPaces = ['fast', 'moderate', 'slow'];
+      const preferredPace = validPaces.includes(userContext.preferredPace || '')
+        ? userContext.preferredPace!
+        : DEFAULT_USER_LEARNING_CONTEXT.preferredPace;
+
+      // Sanitize arrays (limit length and ensure string items)
+      const sanitizeStringArray = (arr: unknown[] | undefined, maxLength: number): string[] => {
+        if (!Array.isArray(arr)) return [];
+        return arr
+          .filter((item): item is string => typeof item === 'string')
+          .slice(0, maxLength)
+          .map(s => s.substring(0, VALIDATION_LIMITS.MAX_CONTEXT_STRING_LENGTH));
+      };
+
+      // Validate preferences
+      const validDetailLevels = ['brief', 'moderate', 'detailed'];
+      const preferences = {
+        includeExamples: typeof userContext.preferences?.includeExamples === 'boolean'
+          ? userContext.preferences.includeExamples
+          : DEFAULT_USER_LEARNING_CONTEXT.preferences.includeExamples,
+        includeFormulas: typeof userContext.preferences?.includeFormulas === 'boolean'
+          ? userContext.preferences.includeFormulas
+          : DEFAULT_USER_LEARNING_CONTEXT.preferences.includeFormulas,
+        detailLevel: validDetailLevels.includes(userContext.preferences?.detailLevel || '')
+          ? userContext.preferences!.detailLevel
+          : DEFAULT_USER_LEARNING_CONTEXT.preferences.detailLevel,
+        codeExamples: typeof userContext.preferences?.codeExamples === 'boolean'
+          ? userContext.preferences.codeExamples
+          : DEFAULT_USER_LEARNING_CONTEXT.preferences.codeExamples,
+        historicalContext: typeof userContext.preferences?.historicalContext === 'boolean'
+          ? userContext.preferences.historicalContext
+          : DEFAULT_USER_LEARNING_CONTEXT.preferences.historicalContext,
+      };
+
+      return {
+        userId: typeof userContext.userId === 'string' 
+          ? userContext.userId.substring(0, 100) 
+          : DEFAULT_USER_LEARNING_CONTEXT.userId,
+        learningStyle,
+        knowledgeLevel,
+        preferredPace,
+        previousTopics: sanitizeStringArray(userContext.previousTopics, VALIDATION_LIMITS.MAX_ARRAY_LENGTH),
+        strengths: sanitizeStringArray(userContext.strengths, VALIDATION_LIMITS.MAX_ARRAY_LENGTH),
+        weaknesses: sanitizeStringArray(userContext.weaknesses, VALIDATION_LIMITS.MAX_ARRAY_LENGTH),
+        preferences,
+      };
+    } catch (error) {
+      log.warn('⚠️ Error validating user context, using defaults', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return { ...DEFAULT_USER_LEARNING_CONTEXT };
+    }
+  }
+
   /**
    * Detect the intent of the user request
    */
@@ -182,34 +363,34 @@ ${context.preferences.includeExamples ? '- Provide concrete examples' : ''}
 
   /**
    * Enhance a user prompt with context, system prompt, and instructions
+   * @throws PromptValidationError if validation fails
    */
   public enhancePrompt(
     userRequest: string,
     requestType: AIRequestType | undefined,
     userContext?: Partial<UserLearningContext>
   ): PromptEnhancement {
-    // Build full user context with defaults
-    const fullContext: UserLearningContext = {
-      ...DEFAULT_USER_LEARNING_CONTEXT,
-      ...userContext,
-      preferences: {
-        ...DEFAULT_USER_LEARNING_CONTEXT.preferences,
-        ...userContext?.preferences,
-      },
-    };
+    // Validate the user request
+    this.validateRequest(userRequest);
+    
+    // Trim the request after validation for consistent processing
+    const trimmedRequest = userRequest.trim();
+    
+    // Validate and sanitize context
+    const fullContext = this.validateAndSanitizeContext(userContext);
 
     // Detect intent if not specified
-    const detectedIntent = this.detectIntent(userRequest);
+    const detectedIntent = this.detectIntent(trimmedRequest);
     const finalRequestType = requestType || detectedIntent;
     
     // Estimate complexity
-    const complexity = this.estimateComplexity(userRequest);
+    const complexity = this.estimateComplexity(trimmedRequest);
     
     // Get system prompt
     const systemPrompt = getSystemPrompt(finalRequestType);
     
     // Build instructions
-    const instructions = this.buildInstructions(finalRequestType, userRequest, fullContext);
+    const instructions = this.buildInstructions(finalRequestType, trimmedRequest, fullContext);
     
     // Build user profile
     const userProfile = this.buildUserProfile(fullContext);
@@ -221,18 +402,18 @@ USER CONTEXT:
 ${userProfile}
 
 USER REQUEST:
-${userRequest}`;
+${trimmedRequest}`;
 
     log.info(`📋 Prompt enhanced`, {
       requestType: finalRequestType,
       detectedIntent,
       complexity,
-      originalLength: userRequest.length,
+      originalLength: trimmedRequest.length,
       enhancedLength: enhancedRequest.length,
     });
 
     return {
-      originalRequest: userRequest,
+      originalRequest: trimmedRequest,
       enhancedRequest,
       systemPrompt,
       context: userProfile,
@@ -241,6 +422,39 @@ ${userRequest}`;
       detectedIntent,
       estimatedComplexity: complexity,
     };
+  }
+
+  /**
+   * Safely enhance a user prompt with graceful error handling
+   * Returns a fallback response instead of throwing errors
+   */
+  public safeEnhancePrompt(
+    userRequest: string,
+    requestType: AIRequestType | undefined,
+    userContext?: Partial<UserLearningContext>
+  ): { success: true; enhancement: PromptEnhancement } | { success: false; error: string; fallbackMessage: string } {
+    try {
+      const enhancement = this.enhancePrompt(userRequest, requestType, userContext);
+      return { success: true, enhancement };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorCode = error instanceof PromptValidationError ? error.code : 'UNKNOWN_ERROR';
+      
+      log.error('❌ Prompt enhancement failed', {
+        error: errorMessage,
+        code: errorCode,
+        field: error instanceof PromptValidationError ? error.field : undefined,
+        userRequestPreview: typeof userRequest === 'string' 
+          ? userRequest.substring(0, 50) + (userRequest.length > 50 ? '...' : '')
+          : 'Invalid input type',
+      });
+      
+      return {
+        success: false,
+        error: errorMessage,
+        fallbackMessage: FALKEAI_VALIDATION_ERROR_MESSAGE,
+      };
+    }
   }
 }
 

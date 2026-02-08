@@ -2,8 +2,10 @@ import { Request, Response } from 'express';
 import { BookModel, BookDifficulty, BookCategoryType, BookFileType } from '../models/Book.model.js';
 import { BookReviewModel } from '../models/BookReview.model.js';
 import { BookCategoryModel } from '../models/BookCategory.model.js';
+import { UserModel } from '../models/User.model.js';
 import CoverGenerationService from '../services/CoverGenerationService.js';
 import { log } from '../utils/logger.js';
+import { sendBookApprovedEmail, sendBookRejectedEmail } from '../utils/email.js';
 
 /**
  * Get all books with pagination and filters
@@ -536,6 +538,30 @@ export const approveBook = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
+    // Send email notification to the uploader (async, don't block response)
+    if (book.uploadedBy) {
+      const uploader = await UserModel.findById(book.uploadedBy);
+      if (uploader && uploader.email) {
+        const firstName = uploader.displayName || uploader.email.split('@')[0];
+        sendBookApprovedEmail(uploader.email, firstName, book.title)
+          .then(sent => {
+            if (sent) {
+              log.info('📧 Book approval notification sent', { 
+                bookId, 
+                uploaderId: book.uploadedBy 
+              });
+            }
+          })
+          .catch(err => {
+            log.warn('Failed to send book approval email', { 
+              error: err instanceof Error ? err.message : String(err),
+              bookId,
+              uploaderId: book.uploadedBy
+            });
+          });
+      }
+    }
+
     res.status(200).json({
       status: 'success',
       message: 'Book approved',
@@ -575,6 +601,31 @@ export const rejectBook = async (req: Request, res: Response): Promise<void> => 
         message: 'Book not found'
       });
       return;
+    }
+
+    // Send email notification to the uploader (async, don't block response)
+    if (book.uploadedBy) {
+      const uploader = await UserModel.findById(book.uploadedBy);
+      if (uploader && uploader.email) {
+        const firstName = uploader.displayName || uploader.email.split('@')[0];
+        sendBookRejectedEmail(uploader.email, firstName, book.title, reason)
+          .then(sent => {
+            if (sent) {
+              log.info('📧 Book rejection notification sent', { 
+                bookId, 
+                uploaderId: book.uploadedBy,
+                reason: reason || 'No reason provided'
+              });
+            }
+          })
+          .catch(err => {
+            log.warn('Failed to send book rejection email', { 
+              error: err instanceof Error ? err.message : String(err),
+              bookId,
+              uploaderId: book.uploadedBy
+            });
+          });
+      }
     }
 
     res.status(200).json({
