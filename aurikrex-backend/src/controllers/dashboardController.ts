@@ -144,3 +144,30 @@ export const getQuickStats = async (req: Request, res: Response): Promise<void> 
     res.status(500).json({ status: 'error', message: 'Failed to get quick stats' });
   }
 };
+
+/**
+ * GET /api/dashboard/weekly-progress
+ * Get weekly progress feedback ("You improved this week" feature)
+ */
+export const getWeeklyProgress = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = (req as any).user?.userId;
+
+    if (!userId) {
+      res.status(401).json({ status: 'error', message: 'User not authenticated' });
+      return;
+    }
+
+    const weeklyProgress = await DashboardDataService.getWeeklyProgress(userId);
+    
+    res.status(200).json({ 
+      status: 'success', 
+      data: weeklyProgress 
+    });
+  } catch (error) {
+    log.error('❌ Error getting weekly progress', { 
+      error: error instanceof Error ? error.message : String(error) 
+    });
+    res.status(500).json({ status: 'error', message: 'Failed to get weekly progress' });
+  }
+};

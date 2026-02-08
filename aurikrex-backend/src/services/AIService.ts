@@ -103,20 +103,26 @@ class AIService {
   private readonly groqBaseUrl = 'https://api.groq.com/openai/v1/chat/completions';
   private readonly timeout: number;
 
-  // OpenRouter models - 2 TESTED & WORKING FREE models with NO EXPIRY
+  // OpenRouter models - Updated Phase 4 Model Configuration
+  // Primary: NVIDIA Nemotron Nano 12B 2 VL (multimodal, 128K context, free tier)
+  // Fallback: Google Gemma 3 12B (text + image, 33K context, free tier)
   // See: https://openrouter.ai/models (filter by free)
   private readonly models = {
-    // Fast model - Google Gemma 3 4B (Tested & Working)
-    fast: 'google/gemma-3-4b-it:free',
+    // Fast model - Google Gemma 3 12B (Reliable fallback for simple tasks)
+    fast: 'google/gemma-3-12b-it:free',
     
-    // Balanced model - Google Gemma 3 4B (Same as fast, reliable)
-    balanced: 'google/gemma-3-4b-it:free',
+    // Balanced model - Google Gemma 3 12B (Good for most queries)
+    balanced: 'google/gemma-3-12b-it:free',
     
-    // Smart model - Meta Llama 3.3 70B (Tested & Working, powerful)
-    smart: 'meta-llama/llama-3.3-70b-instruct:free',
+    // Smart model - NVIDIA Nemotron Nano 12B (Primary for complex reasoning)
+    smart: 'nvidia/llama-3.1-nemotron-nano-12b-v1:free',
     
-    // Expert model - Meta Llama 3.3 70B (Same as smart, best quality)
-    expert: 'meta-llama/llama-3.3-70b-instruct:free',
+    // Expert model - NVIDIA Nemotron Nano 12B (Best for coding/complex tasks)
+    expert: 'nvidia/llama-3.1-nemotron-nano-12b-v1:free',
+
+    // Legacy models kept as additional fallbacks
+    legacyGemma4b: 'google/gemma-3-4b-it:free',
+    legacyLlama70b: 'meta-llama/llama-3.3-70b-instruct:free',
   };
 
   // Groq fallback model
@@ -389,65 +395,65 @@ class AIService {
   /**
    * Select the best model based on question analysis
    * 
-   * Routes questions to appropriate models:
-   * - Coding questions → Expert (Meta Llama 3.3 70B) - Best for code/algorithms
-   * - Complex/Reasoning → Smart (Meta Llama 3.3 70B) - Deep analysis
-   * - General questions → Balanced (Google Gemma 3 4B) - Good for most queries
-   * - Simple/short → Fast (Google Gemma 3 4B) - Quick responses
+   * Routes questions to appropriate models (Phase 4 Configuration):
+   * - Coding questions → Expert (NVIDIA Nemotron Nano 12B) - Best for code/algorithms
+   * - Complex/Reasoning → Smart (NVIDIA Nemotron Nano 12B) - Deep analysis  
+   * - General questions → Balanced (Google Gemma 3 12B) - Good for most queries
+   * - Simple/short → Fast (Google Gemma 3 12B) - Quick responses
    */
   private selectBestModel(message: string): SelectedModel {
     const lower = message.toLowerCase();
 
-    // CODING DETECTION → Expert Model (Meta Llama 3.3 70B)
+    // CODING DETECTION → Expert Model (NVIDIA Nemotron Nano 12B)
     // Uses word boundaries to avoid false positives (e.g., "classical" won't match "class")
     if (/\b(code|function|javascript|typescript|python|debug|implement|algorithm|syntax|program|variable|class|method)\b/.test(lower)) {
-      log.info('🔍 Detected: CODING question');
+      log.info('🔍 Detected: CODING question → Using NVIDIA Nemotron Nano 12B');
       return {
         id: this.models.expert,
-        name: 'Meta Llama 3.3 70B (Expert)',
+        name: 'NVIDIA Nemotron Nano 12B (Expert)',
         type: 'coding',
       };
     }
 
-    // COMPLEX/REASONING DETECTION → Smart Model (Meta Llama 3.3 70B)
+    // COMPLEX/REASONING DETECTION → Smart Model (NVIDIA Nemotron Nano 12B)
     // Uses word boundaries to avoid false positives
     if (/\b(explain|why|how|analyze|compare|theory|concept|research|mechanism|complex|quantum|difference)\b/.test(lower)) {
-      log.info('🔍 Detected: COMPLEX/REASONING question');
+      log.info('🔍 Detected: COMPLEX/REASONING question → Using NVIDIA Nemotron Nano 12B');
       return {
         id: this.models.smart,
-        name: 'Meta Llama 3.3 70B (Smart)',
+        name: 'NVIDIA Nemotron Nano 12B (Smart)',
         type: 'smart',
       };
     }
 
-    // BALANCED DETECTION → General Purpose (Google Gemma 3 4B)
+    // BALANCED DETECTION → General Purpose (Google Gemma 3 12B)
     // Uses word boundaries to avoid false positives
     if (/\b(what|tell|describe|define|list|summarize)\b/.test(lower)) {
-      log.info('🔍 Detected: BALANCED question');
+      log.info('🔍 Detected: BALANCED question → Using Google Gemma 3 12B');
       return {
         id: this.models.balanced,
-        name: 'Google Gemma 3 4B (Balanced)',
+        name: 'Google Gemma 3 12B (Balanced)',
         type: 'balanced',
       };
     }
 
-    // SIMPLE DETECTION (short questions < 10 words) → Fast Model (Google Gemma 3 4B)
+    // SIMPLE DETECTION (short questions < 10 words) → Fast Model (Google Gemma 3 12B)
     // Use robust word counting that handles multiple whitespace correctly
     const wordCount = message.trim().split(/\s+/).filter(word => word.length > 0).length;
     if (wordCount < 10) {
-      log.info('🔍 Detected: SIMPLE/QUICK question');
+      log.info('🔍 Detected: SIMPLE/QUICK question → Using Google Gemma 3 12B');
       return {
         id: this.models.fast,
-        name: 'Google Gemma 3 4B (Fast)',
+        name: 'Google Gemma 3 12B (Fast)',
         type: 'fast',
       };
     }
 
     // DEFAULT: Use balanced model for medium complexity
-    log.info('🔍 Detected: BALANCED question (default)');
+    log.info('🔍 Detected: BALANCED question (default) → Using Google Gemma 3 12B');
     return {
       id: this.models.balanced,
-      name: 'Google Gemma 3 4B (Balanced)',
+      name: 'Google Gemma 3 12B (Balanced)',
       type: 'balanced',
     };
   }
@@ -455,8 +461,10 @@ class AIService {
   /**
    * Get fallback chain of models based on question complexity
    * 
-   * For simple/balanced questions: Uses Gemma (most reliable free model)
-   * For complex/coding questions: Llama → Mistral → Gemma → Groq (if configured)
+   * Phase 4 Model Configuration:
+   * - Primary: NVIDIA Nemotron Nano 12B (complex/coding tasks)
+   * - Fallback: Google Gemma 3 12B (simpler tasks or when primary fails)
+   * - Legacy fallback: Gemma 4B, Llama 70B, Groq Mixtral
    * 
    * The chain is built dynamically based on which providers have valid API keys.
    */
@@ -464,20 +472,22 @@ class AIService {
     const chain: SelectedModel[] = [];
 
     if (type === 'fast' || type === 'balanced') {
-      // For simple/balanced questions: Gemma is the most reliable free model
+      // For simple/balanced questions: Gemma 12B is the primary, with fallbacks
       if (this.openrouterKey) {
-        chain.push({ id: 'google/gemma-3-4b-it:free', name: 'Gemma 3 4B', type: 'fast', provider: 'openrouter' });
+        chain.push({ id: this.models.balanced, name: 'Google Gemma 3 12B', type: 'balanced', provider: 'openrouter' });
+        chain.push({ id: this.models.legacyGemma4b, name: 'Google Gemma 3 4B (Fallback)', type: 'fast', provider: 'openrouter' });
       }
-      // Add Groq as fallback if OpenRouter is not configured
+      // Add Groq as fallback if OpenRouter fails
       if (this.groqKey) {
         chain.push({ id: 'mixtral-8x7b-32768', name: 'Groq Mixtral', type: 'fallback', provider: 'groq' });
       }
     } else {
-      // For complex/coding questions: Llama → Mistral → Gemma → Groq
+      // For complex/coding questions: Nemotron → Gemma 12B → Legacy Llama → Groq
       if (this.openrouterKey) {
-        chain.push({ id: 'meta-llama/llama-3.3-70b-instruct:free', name: 'Llama 3.3 70B', type: 'smart', provider: 'openrouter' });
-        chain.push({ id: 'mistralai/mistral-small-3.1-24b-instruct:free', name: 'Mistral Small 3.1', type: 'smart', provider: 'openrouter' });
-        chain.push({ id: 'google/gemma-3-4b-it:free', name: 'Gemma 3 4B (Fallback)', type: 'fast', provider: 'openrouter' });
+        chain.push({ id: this.models.expert, name: 'NVIDIA Nemotron Nano 12B', type: 'smart', provider: 'openrouter' });
+        chain.push({ id: this.models.balanced, name: 'Google Gemma 3 12B (Fallback)', type: 'balanced', provider: 'openrouter' });
+        chain.push({ id: this.models.legacyLlama70b, name: 'Meta Llama 3.3 70B (Fallback)', type: 'smart', provider: 'openrouter' });
+        chain.push({ id: this.models.legacyGemma4b, name: 'Google Gemma 3 4B (Fallback)', type: 'fast', provider: 'openrouter' });
       }
       // Groq is last resort only
       if (this.groqKey) {
@@ -615,12 +625,34 @@ class AIService {
     let openrouterError: Error | null = null;
     let groqError: Error | null = null;
 
-    // Layer 1: PROMPT ENHANCEMENT (Pre-Processing)
-    const enhancement = promptEnhancerService.enhancePrompt(
+    // Layer 1: PROMPT ENHANCEMENT (Pre-Processing) with safe validation
+    const enhancementResult = promptEnhancerService.safeEnhancePrompt(
       request.message,
       request.requestType,
       request.userLearningContext
     );
+
+    // If enhancement failed, return graceful fallback response
+    if (!enhancementResult.success) {
+      log.error('❌ Prompt enhancement failed, returning fallback response', {
+        error: enhancementResult.error,
+        userId: request.context.userId,
+        messagePreview: typeof request.message === 'string'
+          ? request.message.substring(0, 50)
+          : 'Invalid message type',
+      });
+
+      return {
+        reply: enhancementResult.fallbackMessage,
+        timestamp: new Date().toISOString(),
+        provider: 'openrouter',
+        model: 'N/A (validation failed)',
+        modelType: 'fallback',
+        requestType: 'question',
+      };
+    }
+
+    const enhancement = enhancementResult.enhancement;
 
     log.info(`📋 Prompt enhanced`, {
       requestType: enhancement.requestType,

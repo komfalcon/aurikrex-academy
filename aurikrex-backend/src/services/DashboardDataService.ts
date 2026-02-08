@@ -336,6 +336,154 @@ export class DashboardDataService {
       };
     }
   }
+
+  /**
+   * Weekly Progress Feedback
+   * Calculates weekly learning growth using FalkeAI analytics
+   * Returns improvement metrics for the "You improved this week" feature
+   */
+  static async getWeeklyProgress(userId: string): Promise<WeeklyProgressFeedback> {
+    try {
+      const userAnalytics = await FalkeAIActivityModel.getUserAnalytics(userId);
+
+      if (!userAnalytics?.activityTimeline || userAnalytics.activityTimeline.length === 0) {
+        return {
+          hasProgress: false,
+          message: "Start learning to track your progress!",
+          questionsThisWeek: 0,
+          questionsLastWeek: 0,
+          percentageChange: 0,
+          streak: 0,
+          conceptsLearned: 0,
+          topImprovement: null,
+          nudge: null,
+        };
+      }
+
+      // Calculate date ranges
+      const now = new Date();
+      const thisWeekStart = new Date(now);
+      thisWeekStart.setDate(thisWeekStart.getDate() - 7);
+      thisWeekStart.setHours(0, 0, 0, 0);
+
+      const lastWeekStart = new Date(thisWeekStart);
+      lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+
+      // Count activities this week vs last week
+      let questionsThisWeek = 0;
+      let questionsLastWeek = 0;
+
+      for (const entry of userAnalytics.activityTimeline) {
+        const entryDate = new Date(entry.date);
+        const chatQuestions = entry.types?.chat_question || 0;
+
+        if (entryDate >= thisWeekStart && entryDate <= now) {
+          questionsThisWeek += chatQuestions;
+        } else if (entryDate >= lastWeekStart && entryDate < thisWeekStart) {
+          questionsLastWeek += chatQuestions;
+        }
+      }
+
+      // Calculate percentage change
+      let percentageChange = 0;
+      if (questionsLastWeek > 0) {
+        percentageChange = Math.round(((questionsThisWeek - questionsLastWeek) / questionsLastWeek) * 100);
+      } else if (questionsThisWeek > 0) {
+        percentageChange = 100; // New activity this week
+      }
+
+      // Calculate streak
+      const streak = this.calculateStreak(userAnalytics);
+
+      // Concepts learned this week (from growth)
+      const conceptsLearned = userAnalytics.conceptsMastered?.length || 0;
+
+      // Determine message and nudge based on activity
+      let message: string;
+      let nudge: string | null = null;
+
+      if (percentageChange > 20) {
+        message = `Great job! You're ${percentageChange}% more active this week! 🎉`;
+      } else if (percentageChange > 0) {
+        message = `You're improving! ${percentageChange}% more engagement this week.`;
+      } else if (questionsThisWeek > 0) {
+        message = `Keep going! You asked ${questionsThisWeek} questions this week.`;
+        if (percentageChange < 0) {
+          nudge = "Try to beat last week's record!";
+        }
+      } else if (questionsLastWeek > 0) {
+        message = "We miss you! Come back and continue learning.";
+        nudge = "Pick up where you left off with a quick question.";
+      } else {
+        message = "Start your learning journey today!";
+        nudge = "Ask FalkeAI anything to begin.";
+      }
+
+      // Streak-based nudges
+      if (streak >= 7) {
+        nudge = `Amazing! ${streak} day streak! 🔥 Keep it up!`;
+      } else if (streak >= 3) {
+        nudge = `${streak} day streak! Just ${7 - streak} more days to a week streak!`;
+      }
+
+      // Determine top improvement area
+      let topImprovement: string | null = null;
+      if (userAnalytics.conceptsMastered && userAnalytics.conceptsMastered.length > 0) {
+        topImprovement = userAnalytics.conceptsMastered[userAnalytics.conceptsMastered.length - 1];
+      }
+
+      log.info('📈 Weekly progress calculated', {
+        userId,
+        questionsThisWeek,
+        questionsLastWeek,
+        percentageChange,
+        streak,
+      });
+
+      return {
+        hasProgress: questionsThisWeek > 0 || questionsLastWeek > 0,
+        message,
+        questionsThisWeek,
+        questionsLastWeek,
+        percentageChange,
+        streak,
+        conceptsLearned,
+        topImprovement,
+        nudge,
+      };
+    } catch (error) {
+      log.error('❌ Error getting weekly progress', {
+        error: error instanceof Error ? error.message : String(error),
+        userId,
+      });
+      return {
+        hasProgress: false,
+        message: "Unable to calculate progress. Try again later.",
+        questionsThisWeek: 0,
+        questionsLastWeek: 0,
+        percentageChange: 0,
+        streak: 0,
+        conceptsLearned: 0,
+        topImprovement: null,
+        nudge: null,
+      };
+    }
+  }
+}
+
+/**
+ * Weekly Progress Feedback interface
+ */
+export interface WeeklyProgressFeedback {
+  hasProgress: boolean;
+  message: string;
+  questionsThisWeek: number;
+  questionsLastWeek: number;
+  percentageChange: number;
+  streak: number;
+  conceptsLearned: number;
+  topImprovement: string | null;
+  nudge: string | null;
 }
 
 export const dashboardDataService = DashboardDataService;

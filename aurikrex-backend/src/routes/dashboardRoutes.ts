@@ -15,6 +15,7 @@ import {
   getRecentActivity,
   getAnalytics,
   getQuickStats,
+  getWeeklyProgress,
 } from '../controllers/dashboardController.js';
 
 const router = Router();
@@ -66,5 +67,12 @@ router.get('/analytics', getAnalytics);
  * @access  Private
  */
 router.get('/quick-stats', getQuickStats);
+
+/**
+ * @route   GET /api/dashboard/weekly-progress
+ * @desc    Get weekly progress feedback ("You improved this week" feature)
+ * @access  Private
+ */
+router.get('/weekly-progress', getWeeklyProgress);
 
 export default router;

@@ -25,6 +25,7 @@ import { aiService, AIServiceError, AIErrorCode } from '../services/AIService.js
 import { AIChatRequest, EnhancedAIChatRequest, AIRequestType } from '../types/ai.types.js';
 import { FalkeAIActivityLogger } from '../services/FalkeAIActivityLogger.js';
 import { ResponseFormatterService } from '../services/ResponseFormatterService.js';
+import { FALKEAI_VALIDATION_ERROR_MESSAGE, PromptValidationError } from '../services/PromptEnhancerService.js';
 
 /**
  * POST /api/ai/chat
@@ -146,7 +147,8 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<void
     log.error('❌ AI chat request failed', {
       error: errorMessage,
       errorType: error instanceof Error ? error.constructor.name : typeof error,
-      errorCode: error instanceof AIServiceError ? error.errorCode : undefined,
+      errorCode: error instanceof AIServiceError ? error.errorCode : 
+                 error instanceof PromptValidationError ? error.code : undefined,
       statusCode: error instanceof AIServiceError ? error.statusCode : undefined,
       stack: errorStack,
       userId: req.body?.context?.userId,
@@ -158,7 +160,15 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<void
     let statusCode = 500;
     let userMessage = errorMessage;
     
-    if (error instanceof AIServiceError) {
+    // Handle validation errors with graceful fallback message
+    if (error instanceof PromptValidationError) {
+      statusCode = 400;
+      userMessage = FALKEAI_VALIDATION_ERROR_MESSAGE;
+      log.warn('⚠️ Returning graceful fallback for validation error', {
+        code: error.code,
+        field: error.field,
+      });
+    } else if (error instanceof AIServiceError) {
       // Use structured error codes for reliable categorization
       switch (error.errorCode) {
         case AIErrorCode.TIMEOUT:
@@ -326,7 +336,8 @@ export const sendEnhancedChatMessage = async (req: Request, res: Response): Prom
     log.error('❌ Enhanced AI chat request failed', {
       error: errorMessage,
       errorType: error instanceof Error ? error.constructor.name : typeof error,
-      errorCode: error instanceof AIServiceError ? error.errorCode : undefined,
+      errorCode: error instanceof AIServiceError ? error.errorCode : 
+                 error instanceof PromptValidationError ? error.code : undefined,
       statusCode: error instanceof AIServiceError ? error.statusCode : undefined,
       stack: errorStack,
       userId: req.body?.context?.userId,
@@ -339,7 +350,15 @@ export const sendEnhancedChatMessage = async (req: Request, res: Response): Prom
     let statusCode = 500;
     let userMessage = errorMessage;
     
-    if (error instanceof AIServiceError) {
+    // Handle validation errors with graceful fallback message
+    if (error instanceof PromptValidationError) {
+      statusCode = 400;
+      userMessage = FALKEAI_VALIDATION_ERROR_MESSAGE;
+      log.warn('⚠️ Returning graceful fallback for validation error', {
+        code: error.code,
+        field: error.field,
+      });
+    } else if (error instanceof AIServiceError) {
       // Use structured error codes for reliable categorization
       switch (error.errorCode) {
         case AIErrorCode.TIMEOUT:
