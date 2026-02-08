@@ -79,6 +79,25 @@ export class PromptEnhancerService {
    * @throws PromptValidationError if validation fails
    */
   public validateRequest(userRequest: string): void {
+    // DEBUG: Log the exact incoming payload before any validation
+    log.info('🔍 [DEBUG] validateRequest() - Incoming request payload:', {
+      receivedType: typeof userRequest,
+      isNull: userRequest === null,
+      isUndefined: userRequest === undefined,
+      rawValue: userRequest === null ? 'null' : 
+                userRequest === undefined ? 'undefined' : 
+                typeof userRequest === 'string' ? 
+                  (userRequest.length > 200 ? userRequest.substring(0, 200) + '...[truncated]' : userRequest) :
+                  JSON.stringify(userRequest),
+      rawLength: typeof userRequest === 'string' ? userRequest.length : 'N/A',
+      validationRules: {
+        mustBeString: true,
+        mustNotBeNullOrUndefined: true,
+        minLength: VALIDATION_LIMITS.MIN_MESSAGE_LENGTH,
+        maxLength: VALIDATION_LIMITS.MAX_MESSAGE_LENGTH,
+      },
+    });
+
     // Check for null/undefined
     if (userRequest === null || userRequest === undefined) {
       const error = new PromptValidationError(
@@ -86,9 +105,11 @@ export class PromptEnhancerService {
         'MISSING_REQUEST',
         'userRequest'
       );
-      log.error('❌ Prompt validation failed: missing request', { 
+      log.error('❌ [DEBUG] Validation FAILED: missing request', { 
         code: error.code,
-        field: error.field 
+        field: error.field,
+        receivedValue: userRequest === null ? 'null' : 'undefined',
+        receivedType: typeof userRequest,
       });
       throw error;
     }
@@ -100,10 +121,12 @@ export class PromptEnhancerService {
         'INVALID_TYPE',
         'userRequest'
       );
-      log.error('❌ Prompt validation failed: invalid type', { 
+      log.error('❌ [DEBUG] Validation FAILED: invalid type', { 
         code: error.code,
         field: error.field,
-        receivedType: typeof userRequest
+        receivedType: typeof userRequest,
+        receivedValue: JSON.stringify(userRequest),
+        expectedType: 'string',
       });
       throw error;
     }
@@ -116,9 +139,13 @@ export class PromptEnhancerService {
         'EMPTY_REQUEST',
         'userRequest'
       );
-      log.error('❌ Prompt validation failed: empty request', { 
+      log.error('❌ [DEBUG] Validation FAILED: empty request', { 
         code: error.code,
-        field: error.field 
+        field: error.field,
+        originalLength: userRequest.length,
+        trimmedLength: trimmedRequest.length,
+        minRequired: VALIDATION_LIMITS.MIN_MESSAGE_LENGTH,
+        rawValue: userRequest.length > 50 ? userRequest.substring(0, 50) + '...' : userRequest,
       });
       throw error;
     }
@@ -130,17 +157,19 @@ export class PromptEnhancerService {
         'REQUEST_TOO_LONG',
         'userRequest'
       );
-      log.error('❌ Prompt validation failed: request too long', { 
+      log.error('❌ [DEBUG] Validation FAILED: request too long', { 
         code: error.code,
         field: error.field,
         length: trimmedRequest.length,
-        maxLength: VALIDATION_LIMITS.MAX_MESSAGE_LENGTH
+        maxLength: VALIDATION_LIMITS.MAX_MESSAGE_LENGTH,
+        excess: trimmedRequest.length - VALIDATION_LIMITS.MAX_MESSAGE_LENGTH,
       });
       throw error;
     }
 
-    log.debug('✅ Request validation passed', { 
-      length: trimmedRequest.length 
+    log.info('✅ [DEBUG] Request validation PASSED', { 
+      length: trimmedRequest.length,
+      preview: trimmedRequest.substring(0, 100) + (trimmedRequest.length > 100 ? '...' : ''),
     });
   }
 
@@ -151,9 +180,17 @@ export class PromptEnhancerService {
   public validateAndSanitizeContext(
     userContext?: Partial<UserLearningContext>
   ): UserLearningContext {
+    // DEBUG: Log incoming context payload
+    log.info('🔍 [DEBUG] validateAndSanitizeContext() - Incoming context payload:', {
+      hasContext: !!userContext,
+      contextType: typeof userContext,
+      contextValue: userContext ? JSON.stringify(userContext).substring(0, 500) : 'undefined/null',
+    });
+
     try {
       // If no context provided, use defaults
       if (!userContext) {
+        log.info('📋 [DEBUG] No user context provided, using defaults');
         return { ...DEFAULT_USER_LEARNING_CONTEXT };
       }
 
@@ -204,7 +241,7 @@ export class PromptEnhancerService {
           : DEFAULT_USER_LEARNING_CONTEXT.preferences.historicalContext,
       };
 
-      return {
+      const sanitizedContext: UserLearningContext = {
         userId: typeof userContext.userId === 'string' 
           ? userContext.userId.substring(0, 100) 
           : DEFAULT_USER_LEARNING_CONTEXT.userId,
@@ -216,9 +253,22 @@ export class PromptEnhancerService {
         weaknesses: sanitizeStringArray(userContext.weaknesses, VALIDATION_LIMITS.MAX_ARRAY_LENGTH),
         preferences,
       };
+
+      log.info('✅ [DEBUG] Context validation PASSED, sanitized context:', {
+        userId: sanitizedContext.userId ? sanitizedContext.userId.substring(0, 20) + '...' : 'empty',
+        learningStyle: sanitizedContext.learningStyle,
+        knowledgeLevel: sanitizedContext.knowledgeLevel,
+        preferredPace: sanitizedContext.preferredPace,
+        previousTopicsCount: sanitizedContext.previousTopics.length,
+        strengthsCount: sanitizedContext.strengths.length,
+        weaknessesCount: sanitizedContext.weaknesses.length,
+      });
+
+      return sanitizedContext;
     } catch (error) {
-      log.warn('⚠️ Error validating user context, using defaults', {
+      log.warn('⚠️ [DEBUG] Error validating user context, using defaults', {
         error: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
       });
       return { ...DEFAULT_USER_LEARNING_CONTEXT };
     }
@@ -427,32 +477,77 @@ ${trimmedRequest}`;
   /**
    * Safely enhance a user prompt with graceful error handling
    * Returns a fallback response instead of throwing errors
+   * 
+   * DEBUG MODE: This method now includes detailed logging and returns
+   * rejected value information for debugging purposes.
    */
   public safeEnhancePrompt(
     userRequest: string,
     requestType: AIRequestType | undefined,
     userContext?: Partial<UserLearningContext>
-  ): { success: true; enhancement: PromptEnhancement } | { success: false; error: string; fallbackMessage: string } {
+  ): { success: true; enhancement: PromptEnhancement } | { success: false; error: string; fallbackMessage: string; debugInfo?: object } {
+    // DEBUG: Log entry point with full payload
+    log.info('🔍 [DEBUG] safeEnhancePrompt() - Entry point:', {
+      step: 'INCOMING_REQUEST',
+      hasUserRequest: userRequest !== null && userRequest !== undefined,
+      userRequestType: typeof userRequest,
+      userRequestLength: typeof userRequest === 'string' ? userRequest.length : 'N/A',
+      requestType: requestType || 'auto-detect',
+      hasUserContext: !!userContext,
+    });
+
     try {
       const enhancement = this.enhancePrompt(userRequest, requestType, userContext);
+      
+      log.info('✅ [DEBUG] safeEnhancePrompt() - Success:', {
+        step: 'ENHANCEMENT_COMPLETE',
+        finalRequestType: enhancement.requestType,
+        detectedIntent: enhancement.detectedIntent,
+        complexity: enhancement.estimatedComplexity,
+        enhancedRequestLength: enhancement.enhancedRequest.length,
+      });
+      
       return { success: true, enhancement };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorCode = error instanceof PromptValidationError ? error.code : 'UNKNOWN_ERROR';
       
-      log.error('❌ Prompt enhancement failed', {
+      // DEBUG: Create detailed debug info for the rejection
+      const debugInfo = {
+        rejectedValue: {
+          type: typeof userRequest,
+          isNull: userRequest === null,
+          isUndefined: userRequest === undefined,
+          length: typeof userRequest === 'string' ? userRequest.length : 'N/A',
+          trimmedLength: typeof userRequest === 'string' ? userRequest.trim().length : 'N/A',
+          content: typeof userRequest === 'string' 
+            ? (userRequest.length > 100 ? userRequest.substring(0, 100) + '...[truncated]' : userRequest)
+            : JSON.stringify(userRequest),
+        },
+        validationRules: {
+          mustBeString: true,
+          mustNotBeNullOrUndefined: true,
+          minLength: VALIDATION_LIMITS.MIN_MESSAGE_LENGTH,
+          maxLength: VALIDATION_LIMITS.MAX_MESSAGE_LENGTH,
+        },
+        errorCode,
+        errorField: error instanceof PromptValidationError ? error.field : undefined,
+        timestamp: new Date().toISOString(),
+      };
+      
+      log.error('❌ [DEBUG] safeEnhancePrompt() - Validation FAILED:', {
+        step: 'VALIDATION_FAILED',
         error: errorMessage,
         code: errorCode,
         field: error instanceof PromptValidationError ? error.field : undefined,
-        userRequestPreview: typeof userRequest === 'string' 
-          ? userRequest.substring(0, 50) + (userRequest.length > 50 ? '...' : '')
-          : 'Invalid input type',
+        debugInfo,
       });
       
       return {
         success: false,
         error: errorMessage,
         fallbackMessage: FALKEAI_VALIDATION_ERROR_MESSAGE,
+        debugInfo, // Include debug info for development debugging (not exposed to frontend)
       };
     }
   }
