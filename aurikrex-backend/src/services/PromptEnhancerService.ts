@@ -169,7 +169,6 @@ export class PromptEnhancerService {
 
     log.info('✅ [DEBUG] Request validation PASSED', { 
       length: trimmedRequest.length,
-      preview: trimmedRequest.substring(0, 100) + (trimmedRequest.length > 100 ? '...' : ''),
     });
   }
 
@@ -255,7 +254,7 @@ export class PromptEnhancerService {
       };
 
       log.info('✅ [DEBUG] Context validation PASSED, sanitized context:', {
-        userId: sanitizedContext.userId ? sanitizedContext.userId.substring(0, 20) + '...' : 'empty',
+        hasUserId: !!sanitizedContext.userId,
         learningStyle: sanitizedContext.learningStyle,
         knowledgeLevel: sanitizedContext.knowledgeLevel,
         preferredPace: sanitizedContext.preferredPace,
@@ -512,7 +511,7 @@ ${trimmedRequest}`;
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorCode = error instanceof PromptValidationError ? error.code : 'UNKNOWN_ERROR';
       
-      // DEBUG: Create detailed debug info for the rejection
+      // DEBUG: Create detailed debug info for the rejection (no sensitive content logged)
       const debugInfo = {
         rejectedValue: {
           type: typeof userRequest,
@@ -520,9 +519,7 @@ ${trimmedRequest}`;
           isUndefined: userRequest === undefined,
           length: typeof userRequest === 'string' ? userRequest.length : 'N/A',
           trimmedLength: typeof userRequest === 'string' ? userRequest.trim().length : 'N/A',
-          content: typeof userRequest === 'string' 
-            ? (userRequest.length > 100 ? userRequest.substring(0, 100) + '...[truncated]' : userRequest)
-            : JSON.stringify(userRequest),
+          // NOTE: Content removed for security - only log metadata
         },
         validationRules: {
           mustBeString: true,

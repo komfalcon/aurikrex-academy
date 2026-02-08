@@ -627,17 +627,13 @@ class AIService {
     let openrouterError: Error | null = null;
     let groqError: Error | null = null;
 
-    // DEBUG: Log incoming request before any processing
+    // DEBUG: Log incoming request before any processing (no sensitive content)
     log.info('🔍 [DEBUG] executeEnhancedRequestWithRetry() - STEP 1: Incoming request:', {
       step: 'INCOMING_REQUEST',
       messageType: typeof request.message,
       messageLength: typeof request.message === 'string' ? request.message.length : 'N/A',
-      messagePreview: typeof request.message === 'string' 
-        ? (request.message.length > 150 ? request.message.substring(0, 150) + '...[truncated]' : request.message)
-        : JSON.stringify(request.message),
       requestType: request.requestType || 'auto-detect',
       hasUserLearningContext: !!request.userLearningContext,
-      userId: request.context?.userId,
       page: request.context?.page,
     });
 
@@ -654,11 +650,8 @@ class AIService {
       log.error('❌ [DEBUG] executeEnhancedRequestWithRetry() - STEP 2 FAILED: Prompt enhancement failed', {
         step: 'ENHANCEMENT_FAILED',
         error: enhancementResult.error,
-        userId: request.context.userId,
         messageType: typeof request.message,
-        messagePreview: typeof request.message === 'string'
-          ? request.message.substring(0, 100)
-          : 'Invalid message type',
+        messageLength: typeof request.message === 'string' ? request.message.length : 'N/A',
         debugInfo: 'debugInfo' in enhancementResult ? enhancementResult.debugInfo : undefined,
       });
 
@@ -694,15 +687,15 @@ class AIService {
         log.info('📨 [DEBUG] STEP 3a: Trying OpenRouter with ENHANCED prompt (PRIMARY)...');
         const selectedModel = this.selectBestModel(request.message);
         
-        // DEBUG: Log the exact payload being sent to AI
+        // DEBUG: Log the exact payload being sent to AI (no sensitive content)
         log.info('🔍 [DEBUG] AI Model Request Payload:', {
           step: 'AI_MODEL_REQUEST',
           provider: 'openrouter',
           model: selectedModel.name,
           modelId: selectedModel.id,
           modelType: selectedModel.type,
-          enhancedRequestPreview: enhancement.enhancedRequest.substring(0, 300) + '...',
-          systemPromptPreview: enhancement.systemPrompt.substring(0, 200) + '...',
+          enhancedRequestLength: enhancement.enhancedRequest.length,
+          systemPromptLength: enhancement.systemPrompt.length,
         });
 
         // Layer 2: MODEL CALL with system prompt (with retry)
@@ -758,13 +751,13 @@ class AIService {
       try {
         log.info('📨 [DEBUG] STEP 3b: Trying Groq with ENHANCED prompt (FALLBACK)...');
         
-        // DEBUG: Log the exact payload being sent to Groq
+        // DEBUG: Log the exact payload being sent to Groq (no sensitive content)
         log.info('🔍 [DEBUG] AI Model Request Payload (Groq fallback):', {
           step: 'AI_MODEL_REQUEST',
           provider: 'groq',
           model: 'Mixtral 8x7B',
-          enhancedRequestPreview: enhancement.enhancedRequest.substring(0, 300) + '...',
-          systemPromptPreview: enhancement.systemPrompt.substring(0, 200) + '...',
+          enhancedRequestLength: enhancement.enhancedRequest.length,
+          systemPromptLength: enhancement.systemPrompt.length,
         });
         
         // Layer 2: MODEL CALL with system prompt (with retry)

@@ -219,8 +219,7 @@ export function Library() {
   };
 
   // Handle book click - book detail page can be implemented later
-  const handleBookClick = (book: Book) => {
-    console.log('Selected book:', book._id, book.title);
+  const handleBookClick = (_book: Book) => {
     // TODO: Navigate to book detail page when implemented
   };
 
