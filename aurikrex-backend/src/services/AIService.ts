@@ -619,13 +619,26 @@ class AIService {
    * 1. Pre-processing: Enhance the prompt with system instructions and user context
    * 2. Model call: Send enhanced prompt to AI with system prompt
    * 3. Post-processing: Refine and structure the response
+   * 
+   * DEBUG: This method includes comprehensive step-by-step logging
    */
   private async executeEnhancedRequestWithRetry(request: EnhancedAIChatRequest): Promise<EnhancedAIChatResponse> {
     const startTime = Date.now();
     let openrouterError: Error | null = null;
     let groqError: Error | null = null;
 
+    // DEBUG: Log incoming request before any processing (no sensitive content)
+    log.info('🔍 [DEBUG] executeEnhancedRequestWithRetry() - STEP 1: Incoming request:', {
+      step: 'INCOMING_REQUEST',
+      messageType: typeof request.message,
+      messageLength: typeof request.message === 'string' ? request.message.length : 'N/A',
+      requestType: request.requestType || 'auto-detect',
+      hasUserLearningContext: !!request.userLearningContext,
+      page: request.context?.page,
+    });
+
     // Layer 1: PROMPT ENHANCEMENT (Pre-Processing) with safe validation
+    log.info('🔍 [DEBUG] executeEnhancedRequestWithRetry() - STEP 2: Calling safeEnhancePrompt()');
     const enhancementResult = promptEnhancerService.safeEnhancePrompt(
       request.message,
       request.requestType,
@@ -634,12 +647,12 @@ class AIService {
 
     // If enhancement failed, return graceful fallback response
     if (!enhancementResult.success) {
-      log.error('❌ Prompt enhancement failed, returning fallback response', {
+      log.error('❌ [DEBUG] executeEnhancedRequestWithRetry() - STEP 2 FAILED: Prompt enhancement failed', {
+        step: 'ENHANCEMENT_FAILED',
         error: enhancementResult.error,
-        userId: request.context.userId,
-        messagePreview: typeof request.message === 'string'
-          ? request.message.substring(0, 50)
-          : 'Invalid message type',
+        messageType: typeof request.message,
+        messageLength: typeof request.message === 'string' ? request.message.length : 'N/A',
+        debugInfo: 'debugInfo' in enhancementResult ? enhancementResult.debugInfo : undefined,
       });
 
       return {
@@ -654,21 +667,36 @@ class AIService {
 
     const enhancement = enhancementResult.enhancement;
 
-    log.info(`📋 Prompt enhanced`, {
+    // DEBUG: Log the sanitized context and enhanced prompt
+    log.info('✅ [DEBUG] executeEnhancedRequestWithRetry() - STEP 2 SUCCESS: Prompt enhanced', {
+      step: 'ENHANCEMENT_SUCCESS',
       requestType: enhancement.requestType,
       detectedIntent: enhancement.detectedIntent,
       complexity: enhancement.estimatedComplexity,
       originalLength: request.message.length,
       enhancedLength: enhancement.enhancedRequest.length,
+      systemPromptLength: enhancement.systemPrompt.length,
     });
+
+    // DEBUG: Log before AI model call
+    log.info('🔍 [DEBUG] executeEnhancedRequestWithRetry() - STEP 3: Preparing AI model request payload');
 
     // Try OpenRouter first (PRIMARY) with retry logic
     if (this.openrouterKey) {
       try {
-        log.info('📨 Trying OpenRouter with ENHANCED prompt (PRIMARY) with retry logic...');
+        log.info('📨 [DEBUG] STEP 3a: Trying OpenRouter with ENHANCED prompt (PRIMARY)...');
         const selectedModel = this.selectBestModel(request.message);
-        log.info(`🧠 Question analysis suggests: ${selectedModel.type} model`);
-        log.info(`📊 Using OpenRouter model: ${selectedModel.name}`);
+        
+        // DEBUG: Log the exact payload being sent to AI (no sensitive content)
+        log.info('🔍 [DEBUG] AI Model Request Payload:', {
+          step: 'AI_MODEL_REQUEST',
+          provider: 'openrouter',
+          model: selectedModel.name,
+          modelId: selectedModel.id,
+          modelType: selectedModel.type,
+          enhancedRequestLength: enhancement.enhancedRequest.length,
+          systemPromptLength: enhancement.systemPrompt.length,
+        });
 
         // Layer 2: MODEL CALL with system prompt (with retry)
         const response = await this.executeWithRetry(
@@ -680,10 +708,24 @@ class AIService {
           'OpenRouter Enhanced API call'
         );
         const latency = Date.now() - startTime;
-        log.info(`✅ OpenRouter enhanced response received in ${latency}ms`);
+        
+        log.info('✅ [DEBUG] STEP 3a SUCCESS: OpenRouter response received', {
+          step: 'AI_RESPONSE_SUCCESS',
+          provider: 'openrouter',
+          model: selectedModel.name,
+          latency,
+          responseLength: response.text.length,
+        });
 
         // Layer 3: RESPONSE REFINEMENT (Post-Processing)
+        log.info('🔍 [DEBUG] STEP 4: Refining response...');
         const refined = responseRefinerService.refineResponse(response.text, enhancement.requestType);
+
+        log.info('✅ [DEBUG] STEP 4 SUCCESS: Response refined', {
+          step: 'REFINEMENT_SUCCESS',
+          refinedLength: refined.refined.length,
+          sectionsCount: refined.structure.sections.length,
+        });
 
         return {
           reply: refined.refined,
@@ -696,8 +738,10 @@ class AIService {
         };
       } catch (error) {
         openrouterError = error instanceof Error ? error : new Error(String(error));
-        log.warn('⚠️ OpenRouter failed after retries, trying Groq fallback...', {
+        log.warn('⚠️ [DEBUG] STEP 3a FAILED: OpenRouter failed after retries', {
+          step: 'OPENROUTER_FAILED',
           error: openrouterError.message,
+          willTryGroq: !!this.groqKey,
         });
       }
     }
@@ -705,7 +749,16 @@ class AIService {
     // Fallback to Groq (if OpenRouter fails completely) with retry logic
     if (this.groqKey) {
       try {
-        log.info('📨 Trying Groq with ENHANCED prompt (FALLBACK) with retry logic...');
+        log.info('📨 [DEBUG] STEP 3b: Trying Groq with ENHANCED prompt (FALLBACK)...');
+        
+        // DEBUG: Log the exact payload being sent to Groq (no sensitive content)
+        log.info('🔍 [DEBUG] AI Model Request Payload (Groq fallback):', {
+          step: 'AI_MODEL_REQUEST',
+          provider: 'groq',
+          model: 'Mixtral 8x7B',
+          enhancedRequestLength: enhancement.enhancedRequest.length,
+          systemPromptLength: enhancement.systemPrompt.length,
+        });
         
         // Layer 2: MODEL CALL with system prompt (with retry)
         const response = await this.executeWithRetry(
@@ -716,9 +769,16 @@ class AIService {
           'Groq Enhanced API call'
         );
         const latency = Date.now() - startTime;
-        log.info(`✅ Groq enhanced response received in ${latency}ms`);
+        
+        log.info('✅ [DEBUG] STEP 3b SUCCESS: Groq response received', {
+          step: 'AI_RESPONSE_SUCCESS',
+          provider: 'groq',
+          latency,
+          responseLength: response.text.length,
+        });
 
         // Layer 3: RESPONSE REFINEMENT (Post-Processing)
+        log.info('🔍 [DEBUG] STEP 4: Refining response...');
         const refined = responseRefinerService.refineResponse(response.text, enhancement.requestType);
 
         return {
@@ -732,7 +792,8 @@ class AIService {
         };
       } catch (error) {
         groqError = error instanceof Error ? error : new Error(String(error));
-        log.error('❌ Groq also failed after retries', {
+        log.error('❌ [DEBUG] STEP 3b FAILED: Groq also failed after retries', {
+          step: 'GROQ_FAILED',
           error: groqError.message,
         });
       }
@@ -742,9 +803,11 @@ class AIService {
     const openrouterMsg = openrouterError?.message || 'No OpenRouter key configured';
     const groqMsg = groqError?.message || 'No Groq key configured';
 
-    log.error('❌ All AI providers failed', {
+    log.error('❌ [DEBUG] ALL PROVIDERS FAILED', {
+      step: 'ALL_PROVIDERS_FAILED',
       openrouterError: openrouterMsg,
       groqError: groqMsg,
+      totalAttemptTime: Date.now() - startTime,
     });
 
     throw new AIServiceError(
