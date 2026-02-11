@@ -3,7 +3,7 @@
  * Includes email signup form, Google signup button, and links to login
  * Features animated background, smooth transitions, and proper dark/light mode support
  */
-import { useState, useEffect, type FormEvent, type ChangeEvent } from 'react';
+import { useState, useEffect, type FormEvent, type ChangeEvent, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Logo } from '../components/Logo';
 import { ThemeToggle } from '../components/ThemeToggle';
@@ -13,26 +13,33 @@ import {
   usePasswordValidation,
   validateSignupForm,
   type SignupFormData,
-  type FormErrors
+  type FormErrors,
+  type PasswordRequirement
 } from '../hooks/useValidation';
 
 // Available user roles
 const USER_ROLES = ['Student', 'Teacher', 'Admin'] as const;
 
 // Features displayed in the header with animated icons
-const FEATURES = [
+interface Feature {
+  icon: string;
+  text: string;
+  delay: number;
+}
+
+const FEATURES: Feature[] = [
   { icon: '🎓', text: 'Access 100+ curated courses', delay: 100 },
   { icon: '📊', text: 'Track your learning progress', delay: 200 },
   { icon: '🏆', text: 'Earn certificates & badges', delay: 300 },
   { icon: '👥', text: 'Join a community of learners', delay: 400 }
 ];
 
-export function SignupPage() {
+export function SignupPage(): ReactNode {
   const navigate = useNavigate();
   const { theme } = useTheme();
   
   // Page load animation state
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [isLoaded, setIsLoaded] = useState<boolean>(false);
   
   // Trigger fade-in animation on mount
   useEffect(() => {
@@ -55,10 +62,10 @@ export function SignupPage() {
   
   // Error state
   const [errors, setErrors] = useState<FormErrors>({});
-  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [submitAttempted, setSubmitAttempted] = useState<boolean>(false);
   
   // Button animation state
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   
   // Password validation hook
   const { requirements: passwordRequirements, isValid: isPasswordValid } = usePasswordValidation(formData.password);
@@ -70,18 +77,18 @@ export function SignupPage() {
   const [hoveredFeature, setHoveredFeature] = useState<number | null>(null);
 
   // Handle input changes
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
     const { name, value, type } = e.target;
     const newValue = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
     
-    setFormData(prev => ({
+    setFormData((prev: SignupFormData) => ({
       ...prev,
       [name]: newValue
     }));
 
     // Clear error on field change if submit was attempted
     if (submitAttempted && errors[name as keyof FormErrors]) {
-      setErrors(prev => ({
+      setErrors((prev: FormErrors) => ({
         ...prev,
         [name]: undefined
       }));
@@ -89,7 +96,7 @@ export function SignupPage() {
   };
 
   // Handle form submission
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setSubmitAttempted(true);
     setIsSubmitting(true);
@@ -119,15 +126,15 @@ export function SignupPage() {
   };
 
   // Handle Google signup (placeholder)
-  const handleGoogleSignup = () => {
+  const handleGoogleSignup = (): void => {
     // Placeholder function for Google OAuth integration
     console.log('Google signup clicked - OAuth integration pending');
     alert('Google signup will be available soon!');
   };
 
   // Input field styling classes with enhanced animations
-  const getInputClasses = (fieldName: string, hasError: boolean) => `
-    w-full px-4 py-3 rounded-xl
+  const getInputClasses = (fieldName: string, hasError: boolean): string => `
+    w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl
     ${theme === 'dark' 
       ? 'bg-slate-800/80 backdrop-blur-sm border-slate-600' 
       : 'bg-white/90 backdrop-blur-sm border-gray-200'
@@ -135,6 +142,7 @@ export function SignupPage() {
     border-2 ${hasError ? 'border-red-500' : ''}
     ${theme === 'dark' ? 'text-white' : 'text-gray-900'}
     ${theme === 'dark' ? 'placeholder-gray-400' : 'placeholder-gray-500'}
+    text-sm sm:text-base
     transition-all duration-300 ease-out
     ${focusedField === fieldName 
       ? `ring-2 ${theme === 'dark' ? 'ring-primary-400' : 'ring-primary-500'} ring-offset-2 ${theme === 'dark' ? 'ring-offset-slate-900' : 'ring-offset-white'} border-primary-500 shadow-lg ${theme === 'dark' ? 'shadow-primary-500/20' : 'shadow-primary-500/30'}` 
@@ -147,7 +155,7 @@ export function SignupPage() {
   `;
 
   // Label styling classes for proper dark/light mode
-  const labelClasses = `block text-sm font-semibold mb-2 transition-colors duration-300 ${
+  const labelClasses = `block text-xs sm:text-sm font-semibold mb-1.5 sm:mb-2 transition-colors duration-300 ${
     theme === 'dark' ? 'text-gray-200' : 'text-gray-700'
   }`;
 
@@ -156,16 +164,21 @@ export function SignupPage() {
       theme === 'dark' ? 'bg-slate-900' : 'bg-gray-50'
     }`}>
       {/* Animated Background with educational icons */}
-      <AnimatedBackground itemCount={25} />
+      <AnimatedBackground itemCount={30} />
       
       {/* Theme Toggle - Top Right */}
       <div className="fixed top-4 right-4 z-50">
         <ThemeToggle />
       </div>
+      
+      {/* Skip to content link for accessibility */}
+      <a href="#signup-form" className="sr-only focus:not-sr-only">
+        Skip to signup form
+      </a>
 
       <div className="relative z-10 flex flex-col lg:flex-row min-h-screen">
         {/* Left Side - Branding & Features */}
-        <div className={`lg:w-1/2 p-8 lg:p-12 flex flex-col justify-center transition-colors duration-500 ${
+        <div className={`lg:w-1/2 p-6 sm:p-8 lg:p-12 flex flex-col justify-center transition-colors duration-500 ${
           theme === 'dark'
             ? 'bg-gradient-to-br from-primary-900/90 via-primary-800/85 to-secondary-900/90 backdrop-blur-sm'
             : 'bg-gradient-to-br from-primary-600/95 via-primary-700/90 to-secondary-700/95 backdrop-blur-sm'
@@ -176,30 +189,30 @@ export function SignupPage() {
             }`}
           >
             {/* Logo with animation */}
-            <div className="mb-8 transform hover:scale-105 transition-transform duration-300">
+            <div className="mb-6 sm:mb-8 transform hover:scale-105 transition-transform duration-300">
               <Logo size="lg" className="text-white [&_span]:!text-white [&_.text-gray-600]:!text-primary-100" />
             </div>
 
             {/* Hero Text with gradient animation */}
-            <h1 className="text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">
+            <h1 className="text-2xl sm:text-3xl lg:text-5xl font-bold text-white mb-3 sm:mb-4 leading-tight">
               Join the Future! 
               <span className="inline-block ml-2 animate-bounce">🚀</span>
             </h1>
-            <p className={`text-xl mb-10 transition-colors duration-500 ${
+            <p className={`text-base sm:text-lg lg:text-xl mb-6 sm:mb-10 transition-colors duration-500 ${
               theme === 'dark' ? 'text-primary-200' : 'text-primary-100'
             }`}>
               Start your learning journey today
             </p>
 
-            {/* Features List with hover animations */}
-            <div className="space-y-5">
-              <h3 className="text-lg font-semibold text-white/95 mb-6 tracking-wide uppercase text-sm">
+            {/* Features List with hover animations - hide on small screens */}
+            <div className="hidden sm:block space-y-4 sm:space-y-5">
+              <h3 className="text-sm sm:text-lg font-semibold text-white/95 mb-4 sm:mb-6 tracking-wide uppercase">
                 ✨ What you'll get:
               </h3>
-              {FEATURES.map((feature, index) => (
+              {FEATURES.map((feature: Feature, index: number) => (
                 <div
                   key={index}
-                  className={`flex items-center gap-4 text-white/90 p-3 rounded-xl transition-all duration-300 cursor-default ${
+                  className={`flex items-center gap-3 sm:gap-4 text-white/90 p-2 sm:p-3 rounded-xl transition-all duration-300 cursor-default ${
                     isLoaded ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-8'
                   } ${hoveredFeature === index 
                     ? `${theme === 'dark' ? 'bg-white/10' : 'bg-white/15'} shadow-lg transform scale-105` 
@@ -213,13 +226,13 @@ export function SignupPage() {
                   onMouseLeave={() => setHoveredFeature(null)}
                 >
                   <span 
-                    className={`text-3xl transition-transform duration-300 ${
+                    className={`text-2xl sm:text-3xl transition-transform duration-300 ${
                       hoveredFeature === index ? 'scale-125 animate-icon-bounce' : ''
                     }`}
                   >
                     {feature.icon}
                   </span>
-                  <span className="text-lg font-medium">{feature.text}</span>
+                  <span className="text-base sm:text-lg font-medium">{feature.text}</span>
                 </div>
               ))}
             </div>
@@ -227,7 +240,7 @@ export function SignupPage() {
         </div>
 
         {/* Right Side - Signup Form */}
-        <div className={`lg:w-1/2 p-8 lg:p-12 flex items-center justify-center transition-colors duration-500 ${
+        <div className={`lg:w-1/2 p-6 sm:p-8 lg:p-12 flex items-center justify-center transition-colors duration-500 ${
           theme === 'dark' ? 'bg-slate-900/80 backdrop-blur-md' : 'bg-white/80 backdrop-blur-md'
         }`}>
           <div 
@@ -235,18 +248,37 @@ export function SignupPage() {
               isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
             }`}
           >
-            <h2 className={`text-3xl font-bold mb-2 transition-colors duration-500 ${
+            <h2 className={`text-2xl sm:text-3xl font-bold mb-2 transition-colors duration-500 ${
               theme === 'dark' ? 'text-white' : 'text-gray-900'
             }`}>
               Create your account
             </h2>
-            <p className={`mb-8 text-lg transition-colors duration-500 ${
+            <p className={`mb-6 sm:mb-8 text-base sm:text-lg transition-colors duration-500 ${
               theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
             }`}>
               Fill in your details to get started
             </p>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form id="signup-form" onSubmit={handleSubmit} className="space-y-5">
+              {/* Error summary for accessibility */}
+              {submitAttempted && Object.keys(errors).length > 0 && (
+                <div 
+                  className={`p-4 rounded-lg border-2 ${
+                    theme === 'dark' 
+                      ? 'bg-red-900/10 border-red-500/30 text-red-400' 
+                      : 'bg-red-50 border-red-300 text-red-700'
+                  } animate-fade-in`}
+                  role="alert"
+                  aria-live="polite"
+                >
+                  <p className="font-semibold mb-2">Please fix the following errors:</p>
+                  <ul className="list-disc list-inside space-y-1 text-sm">
+                    {Object.entries(errors).map(([field, error]: [string, string | undefined]) => (
+                      error ? <li key={field}>{error}</li> : null
+                    ))}
+                  </ul>
+                </div>
+              )}
               {/* Name Fields - Row */}
               <div className="grid grid-cols-2 gap-4">
                 {/* First Name */}
@@ -334,7 +366,7 @@ export function SignupPage() {
                   theme === 'dark' ? 'bg-slate-800/50' : 'bg-gray-50'
                 }`}>
                   <div className="space-y-1.5">
-                    {passwordRequirements.map((req, index) => (
+                    {passwordRequirements.map((req: PasswordRequirement, index: number) => (
                       <div
                         key={index}
                         className={`flex items-center gap-2 text-xs transition-all duration-300 ${
@@ -413,7 +445,7 @@ export function SignupPage() {
                   className={`${getInputClasses('role', !!errors.role)} cursor-pointer`}
                 >
                   <option value="">Select your role</option>
-                  {USER_ROLES.map(role => (
+                  {USER_ROLES.map((role: string) => (
                     <option key={role} value={role}>{role}</option>
                   ))}
                 </select>
@@ -441,20 +473,20 @@ export function SignupPage() {
               </div>
 
               {/* Terms Checkbox */}
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-2 sm:gap-3">
                 <input
                   type="checkbox"
                   id="agreedToTerms"
                   name="agreedToTerms"
                   checked={formData.agreedToTerms}
                   onChange={handleChange}
-                  className={`mt-1 w-5 h-5 rounded-md transition-all duration-200 cursor-pointer ${
+                  className={`mt-1 w-5 h-5 rounded-md transition-all duration-200 cursor-pointer flex-shrink-0 ${
                     theme === 'dark' 
                       ? 'bg-slate-700 border-slate-600 text-primary-500 focus:ring-primary-400' 
                       : 'bg-white border-gray-300 text-primary-600 focus:ring-primary-500'
                   } focus:ring-2 focus:ring-offset-2 ${theme === 'dark' ? 'focus:ring-offset-slate-900' : ''}`}
                 />
-                <label htmlFor="agreedToTerms" className={`text-sm transition-colors duration-300 ${
+                <label htmlFor="agreedToTerms" className={`text-xs sm:text-sm transition-colors duration-300 ${
                   theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
                 }`}>
                   I agree to the{' '}
@@ -479,6 +511,7 @@ export function SignupPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
+                aria-busy={isSubmitting}
                 className={`
                   group w-full py-3.5 px-4 rounded-xl
                   bg-gradient-to-r from-primary-600 to-secondary-600
@@ -495,15 +528,15 @@ export function SignupPage() {
               >
                 {isSubmitting ? (
                   <span className="flex items-center justify-center gap-2">
-                    <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                    <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24" aria-hidden="true">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                    Creating Account...
+                    <span>Creating Account...</span>
                   </span>
                 ) : (
                   <span className="flex items-center justify-center gap-2">
-                    Create Account
+                    <span>Create Account</span>
                     <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
                   </span>
                 )}
@@ -566,7 +599,7 @@ export function SignupPage() {
               </button>
 
               {/* Login Link */}
-              <p className={`text-center mt-8 transition-colors duration-300 ${
+              <p className={`text-center mt-6 sm:mt-8 text-xs sm:text-sm transition-colors duration-300 ${
                 theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
               }`}>
                 Already have an account?{' '}

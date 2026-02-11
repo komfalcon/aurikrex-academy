@@ -209,6 +209,28 @@ body.dark {
   }
 }
 
+/* Smooth entrance animation */
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Subtle shimmer effect for loading states */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
 .animate-fade-in {
   animation: fadeIn 0.6s ease-out forwards;
 }
@@ -258,6 +280,16 @@ body.dark {
   animation: glowPulse 2s ease-in-out infinite;
 }
 
+.animate-slide-in-up {
+  animation: slideInUp 0.6s ease-out forwards;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite;
+}
+
 /* Stagger animation delays for list items */
 .stagger-1 { animation-delay: 0.1s; }
 .stagger-2 { animation-delay: 0.2s; }
@@ -277,6 +309,10 @@ body.dark {
 
 /* Custom opacity utilities for floating icons */
 .opacity-15 { opacity: 0.15; }
+.opacity-20 { opacity: 0.20; }
 .opacity-25 { opacity: 0.25; }
+.opacity-30 { opacity: 0.30; }
 .opacity-35 { opacity: 0.35; }
+.opacity-40 { opacity: 0.40; }
 .opacity-45 { opacity: 0.45; }
+.opacity-50 { opacity: 0.50; }

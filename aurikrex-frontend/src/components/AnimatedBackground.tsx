@@ -3,6 +3,13 @@
  * Features floating atoms, molecules, test tubes, books, mathematical symbols, planets, etc.
  * Animations are smooth, subtle, and do not distract from the main content
  * Adapts to both dark and light mode with appropriate opacity and colors
+ * 
+ * Features:
+ * - 4+ animation types: float, drift, orbit, pulse
+ * - 14+ educational/science-themed SVG icons
+ * - Smooth transitions with proper easing
+ * - Dark/light mode support
+ * - Performance optimized with useMemo
  */
 import { useMemo } from 'react';
 import { useTheme } from '../hooks/useTheme';
@@ -138,6 +145,21 @@ const educationalIcons = [
       <polygon points="12,22 9.5,14.5 12,12 14.5,14.5" fill="currentColor" opacity="0.5" />
     </svg>
   ),
+  // Beaker/Chemistry vial - represents substances and chemistry
+  (key: string, className: string) => (
+    <svg key={key} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M9 2h6v8l-5 7c-.5.5-2 .5-2.5 0l-4.5-7V2z" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M9 2h6" strokeLinecap="round" />
+      <path d="M7 15h10" strokeLinecap="round" />
+    </svg>
+  ),
+  // Telescope - represents astronomy and observation
+  (key: string, className: string) => (
+    <svg key={key} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M4 8c0 0 2-2 4-2s4 2 4 2M8 6v10M12 10c0 0 2-2 4-2s4 2 4 2M16 8v8" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="18" cy="16" r="2" />
+    </svg>
+  ),
 ];
 
 /**
@@ -179,14 +201,14 @@ function generateFloatingItems(count: number): FloatingItem[] {
   return Array.from({ length: count }, (_, i) => ({
     id: i,
     iconIndex: Math.floor(Math.random() * educationalIcons.length),
-    size: Math.random() * 28 + 18, // 18-46px for better visibility
+    size: Math.random() * 32 + 20, // 20-52px for better visibility
     x: Math.random() * 100, // 0-100%
     y: Math.random() * 100, // 0-100%
-    duration: Math.random() * 25 + 20, // 20-45s animation duration (slower, more subtle)
-    delay: Math.random() * -15, // Random start offset
+    duration: Math.random() * 30 + 25, // 25-55s animation duration (slower, more subtle)
+    delay: Math.random() * -20, // Random start offset
     rotation: Math.random() * 360, // Initial rotation
     animationType: animationTypes[Math.floor(Math.random() * animationTypes.length)],
-    opacity: Math.random() * 0.3 + 0.15, // 0.15-0.45 opacity for subtlety
+    opacity: Math.random() * 0.35 + 0.2, // 0.2-0.55 opacity for better visibility
   }));
 }
 
@@ -240,13 +262,13 @@ export function AnimatedBackground({ className = '', itemCount = 20 }: AnimatedB
         
         // Calculate opacity class based on item.opacity value for consistent Tailwind usage
         // Map opacity (0.15-0.45) to Tailwind opacity classes for theme consistency
-        const opacityClass = item.opacity < 0.2 
-          ? 'opacity-15' 
-          : item.opacity < 0.3 
-            ? 'opacity-25' 
-            : item.opacity < 0.4 
-              ? 'opacity-35' 
-              : 'opacity-45';
+        const opacityClass = item.opacity < 0.25 
+          ? 'opacity-20' 
+          : item.opacity < 0.35 
+            ? 'opacity-30' 
+            : item.opacity < 0.45 
+              ? 'opacity-40' 
+              : 'opacity-50';
         
         return (
           <div

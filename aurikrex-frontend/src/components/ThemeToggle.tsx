@@ -1,6 +1,7 @@
 /**
  * ThemeToggle Component - Toggle button for dark/light mode
  * Shows moon icon in light mode, sun icon in dark mode
+ * Features smooth transitions and proper accessibility
  */
 import { useTheme } from '../hooks/useTheme';
 
@@ -18,7 +19,7 @@ export function ThemeToggle({ className = '' }: ThemeToggleProps) {
         p-2.5 rounded-full
         bg-white dark:bg-slate-800
         border border-gray-200 dark:border-slate-700
-        shadow-sm hover:shadow-md
+        shadow-md hover:shadow-lg
         transition-all duration-300 ease-in-out
         hover:scale-110 active:scale-95
         focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2
@@ -26,6 +27,7 @@ export function ThemeToggle({ className = '' }: ThemeToggleProps) {
         ${className}
       `}
       aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+      title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
     >
       {theme === 'light' ? (
         // Moon icon - shown in light mode
@@ -35,7 +37,7 @@ export function ThemeToggle({ className = '' }: ThemeToggleProps) {
           viewBox="0 0 24 24"
           strokeWidth={1.5}
           stroke="currentColor"
-          className="w-5 h-5 text-slate-700 transition-transform duration-300 hover:rotate-12"
+          className="w-5 h-5 text-slate-700 transition-transform duration-300"
         >
           <path
             strokeLinecap="round"
