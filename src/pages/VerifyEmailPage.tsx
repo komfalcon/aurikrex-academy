@@ -1,11 +1,14 @@
 /**
  * VerifyEmailPage - OTP verification page component
  * Includes 6-digit OTP input, countdown timer, and resend functionality
+ * Features animated background and proper dark/light mode support
  */
 import { useState, useEffect, useRef, type KeyboardEvent, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Logo } from '../components/Logo';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { AnimatedBackground } from '../components/AnimatedBackground';
+import { useTheme } from '../hooks/useTheme';
 
 // OTP length constant
 const OTP_LENGTH = 6;
@@ -13,6 +16,16 @@ const COUNTDOWN_SECONDS = 60;
 
 export function VerifyEmailPage() {
   const navigate = useNavigate();
+  const { theme } = useTheme();
+  
+  // Page load animation state
+  const [isLoaded, setIsLoaded] = useState(false);
+  
+  // Trigger fade-in animation on mount
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoaded(true), 50);
+    return () => clearTimeout(timer);
+  }, []);
   
   // Get stored email from signup
   const [email] = useState(() => sessionStorage.getItem('signupEmail') || 'your email');
@@ -204,61 +217,95 @@ export function VerifyEmailPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center p-4">
+    <div className={`min-h-screen w-full relative overflow-hidden transition-colors duration-500 ${
+      theme === 'dark' ? 'bg-slate-900' : 'bg-gray-50'
+    }`}>
+      {/* Animated Background with educational icons */}
+      <AnimatedBackground itemCount={15} />
+      
       {/* Theme Toggle - Top Right */}
       <div className="fixed top-4 right-4 z-50">
         <ThemeToggle />
       </div>
 
-      <div className="w-full max-w-md animate-fade-in">
-        {/* Card Container */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8 border border-gray-100 dark:border-slate-700">
-          {/* Logo */}
-          <div className="flex justify-center mb-6">
-            <Logo size="md" />
-          </div>
+      <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
+        <div 
+          className={`w-full max-w-md transition-all duration-700 ${
+            isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+          }`}
+        >
+          {/* Card Container */}
+          <div className={`rounded-2xl shadow-2xl p-8 backdrop-blur-md border transition-colors duration-500 ${
+            theme === 'dark' 
+              ? 'bg-slate-800/90 border-slate-700 shadow-black/20' 
+              : 'bg-white/95 border-gray-100 shadow-gray-200/50'
+          }`}>
+            {/* Logo with animation */}
+            <div className="flex justify-center mb-8 transform hover:scale-105 transition-transform duration-300">
+              <Logo size="md" />
+            </div>
 
-          {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              Verify your email
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              We've sent a 6-digit verification code to
-            </p>
-            <p className="text-primary-600 dark:text-primary-400 font-semibold mt-1">
-              {email}
-            </p>
-          </div>
+            {/* Header */}
+            <div className="text-center mb-8">
+              <h1 className={`text-2xl font-bold mb-3 transition-colors duration-500 ${
+                theme === 'dark' ? 'text-white' : 'text-gray-900'
+              }`}>
+                Verify your email ✉️
+              </h1>
+              <p className={`transition-colors duration-500 ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+              }`}>
+                We've sent a 6-digit verification code to
+              </p>
+              <p className={`font-semibold mt-2 text-lg transition-colors duration-500 ${
+                theme === 'dark' ? 'text-primary-400' : 'text-primary-600'
+              }`}>
+                {email}
+              </p>
+            </div>
 
-          {/* OTP Input */}
-          <div className="mb-6">
-            <div className="flex justify-center gap-3">
-              {otp.map((digit, index) => (
-                <input
-                  key={index}
-                  ref={el => { inputRefs.current[index] = el; }}
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={1}
-                  value={digit}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => handleChange(index, e.target.value)}
-                  onKeyDown={(e) => handleKeyDown(index, e)}
-                  onPaste={handlePaste}
+            {/* OTP Input */}
+            <div className="mb-8">
+              <div className="flex justify-center gap-2 sm:gap-3">
+                {otp.map((digit, index) => (
+                  <input
+                    key={index}
+                    ref={el => { inputRefs.current[index] = el; }}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={digit}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => handleChange(index, e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(index, e)}
+                    onPaste={handlePaste}
                   disabled={isVerifying || success}
                   className={`
-                    w-12 h-14 sm:w-14 sm:h-16
+                    w-11 h-14 sm:w-14 sm:h-16
                     text-center text-2xl font-bold
-                    rounded-lg border-2
-                    ${digit ? 'border-primary-500' : 'border-gray-200 dark:border-slate-600'}
+                    rounded-xl border-2
+                    transition-all duration-300 ease-out
+                    ${digit 
+                      ? (theme === 'dark' ? 'border-primary-400' : 'border-primary-500') 
+                      : (theme === 'dark' ? 'border-slate-600' : 'border-gray-200')
+                    }
                     ${error ? 'border-red-500 animate-shake' : ''}
-                    ${success ? 'border-green-500 bg-green-50 dark:bg-green-900/20' : ''}
-                    bg-white dark:bg-slate-700
-                    text-gray-900 dark:text-white
-                    transition-all duration-200
-                    focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500
+                    ${success 
+                      ? (theme === 'dark' ? 'border-green-400 bg-green-900/20' : 'border-green-500 bg-green-50') 
+                      : ''
+                    }
+                    ${theme === 'dark' 
+                      ? 'bg-slate-700/80 text-white' 
+                      : 'bg-white text-gray-900'
+                    }
+                    focus:outline-none focus:ring-2 focus:border-primary-500 
+                    ${theme === 'dark' 
+                      ? 'focus:ring-primary-400 focus:ring-offset-slate-800' 
+                      : 'focus:ring-primary-500'
+                    }
+                    focus:ring-offset-2 focus:scale-105
                     disabled:opacity-50 disabled:cursor-not-allowed
-                    hover:border-primary-400
+                    hover:border-primary-400 hover:shadow-md
+                    transform hover:scale-[1.02]
                   `}
                 />
               ))}
@@ -266,14 +313,16 @@ export function VerifyEmailPage() {
             
             {/* Error Message */}
             {error && (
-              <p className="text-center text-red-500 text-sm mt-3 animate-fade-in">
+              <p className="text-center text-red-500 text-sm mt-4 animate-fade-in font-medium">
                 {error}
               </p>
             )}
             
             {/* Success Message */}
             {success && (
-              <p className="text-center text-green-600 dark:text-green-400 text-sm mt-3 animate-fade-in flex items-center justify-center gap-2">
+              <p className={`text-center text-sm mt-4 animate-fade-in flex items-center justify-center gap-2 font-medium ${
+                theme === 'dark' ? 'text-green-400' : 'text-green-600'
+              }`}>
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
@@ -287,14 +336,16 @@ export function VerifyEmailPage() {
             onClick={handleVerify}
             disabled={otp.join('').length !== OTP_LENGTH || isVerifying || success}
             className={`
-              w-full py-3 px-4 rounded-lg
-              font-semibold text-white
-              transition-all duration-300 ease-in-out
+              w-full py-3.5 px-4 rounded-xl
+              font-semibold text-white text-lg
+              transition-all duration-300 ease-out
               focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2
-              dark:focus:ring-offset-slate-800
+              ${theme === 'dark' ? 'focus:ring-offset-slate-800' : ''}
               ${success
                 ? 'bg-green-600 cursor-default'
-                : 'bg-gradient-to-r from-primary-600 to-secondary-600 hover:from-primary-700 hover:to-secondary-700 shadow-lg shadow-primary-500/25 hover:shadow-xl hover:shadow-primary-500/40 hover:-translate-y-0.5 active:translate-y-0 active:shadow-md'
+                : `bg-gradient-to-r from-primary-600 to-secondary-600 hover:from-primary-500 hover:to-secondary-500 shadow-lg hover:shadow-2xl hover:-translate-y-1 active:translate-y-0 active:shadow-lg ${
+                    theme === 'dark' ? 'shadow-primary-500/30' : 'shadow-primary-500/25'
+                  }`
               }
               disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-lg
             `}
@@ -320,17 +371,14 @@ export function VerifyEmailPage() {
           </button>
 
           {/* Countdown & Resend */}
-          <div className="mt-6 text-center">
+          <div className="mt-8 text-center">
             {canResend ? (
               <button
                 onClick={handleResend}
                 disabled={isResending}
-                className="
-                  text-primary-600 dark:text-primary-400 font-semibold
-                  hover:underline transition-all duration-200
-                  disabled:opacity-50 disabled:cursor-not-allowed
-                  flex items-center justify-center gap-2 mx-auto
-                "
+                className={`font-semibold hover:underline transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mx-auto ${
+                  theme === 'dark' ? 'text-primary-400 hover:text-primary-300' : 'text-primary-600 hover:text-primary-700'
+                }`}
               >
                 {isResending ? (
                   <>
@@ -350,13 +398,15 @@ export function VerifyEmailPage() {
                 )}
               </button>
             ) : (
-              <p className="text-gray-500 dark:text-gray-400">
+              <p className={`transition-colors duration-300 ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+              }`}>
                 Resend code in{' '}
-                <span className={`
-                  font-mono font-semibold
-                  ${countdown <= 10 ? 'text-red-500 animate-pulse-custom' : 'text-primary-600 dark:text-primary-400'}
-                  transition-colors duration-300
-                `}>
+                <span className={`font-mono font-semibold transition-colors duration-300 ${
+                  countdown <= 10 
+                    ? 'text-red-500 animate-pulse-custom' 
+                    : (theme === 'dark' ? 'text-primary-400' : 'text-primary-600')
+                }`}>
                   {formatTime(countdown)}
                 </span>
               </p>
@@ -364,15 +414,16 @@ export function VerifyEmailPage() {
           </div>
 
           {/* Back to Signup */}
-          <div className="mt-8 pt-6 border-t border-gray-100 dark:border-slate-700">
+          <div className={`mt-8 pt-6 border-t transition-colors duration-300 ${
+            theme === 'dark' ? 'border-slate-700' : 'border-gray-100'
+          }`}>
             <button
               onClick={() => navigate('/signup')}
-              className="
-                w-full text-center text-gray-600 dark:text-gray-400
-                hover:text-primary-600 dark:hover:text-primary-400
-                transition-colors duration-200
-                flex items-center justify-center gap-2
-              "
+              className={`w-full text-center transition-all duration-200 flex items-center justify-center gap-2 py-2 rounded-lg hover:bg-opacity-10 ${
+                theme === 'dark' 
+                  ? 'text-gray-400 hover:text-primary-400 hover:bg-primary-400' 
+                  : 'text-gray-600 hover:text-primary-600 hover:bg-primary-600'
+              }`}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -383,15 +434,20 @@ export function VerifyEmailPage() {
         </div>
 
         {/* Help Text */}
-        <p className="text-center text-gray-500 dark:text-gray-400 text-sm mt-6">
+        <p className={`text-center text-sm mt-6 transition-colors duration-300 ${
+          theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+        }`}>
           Didn't receive the code? Check your spam folder or{' '}
           <button
             onClick={() => alert('Contact support: support@aurikrex-academy.com')}
-            className="text-primary-600 dark:text-primary-400 hover:underline"
+            className={`hover:underline transition-colors duration-200 ${
+              theme === 'dark' ? 'text-primary-400 hover:text-primary-300' : 'text-primary-600 hover:text-primary-700'
+            }`}
           >
             contact support
           </button>
         </p>
+      </div>
       </div>
     </div>
   );

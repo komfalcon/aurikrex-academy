@@ -1,11 +1,14 @@
 /**
  * SignupPage - Main signup page component
  * Includes email signup form, Google signup button, and links to login
+ * Features animated background, smooth transitions, and proper dark/light mode support
  */
-import { useState, type FormEvent, type ChangeEvent } from 'react';
+import { useState, useEffect, type FormEvent, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Logo } from '../components/Logo';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { AnimatedBackground } from '../components/AnimatedBackground';
+import { useTheme } from '../hooks/useTheme';
 import {
   usePasswordValidation,
   validateSignupForm,
@@ -16,16 +19,26 @@ import {
 // Available user roles
 const USER_ROLES = ['Student', 'Teacher', 'Admin'] as const;
 
-// Features displayed in the header
+// Features displayed in the header with animated icons
 const FEATURES = [
-  { icon: '🎓', text: 'Access 100+ curated courses' },
-  { icon: '📊', text: 'Track your learning progress' },
-  { icon: '🏆', text: 'Earn certificates & badges' },
-  { icon: '👥', text: 'Join a community of learners' }
+  { icon: '🎓', text: 'Access 100+ curated courses', delay: 100 },
+  { icon: '📊', text: 'Track your learning progress', delay: 200 },
+  { icon: '🏆', text: 'Earn certificates & badges', delay: 300 },
+  { icon: '👥', text: 'Join a community of learners', delay: 400 }
 ];
 
 export function SignupPage() {
   const navigate = useNavigate();
+  const { theme } = useTheme();
+  
+  // Page load animation state
+  const [isLoaded, setIsLoaded] = useState(false);
+  
+  // Trigger fade-in animation on mount
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoaded(true), 50);
+    return () => clearTimeout(timer);
+  }, []);
   
   // Form state
   const [formData, setFormData] = useState<SignupFormData>({
@@ -44,11 +57,17 @@ export function SignupPage() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitAttempted, setSubmitAttempted] = useState(false);
   
+  // Button animation state
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   // Password validation hook
   const { requirements: passwordRequirements, isValid: isPasswordValid } = usePasswordValidation(formData.password);
   
   // Focus state for animations
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  
+  // Hover state for feature icons
+  const [hoveredFeature, setHoveredFeature] = useState<number | null>(null);
 
   // Handle input changes
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -70,9 +89,10 @@ export function SignupPage() {
   };
 
   // Handle form submission
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmitAttempted(true);
+    setIsSubmitting(true);
 
     // Validate form
     const validationErrors = validateSignupForm(formData);
@@ -89,8 +109,13 @@ export function SignupPage() {
       // Store email for OTP page (placeholder for backend integration)
       sessionStorage.setItem('signupEmail', formData.email);
       sessionStorage.setItem('signupData', JSON.stringify(formData));
+      
+      // Small delay for button animation feedback
+      await new Promise(resolve => setTimeout(resolve, 300));
       navigate('/verify-email');
     }
+    
+    setIsSubmitting(false);
   };
 
   // Handle Google signup (placeholder)
@@ -100,57 +125,101 @@ export function SignupPage() {
     alert('Google signup will be available soon!');
   };
 
-  // Input field styling classes
+  // Input field styling classes with enhanced animations
   const getInputClasses = (fieldName: string, hasError: boolean) => `
-    w-full px-4 py-3 rounded-lg
-    bg-white dark:bg-slate-800
-    border-2 ${hasError ? 'border-red-500' : 'border-gray-200 dark:border-slate-700'}
-    text-gray-900 dark:text-white
-    placeholder-gray-400 dark:placeholder-gray-500
-    transition-all duration-300 ease-in-out
-    ${focusedField === fieldName ? 'ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-slate-900 border-primary-500' : ''}
-    hover:border-primary-400 dark:hover:border-primary-500
+    w-full px-4 py-3 rounded-xl
+    ${theme === 'dark' 
+      ? 'bg-slate-800/80 backdrop-blur-sm border-slate-600' 
+      : 'bg-white/90 backdrop-blur-sm border-gray-200'
+    }
+    border-2 ${hasError ? 'border-red-500' : ''}
+    ${theme === 'dark' ? 'text-white' : 'text-gray-900'}
+    ${theme === 'dark' ? 'placeholder-gray-400' : 'placeholder-gray-500'}
+    transition-all duration-300 ease-out
+    ${focusedField === fieldName 
+      ? `ring-2 ${theme === 'dark' ? 'ring-primary-400' : 'ring-primary-500'} ring-offset-2 ${theme === 'dark' ? 'ring-offset-slate-900' : 'ring-offset-white'} border-primary-500 shadow-lg ${theme === 'dark' ? 'shadow-primary-500/20' : 'shadow-primary-500/30'}` 
+      : ''
+    }
+    hover:border-primary-400 hover:shadow-md
     focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500 focus:ring-offset-2
-    dark:focus:ring-offset-slate-900
+    ${theme === 'dark' ? 'focus:ring-offset-slate-900' : 'focus:ring-offset-white'}
+    transform hover:scale-[1.01] focus:scale-[1.01]
   `;
 
+  // Label styling classes for proper dark/light mode
+  const labelClasses = `block text-sm font-semibold mb-2 transition-colors duration-300 ${
+    theme === 'dark' ? 'text-gray-200' : 'text-gray-700'
+  }`;
+
   return (
-    <div className="min-h-screen w-full">
+    <div className={`min-h-screen w-full relative overflow-hidden transition-colors duration-500 ${
+      theme === 'dark' ? 'bg-slate-900' : 'bg-gray-50'
+    }`}>
+      {/* Animated Background with educational icons */}
+      <AnimatedBackground itemCount={25} />
+      
       {/* Theme Toggle - Top Right */}
       <div className="fixed top-4 right-4 z-50">
         <ThemeToggle />
       </div>
 
-      <div className="flex flex-col lg:flex-row min-h-screen">
+      <div className="relative z-10 flex flex-col lg:flex-row min-h-screen">
         {/* Left Side - Branding & Features */}
-        <div className="lg:w-1/2 bg-gradient-to-br from-primary-600 via-primary-700 to-secondary-700 dark:from-primary-800 dark:via-primary-900 dark:to-secondary-900 p-8 lg:p-12 flex flex-col justify-center">
-          <div className="max-w-md mx-auto animate-fade-in">
-            {/* Logo */}
-            <div className="mb-8">
+        <div className={`lg:w-1/2 p-8 lg:p-12 flex flex-col justify-center transition-colors duration-500 ${
+          theme === 'dark'
+            ? 'bg-gradient-to-br from-primary-900/90 via-primary-800/85 to-secondary-900/90 backdrop-blur-sm'
+            : 'bg-gradient-to-br from-primary-600/95 via-primary-700/90 to-secondary-700/95 backdrop-blur-sm'
+        }`}>
+          <div 
+            className={`max-w-md mx-auto transition-all duration-700 ${
+              isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+            }`}
+          >
+            {/* Logo with animation */}
+            <div className="mb-8 transform hover:scale-105 transition-transform duration-300">
               <Logo size="lg" className="text-white [&_span]:!text-white [&_.text-gray-600]:!text-primary-100" />
             </div>
 
-            {/* Hero Text */}
-            <h1 className="text-3xl lg:text-4xl font-bold text-white mb-4">
-              Join the Future! 🚀
+            {/* Hero Text with gradient animation */}
+            <h1 className="text-3xl lg:text-5xl font-bold text-white mb-4 leading-tight">
+              Join the Future! 
+              <span className="inline-block ml-2 animate-bounce">🚀</span>
             </h1>
-            <p className="text-xl text-primary-100 mb-8">
+            <p className={`text-xl mb-10 transition-colors duration-500 ${
+              theme === 'dark' ? 'text-primary-200' : 'text-primary-100'
+            }`}>
               Start your learning journey today
             </p>
 
-            {/* Features List */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-white/90 mb-4">
-                What you'll get:
+            {/* Features List with hover animations */}
+            <div className="space-y-5">
+              <h3 className="text-lg font-semibold text-white/95 mb-6 tracking-wide uppercase text-sm">
+                ✨ What you'll get:
               </h3>
               {FEATURES.map((feature, index) => (
                 <div
                   key={index}
-                  className="flex items-center gap-3 text-white/90 animate-fade-in"
-                  style={{ animationDelay: `${index * 100}ms` }}
+                  className={`flex items-center gap-4 text-white/90 p-3 rounded-xl transition-all duration-300 cursor-default ${
+                    isLoaded ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-8'
+                  } ${hoveredFeature === index 
+                    ? `${theme === 'dark' ? 'bg-white/10' : 'bg-white/15'} shadow-lg transform scale-105` 
+                    : 'hover:bg-white/5'
+                  }`}
+                  style={{ 
+                    transitionDelay: `${feature.delay}ms`,
+                    animationDelay: `${feature.delay}ms`
+                  }}
+                  onMouseEnter={() => setHoveredFeature(index)}
+                  onMouseLeave={() => setHoveredFeature(null)}
                 >
-                  <span className="text-2xl">{feature.icon}</span>
-                  <span className="text-lg">{feature.text}</span>
+                  <span 
+                    className={`text-3xl transition-transform duration-300 ${
+                      hoveredFeature === index ? 'scale-125 animate-icon-bounce' : ''
+                    }`}
+                  >
+                    {feature.icon}
+                  </span>
+                  <span className="text-lg font-medium">{feature.text}</span>
                 </div>
               ))}
             </div>
@@ -158,12 +227,22 @@ export function SignupPage() {
         </div>
 
         {/* Right Side - Signup Form */}
-        <div className="lg:w-1/2 p-8 lg:p-12 flex items-center justify-center bg-gray-50 dark:bg-slate-900">
-          <div className="w-full max-w-md animate-fade-in" style={{ animationDelay: '200ms' }}>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+        <div className={`lg:w-1/2 p-8 lg:p-12 flex items-center justify-center transition-colors duration-500 ${
+          theme === 'dark' ? 'bg-slate-900/80 backdrop-blur-md' : 'bg-white/80 backdrop-blur-md'
+        }`}>
+          <div 
+            className={`w-full max-w-md transition-all duration-700 delay-200 ${
+              isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+            }`}
+          >
+            <h2 className={`text-3xl font-bold mb-2 transition-colors duration-500 ${
+              theme === 'dark' ? 'text-white' : 'text-gray-900'
+            }`}>
               Create your account
             </h2>
-            <p className="text-gray-600 dark:text-gray-400 mb-8">
+            <p className={`mb-8 text-lg transition-colors duration-500 ${
+              theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+            }`}>
               Fill in your details to get started
             </p>
 
@@ -171,8 +250,8 @@ export function SignupPage() {
               {/* Name Fields - Row */}
               <div className="grid grid-cols-2 gap-4">
                 {/* First Name */}
-                <div>
-                  <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <div className="group">
+                  <label htmlFor="firstName" className={labelClasses}>
                     First Name *
                   </label>
                   <input
@@ -192,8 +271,8 @@ export function SignupPage() {
                 </div>
 
                 {/* Last Name */}
-                <div>
-                  <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <div className="group">
+                  <label htmlFor="lastName" className={labelClasses}>
                     Last Name *
                   </label>
                   <input
@@ -214,8 +293,8 @@ export function SignupPage() {
               </div>
 
               {/* Email */}
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <div className="group">
+                <label htmlFor="email" className={labelClasses}>
                   Email Address *
                 </label>
                 <input
@@ -235,8 +314,8 @@ export function SignupPage() {
               </div>
 
               {/* Password */}
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <div className="group">
+                <label htmlFor="password" className={labelClasses}>
                   Password *
                 </label>
                 <input
@@ -250,21 +329,27 @@ export function SignupPage() {
                   className={getInputClasses('password', !!errors.password)}
                   placeholder="••••••••"
                 />
-                {/* Password Requirements */}
-                <div className="mt-2 space-y-1">
-                  {passwordRequirements.map((req, index) => (
-                    <div
-                      key={index}
-                      className={`flex items-center gap-2 text-xs transition-all duration-300 ${
-                        req.met ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'
-                      }`}
-                    >
-                      <span className={`transition-transform duration-300 ${req.met ? 'scale-110' : ''}`}>
-                        {req.met ? '✓' : '○'}
-                      </span>
-                      <span>{req.label}</span>
-                    </div>
-                  ))}
+                {/* Password Requirements with animated indicators */}
+                <div className={`mt-3 p-3 rounded-lg transition-colors duration-300 ${
+                  theme === 'dark' ? 'bg-slate-800/50' : 'bg-gray-50'
+                }`}>
+                  <div className="space-y-1.5">
+                    {passwordRequirements.map((req, index) => (
+                      <div
+                        key={index}
+                        className={`flex items-center gap-2 text-xs transition-all duration-300 ${
+                          req.met 
+                            ? (theme === 'dark' ? 'text-green-400' : 'text-green-600') 
+                            : (theme === 'dark' ? 'text-gray-400' : 'text-gray-500')
+                        }`}
+                      >
+                        <span className={`transition-all duration-300 ${req.met ? 'scale-110 text-lg' : 'text-sm'}`}>
+                          {req.met ? '✓' : '○'}
+                        </span>
+                        <span className={`${req.met ? 'font-medium' : ''}`}>{req.label}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 {errors.password && submitAttempted && !formData.password && (
                   <p className="mt-1 text-sm text-red-500 animate-shake">{errors.password}</p>
@@ -272,8 +357,8 @@ export function SignupPage() {
               </div>
 
               {/* Confirm Password */}
-              <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <div className="group">
+                <label htmlFor="confirmPassword" className={labelClasses}>
                   Confirm Password *
                 </label>
                 <input
@@ -293,8 +378,8 @@ export function SignupPage() {
               </div>
 
               {/* Institution */}
-              <div>
-                <label htmlFor="institution" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <div className="group">
+                <label htmlFor="institution" className={labelClasses}>
                   Institution/School Name *
                 </label>
                 <input
@@ -314,8 +399,8 @@ export function SignupPage() {
               </div>
 
               {/* Role Dropdown */}
-              <div>
-                <label htmlFor="role" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <div className="group">
+                <label htmlFor="role" className={labelClasses}>
                   User Role *
                 </label>
                 <select
@@ -338,9 +423,9 @@ export function SignupPage() {
               </div>
 
               {/* Phone Number (Optional) */}
-              <div>
-                <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Phone Number <span className="text-gray-400">(Optional)</span>
+              <div className="group">
+                <label htmlFor="phoneNumber" className={labelClasses}>
+                  Phone Number <span className={`${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>(Optional)</span>
                 </label>
                 <input
                   type="tel"
@@ -363,15 +448,25 @@ export function SignupPage() {
                   name="agreedToTerms"
                   checked={formData.agreedToTerms}
                   onChange={handleChange}
-                  className="mt-1 w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                  className={`mt-1 w-5 h-5 rounded-md transition-all duration-200 cursor-pointer ${
+                    theme === 'dark' 
+                      ? 'bg-slate-700 border-slate-600 text-primary-500 focus:ring-primary-400' 
+                      : 'bg-white border-gray-300 text-primary-600 focus:ring-primary-500'
+                  } focus:ring-2 focus:ring-offset-2 ${theme === 'dark' ? 'focus:ring-offset-slate-900' : ''}`}
                 />
-                <label htmlFor="agreedToTerms" className="text-sm text-gray-600 dark:text-gray-400">
+                <label htmlFor="agreedToTerms" className={`text-sm transition-colors duration-300 ${
+                  theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+                }`}>
                   I agree to the{' '}
-                  <a href="/terms" className="text-primary-600 dark:text-primary-400 hover:underline font-medium">
+                  <a href="/terms" className={`font-medium hover:underline transition-colors duration-200 ${
+                    theme === 'dark' ? 'text-primary-400 hover:text-primary-300' : 'text-primary-600 hover:text-primary-700'
+                  }`}>
                     Terms of Service
                   </a>{' '}
                   and{' '}
-                  <a href="/privacy" className="text-primary-600 dark:text-primary-400 hover:underline font-medium">
+                  <a href="/privacy" className={`font-medium hover:underline transition-colors duration-200 ${
+                    theme === 'dark' ? 'text-primary-400 hover:text-primary-300' : 'text-primary-600 hover:text-primary-700'
+                  }`}>
                     Privacy Policy
                   </a>
                 </label>
@@ -380,33 +475,51 @@ export function SignupPage() {
                 <p className="text-sm text-red-500 animate-shake -mt-2">{errors.agreedToTerms}</p>
               )}
 
-              {/* Submit Button */}
+              {/* Submit Button with loading state */}
               <button
                 type="submit"
-                className="
-                  w-full py-3 px-4 rounded-lg
+                disabled={isSubmitting}
+                className={`
+                  w-full py-3.5 px-4 rounded-xl
                   bg-gradient-to-r from-primary-600 to-secondary-600
-                  hover:from-primary-700 hover:to-secondary-700
-                  text-white font-semibold
-                  shadow-lg shadow-primary-500/25
-                  transition-all duration-300 ease-in-out
-                  hover:shadow-xl hover:shadow-primary-500/40
-                  hover:-translate-y-0.5
-                  active:translate-y-0 active:shadow-md
+                  hover:from-primary-500 hover:to-secondary-500
+                  text-white font-semibold text-lg
+                  shadow-lg transition-all duration-300 ease-out
+                  hover:shadow-2xl hover:-translate-y-1
+                  active:translate-y-0 active:shadow-lg
                   focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2
-                  dark:focus:ring-offset-slate-900
-                "
+                  ${theme === 'dark' ? 'focus:ring-offset-slate-900 shadow-primary-500/30 hover:shadow-primary-500/50' : 'shadow-primary-500/25 hover:shadow-primary-500/40'}
+                  disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0
+                  relative overflow-hidden
+                `}
               >
-                Create Account
+                {isSubmitting ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Creating Account...
+                  </span>
+                ) : (
+                  <span className="flex items-center justify-center gap-2">
+                    Create Account
+                    <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
+                  </span>
+                )}
               </button>
 
               {/* Divider */}
-              <div className="relative my-6">
+              <div className="relative my-8">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-200 dark:border-slate-700"></div>
+                  <div className={`w-full border-t transition-colors duration-300 ${
+                    theme === 'dark' ? 'border-slate-700' : 'border-gray-200'
+                  }`}></div>
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-4 bg-gray-50 dark:bg-slate-900 text-gray-500 dark:text-gray-400">
+                  <span className={`px-4 transition-colors duration-300 ${
+                    theme === 'dark' ? 'bg-slate-900/80 text-gray-400' : 'bg-white/80 text-gray-500'
+                  }`}>
                     Or continue with
                   </span>
                 </div>
@@ -416,20 +529,19 @@ export function SignupPage() {
               <button
                 type="button"
                 onClick={handleGoogleSignup}
-                className="
-                  w-full py-3 px-4 rounded-lg
-                  bg-white dark:bg-slate-800
-                  border-2 border-gray-200 dark:border-slate-700
-                  text-gray-700 dark:text-gray-200 font-medium
+                className={`
+                  w-full py-3.5 px-4 rounded-xl
+                  border-2 font-medium
                   flex items-center justify-center gap-3
-                  transition-all duration-300 ease-in-out
-                  hover:bg-gray-50 dark:hover:bg-slate-700
-                  hover:border-gray-300 dark:hover:border-slate-600
-                  hover:shadow-md
-                  active:scale-[0.98]
-                  focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2
-                  dark:focus:ring-offset-slate-900
-                "
+                  transition-all duration-300 ease-out
+                  hover:shadow-lg hover:-translate-y-0.5
+                  active:scale-[0.98] active:translate-y-0
+                  focus:outline-none focus:ring-2 focus:ring-offset-2
+                  ${theme === 'dark' 
+                    ? 'bg-slate-800/80 border-slate-600 text-gray-200 hover:bg-slate-700 hover:border-slate-500 focus:ring-slate-500 focus:ring-offset-slate-900' 
+                    : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 focus:ring-gray-400'
+                  }
+                `}
               >
                 {/* Google Icon */}
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -454,11 +566,17 @@ export function SignupPage() {
               </button>
 
               {/* Login Link */}
-              <p className="text-center text-gray-600 dark:text-gray-400 mt-6">
+              <p className={`text-center mt-8 transition-colors duration-300 ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+              }`}>
                 Already have an account?{' '}
                 <a
                   href="/login"
-                  className="text-primary-600 dark:text-primary-400 hover:underline font-semibold"
+                  className={`font-semibold transition-all duration-200 hover:underline ${
+                    theme === 'dark' 
+                      ? 'text-primary-400 hover:text-primary-300' 
+                      : 'text-primary-600 hover:text-primary-700'
+                  }`}
                 >
                   Proceed to login
                 </a>
