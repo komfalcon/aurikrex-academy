@@ -480,7 +480,7 @@ export function SignupPage() {
                 type="submit"
                 disabled={isSubmitting}
                 className={`
-                  w-full py-3.5 px-4 rounded-xl
+                  group w-full py-3.5 px-4 rounded-xl
                   bg-gradient-to-r from-primary-600 to-secondary-600
                   hover:from-primary-500 hover:to-secondary-500
                   text-white font-semibold text-lg

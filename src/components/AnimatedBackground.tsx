@@ -3,7 +3,7 @@
  * Features floating atoms, molecules, test tubes, books, mathematical symbols, planets, etc.
  * Animations are smooth, subtle, and do not distract from the main content
  */
-import { useState } from 'react';
+import { useMemo } from 'react';
 import { useTheme } from '../hooks/useTheme';
 
 // Educational/science-themed icons as SVG components
@@ -134,8 +134,11 @@ function generateFloatingItems(count: number): FloatingItem[] {
 export function AnimatedBackground({ className = '', itemCount = 20 }: AnimatedBackgroundProps) {
   const { theme } = useTheme();
   
-  // Generate random floating items once on mount using lazy initialization
-  const [floatingItems] = useState<FloatingItem[]>(() => generateFloatingItems(itemCount));
+  // Generate random floating items once using useMemo with empty deps
+  // Note: useMemo is used here intentionally - the random generation happens once
+  // and is stable for the component's lifetime
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const floatingItems = useMemo<FloatingItem[]>(() => generateFloatingItems(itemCount), []);
 
   return (
     <div 
