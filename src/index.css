@@ -246,7 +246,8 @@ body.dark {
 }
 
 .animate-float-glow {
-  animation: floatGlow ease-in-out infinite 15s;
+  animation: floatGlow ease-in-out infinite;
+  animation-duration: 15s; /* Default duration, can be overridden via inline styles */
 }
 
 .animate-icon-bounce {
@@ -273,3 +274,9 @@ body.dark {
 .transition-smooth {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* Custom opacity utilities for floating icons */
+.opacity-15 { opacity: 0.15; }
+.opacity-25 { opacity: 0.25; }
+.opacity-35 { opacity: 0.35; }
+.opacity-45 { opacity: 0.45; }

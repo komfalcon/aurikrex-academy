@@ -238,10 +238,20 @@ export function AnimatedBackground({ className = '', itemCount = 20 }: AnimatedB
         const IconComponent = educationalIcons[item.iconIndex];
         const animationClass = getAnimationClass(item.animationType);
         
+        // Calculate opacity class based on item.opacity value for consistent Tailwind usage
+        // Map opacity (0.15-0.45) to Tailwind opacity classes for theme consistency
+        const opacityClass = item.opacity < 0.2 
+          ? 'opacity-15' 
+          : item.opacity < 0.3 
+            ? 'opacity-25' 
+            : item.opacity < 0.4 
+              ? 'opacity-35' 
+              : 'opacity-45';
+        
         return (
           <div
             key={item.id}
-            className={`absolute ${animationClass}`}
+            className={`absolute ${animationClass} ${opacityClass}`}
             style={{
               left: `${item.x}%`,
               top: `${item.y}%`,
@@ -250,7 +260,6 @@ export function AnimatedBackground({ className = '', itemCount = 20 }: AnimatedB
               animationDuration: `${item.duration}s`,
               animationDelay: `${item.delay}s`,
               transform: `rotate(${item.rotation}deg)`,
-              opacity: item.opacity,
             }}
           >
             {IconComponent(
