@@ -51,8 +51,9 @@ class CoverGenerationService {
         }
       }
 
-      // Alternative: If PDF is already uploaded, we can derive the cover URL
-      if (pdfUrl && pdfUrl.includes('cloudinary')) {
+      // Alternative: If PDF is already uploaded to Cloudinary, derive cover URL from it
+      // Check for res.cloudinary.com domain pattern to ensure it's a valid Cloudinary URL
+      if (pdfUrl && this.isCloudinaryUrl(pdfUrl)) {
         // Transform the PDF URL to get first page as image
         const coverUrl = pdfUrl
           .replace('/upload/', '/upload/pg_1,w_400,h_600,c_fill,q_auto,f_jpg/')
@@ -69,6 +70,20 @@ class CoverGenerationService {
         error: error instanceof Error ? error.message : String(error)
       });
       return null;
+    }
+  }
+
+  /**
+   * Check if a URL is a valid Cloudinary URL
+   * Uses specific domain pattern matching instead of generic string check
+   */
+  private isCloudinaryUrl(url: string): boolean {
+    try {
+      const parsed = new URL(url);
+      // Cloudinary URLs have domain pattern: res.cloudinary.com or *.cloudinary.com
+      return parsed.hostname.endsWith('.cloudinary.com');
+    } catch {
+      return false;
     }
   }
 
@@ -98,8 +113,8 @@ class CoverGenerationService {
         }
       }
 
-      // Alternative: Transform PPTX URL
-      if (pptxUrl && pptxUrl.includes('cloudinary')) {
+      // Alternative: Transform PPTX URL if it's a valid Cloudinary URL
+      if (pptxUrl && this.isCloudinaryUrl(pptxUrl)) {
         const coverUrl = pptxUrl
           .replace('/upload/', '/upload/pg_1,w_400,h_300,c_fill,q_auto,f_jpg/')
           .replace('.pptx', '.jpg');

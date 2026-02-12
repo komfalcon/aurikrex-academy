@@ -4,6 +4,7 @@ import { BookReviewModel } from '../models/BookReview.model.js';
 import { BookCategoryModel } from '../models/BookCategory.model.js';
 import { UserModel } from '../models/User.model.js';
 import CoverGenerationService from '../services/CoverGenerationService.js';
+import FileUploadService from '../services/FileUploadService.js';
 import { log } from '../utils/logger.js';
 import { sendBookApprovedEmail, sendBookRejectedEmail } from '../utils/email.js';
 import { UserActivityModel } from '../models/UserActivity.model.js';
@@ -323,8 +324,8 @@ export const uploadBook = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    // Validate file type (only PDF, EPUB, PPTX allowed)
-    const allowedTypes: BookFileType[] = ['pdf', 'epub', 'pptx'];
+    // Validate file type using FileUploadService (only PDF, EPUB, PPTX allowed)
+    const allowedTypes = FileUploadService.getAllowedTypes();
     const normalizedFileType = (fileType || 'pdf').toLowerCase() as BookFileType;
     
     if (!allowedTypes.includes(normalizedFileType)) {
@@ -335,12 +336,12 @@ export const uploadBook = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    // Validate file size (100MB max)
-    const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
-    if (fileSize && fileSize > MAX_FILE_SIZE) {
+    // Validate file size using FileUploadService (100MB max)
+    const maxFileSize = FileUploadService.getMaxFileSize();
+    if (fileSize && fileSize > maxFileSize) {
       res.status(400).json({
         status: 'error',
-        message: 'File too large. Maximum size is 100MB.'
+        message: `File too large. Maximum size is ${FileUploadService.getMaxFileSizeFormatted()}.`
       });
       return;
     }

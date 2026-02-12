@@ -367,8 +367,20 @@ export function UploadBookModal({ open, onOpenChange, onSuccess }: UploadBookMod
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   };
 
-  // Check if user is admin (for showing appropriate status message)
-  const isAdmin = user?.uid && localStorage.getItem('aurikrex-user')?.includes('"role":"admin"');
+  // Check if user is admin (for UI/UX only - actual authorization is done on backend)
+  // NOTE: This is a client-side check for showing appropriate status message.
+  // The backend enforces actual role-based permissions regardless of what's shown here.
+  const checkIsAdmin = (): boolean => {
+    try {
+      const storedUser = localStorage.getItem('aurikrex-user');
+      if (!storedUser) return false;
+      const parsed = JSON.parse(storedUser);
+      return parsed?.role === 'admin';
+    } catch {
+      return false;
+    }
+  };
+  const isAdmin = user?.uid && checkIsAdmin();
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>

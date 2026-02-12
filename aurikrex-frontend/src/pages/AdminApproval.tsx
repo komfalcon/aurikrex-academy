@@ -235,18 +235,25 @@ export function AdminApproval() {
     loading: false
   });
 
-  // Check if user is admin
+  // Check if user is admin (UI/UX only - backend enforces actual authorization)
+  // NOTE: This client-side check is only for user experience (redirecting non-admins).
+  // The actual security is enforced by the backend API which verifies JWT tokens
+  // and user roles before allowing any admin operations.
   useEffect(() => {
     const storedUser = localStorage.getItem('aurikrex-user');
     if (storedUser) {
-      const parsed = JSON.parse(storedUser);
-      if (parsed.role !== 'admin') {
-        navigate('/');
-        toast({
-          title: 'Access Denied',
-          description: 'You do not have permission to access this page.',
-          variant: 'destructive'
-        });
+      try {
+        const parsed = JSON.parse(storedUser);
+        if (parsed.role !== 'admin') {
+          navigate('/');
+          toast({
+            title: 'Access Denied',
+            description: 'You do not have permission to access this page.',
+            variant: 'destructive'
+          });
+        }
+      } catch {
+        navigate('/login');
       }
     } else {
       navigate('/login');
