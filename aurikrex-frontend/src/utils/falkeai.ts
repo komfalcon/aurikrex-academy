@@ -14,6 +14,10 @@
  * 
  * IMPORTANT: This service communicates with our internal backend API,
  * which then forwards requests to FalkeAI. The frontend never calls FalkeAI directly.
+ * 
+ * Chat History Integration:
+ * - Use saveMessageWithHistory to automatically save messages to persistent history
+ * - Use getConversationContext to retrieve past messages for AI context
  */
 
 import { apiRequest, getToken, ApiError } from './api';
@@ -25,6 +29,7 @@ import {
   AIRequestType,
   UserLearningContext,
 } from '../types';
+import { saveMessage as saveMessageApi, getSessionContext } from './chatHistoryApi';
 
 /**
  * Send a message to FalkeAI through the internal backend API
@@ -471,10 +476,145 @@ export async function sendEnhancedMessage(
   }, requestType, userLearningContext);
 }
 
+// ============================================
+// Chat History Integration Functions
+// ============================================
+
+/**
+ * Send a message to FalkeAI and automatically save to chat history
+ * 
+ * This function combines the AI call with persistent storage:
+ * 1. Sends the message to FalkeAI
+ * 2. Saves both user message and AI response to chat history
+ * 3. Returns the response along with session info
+ * 
+ * @param message - The message to send
+ * @param page - The page context
+ * @param userId - The user's ID
+ * @param username - The user's display name
+ * @param sessionId - Optional existing session ID
+ * @param course - Optional course context
+ * @returns Promise with AI response and session info
+ * 
+ * @example
+ * ```ts
+ * const result = await sendMessageWithHistory(
+ *   'What is quantum physics?',
+ *   'Ask FalkeAI',
+ *   'user123',
+ *   'John Doe',
+ *   'existing-session-id'
+ * );
+ * console.log('Response:', result.response.reply);
+ * console.log('Session:', result.sessionId);
+ * ```
+ */
+export async function sendMessageWithHistory(
+  message: string,
+  page: FalkeAIChatPage,
+  userId: string,
+  username: string,
+  sessionId?: string,
+  course?: string
+): Promise<{
+  response: FalkeAIChatResponse;
+  sessionId: string;
+  isNewSession: boolean;
+}> {
+  console.log('[FalkeAI] 📤 Sending message with history tracking', {
+    page,
+    userId,
+    sessionId: sessionId || '(new session)',
+  });
+
+  // Send message to FalkeAI
+  const response = await sendMessageToFalkeAI(message, {
+    page,
+    userId,
+    username,
+    course,
+  }, sessionId);
+
+  // Save to chat history
+  try {
+    const saveResult = await saveMessageApi({
+      sessionId,
+      userMessage: message.trim(),
+      aiResponse: response.reply,
+      page,
+      course,
+      metadata: {
+        provider: (response as { provider?: string }).provider,
+        model: (response as { model?: string }).model,
+        modelType: (response as { modelType?: string }).modelType,
+      },
+    });
+
+    console.log('[FalkeAI] ✅ Message saved to history', {
+      sessionId: saveResult.session.sessionId,
+      isNewSession: saveResult.isNewSession,
+    });
+
+    return {
+      response,
+      sessionId: saveResult.session.sessionId,
+      isNewSession: saveResult.isNewSession,
+    };
+  } catch (saveError) {
+    // Log error but don't fail the request - the AI response was successful
+    console.warn('[FalkeAI] ⚠️ Failed to save to history, continuing with response', {
+      error: saveError instanceof Error ? saveError.message : String(saveError),
+    });
+
+    return {
+      response,
+      sessionId: sessionId || '',
+      isNewSession: !sessionId,
+    };
+  }
+}
+
+/**
+ * Get conversation context from chat history for AI continuity
+ * 
+ * Retrieves past messages from a session to provide context for AI responses.
+ * Use this to give FalkeAI memory of past conversations.
+ * 
+ * @param sessionId - The session to get context from
+ * @param maxMessages - Maximum messages to retrieve (default: 20)
+ * @returns Array of messages formatted for AI context
+ * 
+ * @example
+ * ```ts
+ * const context = await getConversationContext('sess_abc123', 10);
+ * // Use context when building AI prompt for better continuity
+ * ```
+ */
+export async function getConversationContext(
+  sessionId: string,
+  maxMessages: number = 20
+): Promise<Array<{ role: 'user' | 'assistant'; content: string }>> {
+  try {
+    const result = await getSessionContext(sessionId, maxMessages);
+    return result.context.messages.map(m => ({
+      role: m.role,
+      content: m.content,
+    }));
+  } catch (error) {
+    console.warn('[FalkeAI] ⚠️ Failed to get conversation context', {
+      sessionId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return [];
+  }
+}
+
 export default {
   sendMessageToFalkeAI,
   sendMessage,
   sendEnhancedMessageToFalkeAI,
   sendEnhancedMessage,
   checkAIServiceHealth,
+  sendMessageWithHistory,
+  getConversationContext,
 };

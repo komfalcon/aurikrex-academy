@@ -569,3 +569,192 @@ export interface UserAnalyticsData {
   activityTimeline: ActivityTimelineEntry[];
   dailyBreakdown: DailyBreakdown;
 }
+
+// ============================================
+// Chat History Types
+// ============================================
+
+/**
+ * Sender types for chat messages
+ */
+export type MessageSender = 'user' | 'AI';
+
+/**
+ * Message types for categorization
+ */
+export type MessageType = 'question' | 'answer' | 'system' | 'error' | 'context';
+
+/**
+ * Individual chat message structure
+ */
+export interface ChatMessage {
+  /** Unique identifier for the message */
+  _id?: string;
+  /** Sender of the message ('user' or 'AI') */
+  sender: MessageSender;
+  /** Content of the message */
+  content: string;
+  /** Timestamp when the message was created */
+  timestamp: string;
+  /** Type of message for categorization */
+  messageType: MessageType;
+  /** Optional metadata (e.g., AI model, provider, tokens used) */
+  metadata?: {
+    provider?: string;
+    model?: string;
+    modelType?: string;
+    responseTimeMs?: number;
+    [key: string]: unknown;
+  };
+}
+
+/**
+ * Chat session summary (without full messages) for listing
+ */
+export interface ChatSessionSummary {
+  /** Unique MongoDB ID for the session */
+  _id: string;
+  /** User ID who owns this session */
+  userId: string;
+  /** Unique identifier for this chat session */
+  sessionId: string;
+  /** Title of the session */
+  title: string;
+  /** Whether this session is currently active */
+  isActive: boolean;
+  /** Page/context where the chat was initiated */
+  page: FalkeAIChatPage;
+  /** Optional course context */
+  course?: string;
+  /** Total number of messages in the session */
+  messageCount: number;
+  /** Timestamp when the session was created */
+  createdAt: string;
+  /** Timestamp when the session was last updated */
+  updatedAt: string;
+  /** Timestamp of the last message */
+  lastMessageAt: string;
+  /** Preview of the last message */
+  lastMessage?: string;
+}
+
+/**
+ * Full chat session with messages
+ */
+export interface ChatSession extends ChatSessionSummary {
+  /** Array of messages in this session */
+  messages: ChatMessage[];
+}
+
+/**
+ * Pagination info returned by API
+ */
+export interface ChatPagination {
+  page?: number;
+  skip?: number;
+  limit: number;
+  total: number;
+  hasMore: boolean;
+}
+
+/**
+ * Response from GET /chat/history/:userId
+ */
+export interface ChatHistoryResponse {
+  success: boolean;
+  sessions: ChatSessionSummary[];
+  pagination: ChatPagination;
+}
+
+/**
+ * Response from GET /chat/session/:sessionId
+ */
+export interface ChatSessionResponse {
+  success: boolean;
+  session: ChatSession;
+  pagination: ChatPagination;
+}
+
+/**
+ * Response from POST /chat/save
+ */
+export interface SaveMessageResponse {
+  success: boolean;
+  session: {
+    sessionId: string;
+    title: string;
+    messageCount: number;
+    page: FalkeAIChatPage;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+  };
+  isNewSession: boolean;
+}
+
+/**
+ * Response from POST /chat/session/create
+ */
+export interface CreateSessionResponse {
+  success: boolean;
+  session: {
+    sessionId: string;
+    title: string;
+    page: FalkeAIChatPage;
+    course?: string;
+    isActive: boolean;
+    messageCount: number;
+    createdAt: string;
+  };
+}
+
+/**
+ * Response from GET /chat/session/:sessionId/context
+ */
+export interface ChatContextResponse {
+  success: boolean;
+  context: {
+    sessionId: string;
+    messages: Array<{
+      role: 'user' | 'assistant';
+      content: string;
+      timestamp: string;
+    }>;
+    totalMessages: number;
+  };
+}
+
+/**
+ * Response from GET /chat/stats
+ */
+export interface ChatStatsResponse {
+  success: boolean;
+  stats: {
+    totalSessions: number;
+    activeSessions: number;
+    totalMessages: number;
+    lastActivityAt: string | null;
+    sessionsByPage: Record<string, number>;
+  };
+}
+
+/**
+ * Input for saving a message exchange
+ */
+export interface SaveMessageInput {
+  sessionId?: string;
+  userMessage: string;
+  aiResponse: string;
+  page: FalkeAIChatPage;
+  course?: string;
+  metadata?: ChatMessage['metadata'];
+}
+
+/**
+ * Input for creating a new session
+ */
+export interface CreateSessionInput {
+  page: FalkeAIChatPage;
+  course?: string;
+  title?: string;
+}

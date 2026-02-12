@@ -6,6 +6,7 @@ import { connectDB, checkMongoHealth } from "./config/mongodb.js";
 import { UserModel } from "./models/User.model.js";
 import { LessonModel, LessonProgressModel } from "./models/Lesson.model.js";
 import { AnalyticsModel } from "./models/Analytics.model.js";
+import { ChatHistoryModel } from "./models/ChatHistory.model.js";
 import { log } from "./utils/logger.js";
 import validateEnv from "./utils/env.mongo.js";
 import { apiLimiter } from "./middleware/rate-limit.middleware.js";
@@ -149,7 +150,8 @@ async function initializeDatabase() {
       UserModel.createIndexes(),
       LessonModel.createIndexes(),
       LessonProgressModel.createIndexes(),
-      AnalyticsModel.createIndexes()
+      AnalyticsModel.createIndexes(),
+      ChatHistoryModel.createIndexes()
     ]);
     log.info('✅ Database indexes created successfully');
 

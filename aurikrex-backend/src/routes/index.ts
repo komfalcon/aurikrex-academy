@@ -7,6 +7,7 @@ import testRoutes from "./testRoutes.js";
 import healthRoutes from "./healthRoutes.js";
 import aiRoutes from "./aiRoutes.js";
 import falkeaiAnalyticsRoutes from "./falkeaiAnalyticsRoutes.js";
+import chatHistoryRoutes from "./chatHistoryRoutes.js";
 
 const router = Router();
 
@@ -33,5 +34,8 @@ router.use("/ai", aiRoutes);
 
 // FalkeAI Analytics routes (activity tracking and user analytics)
 router.use("/falkeai-analytics", falkeaiAnalyticsRoutes);
+
+// Chat History routes (persistent chat history for FalkeAI)
+router.use("/chat", chatHistoryRoutes);
 
 export default router;
