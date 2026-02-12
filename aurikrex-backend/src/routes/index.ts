@@ -8,6 +8,8 @@ import healthRoutes from "./healthRoutes.js";
 import aiRoutes from "./aiRoutes.js";
 import falkeaiAnalyticsRoutes from "./falkeaiAnalyticsRoutes.js";
 import chatHistoryRoutes from "./chatHistoryRoutes.js";
+import bookRoutes from "./bookRoutes.js";
+import userLibraryRoutes from "./userLibraryRoutes.js";
 
 const router = Router();
 
@@ -37,5 +39,11 @@ router.use("/falkeai-analytics", falkeaiAnalyticsRoutes);
 
 // Chat History routes (persistent chat history for FalkeAI)
 router.use("/chat", chatHistoryRoutes);
+
+// Book routes (library books - upload, browse, approve)
+router.use("/books", bookRoutes);
+
+// User Library routes (personal reading list)
+router.use("/user-library", userLibraryRoutes);
 
 export default router;

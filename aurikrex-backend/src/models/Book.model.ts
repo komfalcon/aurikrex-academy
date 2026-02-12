@@ -3,8 +3,8 @@ import { getDB } from '../config/mongodb.js';
 import { log } from '../utils/logger.js';
 
 export type BookDifficulty = 'beginner' | 'intermediate' | 'advanced';
-export type BookStatus = 'pending' | 'approved' | 'rejected';
-export type BookFileType = 'pdf' | 'epub' | 'doc' | 'docx' | 'ppt' | 'pptx' | 'txt' | 'png' | 'jpg';
+export type BookStatus = 'pending' | 'approved' | 'rejected' | 'published';
+export type BookFileType = 'pdf' | 'epub' | 'pptx';
 export type BookCategoryType = 'textbook' | 'reference' | 'notes' | 'slides' | 'research' | 'material' | 'other';
 export type CoverGenerationStatus = 'pending' | 'generated' | 'failed' | 'manual';
 

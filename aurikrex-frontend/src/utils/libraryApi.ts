@@ -350,6 +350,7 @@ export const removeFromLibrary = async (bookId: string): Promise<void> => {
 
 /**
  * Upload a new book
+ * Returns the book details including status and whether it was immediately published
  */
 export const uploadBook = async (data: {
   title: string;
@@ -361,7 +362,8 @@ export const uploadBook = async (data: {
   fileName?: string;
   fileSize?: number;
   fileType?: string;
-}): Promise<{ id: string; title: string; status: string; coverImageUrl: string }> => {
+  publicId?: string; // Cloudinary public ID for cover generation
+}): Promise<{ id: string; title: string; status: string; coverImageUrl: string; fileUrl: string; isPublished: boolean }> => {
   const response = await apiRequest('/books/upload', {
     method: 'POST',
     body: JSON.stringify(data),

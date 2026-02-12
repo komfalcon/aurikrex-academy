@@ -1,9 +1,10 @@
 import { Request, Response } from 'express';
-import { BookModel, BookDifficulty, BookCategoryType, BookFileType } from '../models/Book.model.js';
+import { BookModel, BookDifficulty, BookCategoryType, BookFileType, BookStatus } from '../models/Book.model.js';
 import { BookReviewModel } from '../models/BookReview.model.js';
 import { BookCategoryModel } from '../models/BookCategory.model.js';
 import { UserModel } from '../models/User.model.js';
 import CoverGenerationService from '../services/CoverGenerationService.js';
+import FileUploadService from '../services/FileUploadService.js';
 import { log } from '../utils/logger.js';
 import { sendBookApprovedEmail, sendBookRejectedEmail } from '../utils/email.js';
 import { UserActivityModel } from '../models/UserActivity.model.js';
@@ -269,11 +270,21 @@ export const deleteBook = async (req: Request, res: Response): Promise<void> => 
 };
 
 /**
- * Upload a book (student uploads)
+ * Upload a book
+ * 
+ * Role-based upload logic:
+ * - Admin uploads → book is immediately published and visible in library
+ * - User uploads → book status = pending until admin approves
+ * 
+ * File validation:
+ * - Only PDF, EPUB, PPTX files are accepted
+ * - Maximum file size: 100MB
+ * - Files are uploaded to Cloudinary for CDN distribution
  */
 export const uploadBook = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
+    const userRole = req.user?.role;
     
     if (!userId) {
       res.status(401).json({
@@ -292,9 +303,11 @@ export const uploadBook = async (req: Request, res: Response): Promise<void> => 
       fileUrl, 
       fileName, 
       fileSize, 
-      fileType 
+      fileType,
+      publicId // Cloudinary public ID for cover generation
     } = req.body;
 
+    // Validate required fields
     if (!title) {
       res.status(400).json({
         status: 'error',
@@ -303,15 +316,48 @@ export const uploadBook = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    // Generate cover
-    // NOTE: Currently passing empty buffer because files are uploaded via external URLs.
-    // When implementing direct file upload with multer, pass the actual file buffer here
-    // to enable PDF cover extraction: req.file.buffer
+    if (!fileUrl) {
+      res.status(400).json({
+        status: 'error',
+        message: 'File URL is required'
+      });
+      return;
+    }
+
+    // Validate file type using FileUploadService (only PDF, EPUB, PPTX allowed)
+    const allowedTypes = FileUploadService.getAllowedTypes();
+    const normalizedFileType = (fileType || 'pdf').toLowerCase() as BookFileType;
+    
+    if (!allowedTypes.includes(normalizedFileType)) {
+      res.status(400).json({
+        status: 'error',
+        message: 'Invalid file type. Only PDF, EPUB, and PPTX files are allowed.'
+      });
+      return;
+    }
+
+    // Validate file size using FileUploadService (100MB max)
+    const maxFileSize = FileUploadService.getMaxFileSize();
+    if (fileSize && fileSize > maxFileSize) {
+      res.status(400).json({
+        status: 'error',
+        message: `File too large. Maximum size is ${FileUploadService.getMaxFileSizeFormatted()}.`
+      });
+      return;
+    }
+
+    // Generate cover from uploaded file
     const coverResult = await CoverGenerationService.generateCover(
-      Buffer.from(''), // TODO: Replace with req.file.buffer when implementing direct file upload
-      fileType || 'pdf',
-      title
+      fileUrl,
+      normalizedFileType,
+      title,
+      publicId // Pass Cloudinary public ID for cover extraction
     );
+
+    // Determine book status based on user role
+    // Admin uploads are immediately published, user uploads are pending
+    const isAdmin = userRole === 'admin';
+    const bookStatus: BookStatus = isAdmin ? 'published' : 'pending';
 
     // Create book record
     const book = await BookModel.create({
@@ -333,9 +379,14 @@ export const uploadBook = async (req: Request, res: Response): Promise<void> => 
       subject: subject || '',
       bookCategory: (category as BookCategoryType) || 'reference',
       fileName: fileName || '',
-      fileType: (fileType as BookFileType) || 'pdf',
+      fileType: normalizedFileType,
       coverGenerationStatus: coverResult.status,
-      status: 'pending',
+      status: bookStatus,
+      // If admin, mark as approved by themselves
+      ...(isAdmin && {
+        approvedBy: userId,
+        approvalDate: new Date()
+      })
     });
 
     // Track book_upload event for user analytics (async, don't block response)
@@ -346,17 +397,25 @@ export const uploadBook = async (req: Request, res: Response): Promise<void> => 
         bookId: book._id?.toString(),
         title,
         category: category || 'reference',
+        status: bookStatus,
       },
     }).catch(err => log.warn('Failed to track book upload activity', { error: err.message }));
 
+    // Prepare response message based on role
+    const message = isAdmin 
+      ? 'Book uploaded and published successfully!'
+      : 'Book uploaded successfully. Awaiting admin approval.';
+
     res.status(201).json({
       status: 'success',
-      message: 'Book uploaded successfully. Awaiting admin approval.',
+      message,
       data: {
         id: book._id,
         title: book.title,
         status: book.status,
-        coverImageUrl: book.coverImageUrl
+        coverImageUrl: book.coverImageUrl,
+        fileUrl: book.pdfUrl,
+        isPublished: bookStatus === 'published'
       }
     });
   } catch (error) {

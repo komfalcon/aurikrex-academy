@@ -11,6 +11,7 @@ import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import AuthCallback from './pages/AuthCallback';
 import Library from './pages/Library';
+import AdminApproval from './pages/AdminApproval';
 
 // Protected Route Component
 interface ProtectedRouteProps {
@@ -29,6 +30,33 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   }
   
   return user ? <>{children}</> : <Navigate to="/login" />;
+};
+
+// Admin Route Component (requires admin role)
+const AdminRoute = ({ children }: ProtectedRouteProps) => {
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-xl font-semibold text-gray-700">Loading...</div>
+      </div>
+    );
+  }
+  
+  // Check if user has admin role
+  const storedUser = localStorage.getItem('aurikrex-user');
+  const isAdmin = storedUser ? JSON.parse(storedUser).role === 'admin' : false;
+  
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+  
+  if (!isAdmin) {
+    return <Navigate to="/" />;
+  }
+  
+  return <>{children}</>;
 };
 
 function AppRoutes() {
@@ -56,6 +84,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <Profile />
           </ProtectedRoute>
+        }
+      />
+      
+      {/* Admin Routes */}
+      <Route
+        path="/admin/approval"
+        element={
+          <AdminRoute>
+            <AdminApproval />
+          </AdminRoute>
         }
       />
       

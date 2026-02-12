@@ -3,10 +3,12 @@ import cors from "cors";
 import compression from "compression";
 import passport from "./config/passport.js";
 import { connectDB, checkMongoHealth } from "./config/mongodb.js";
+import { initCloudinary } from "./config/cloudinary.js";
 import { UserModel } from "./models/User.model.js";
 import { LessonModel, LessonProgressModel } from "./models/Lesson.model.js";
 import { AnalyticsModel } from "./models/Analytics.model.js";
 import { ChatHistoryModel } from "./models/ChatHistory.model.js";
+import { BookModel } from "./models/Book.model.js";
 import { log } from "./utils/logger.js";
 import validateEnv from "./utils/env.mongo.js";
 import { apiLimiter } from "./middleware/rate-limit.middleware.js";
@@ -151,9 +153,19 @@ async function initializeDatabase() {
       LessonModel.createIndexes(),
       LessonProgressModel.createIndexes(),
       AnalyticsModel.createIndexes(),
-      ChatHistoryModel.createIndexes()
+      ChatHistoryModel.createIndexes(),
+      BookModel.createIndexes()
     ]);
     log.info('✅ Database indexes created successfully');
+
+    // Initialize Cloudinary for file uploads
+    log.info('☁️ Initializing Cloudinary...');
+    const cloudinaryConfigured = initCloudinary();
+    if (cloudinaryConfigured) {
+      log.info('✅ Cloudinary initialized successfully');
+    } else {
+      log.warn('⚠️ Cloudinary not configured - file uploads will use fallback storage');
+    }
 
   } catch (error) {
     log.error('❌ Database initialization failed', { error });
