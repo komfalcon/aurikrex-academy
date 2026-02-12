@@ -46,10 +46,9 @@ const envVars = {
     message: 'ALLOWED_ORIGINS must be a comma-separated list of valid URLs or "*"'
   },
   JWT_SECRET: {
-    required: false,
-    default: 'your-super-secret-jwt-key-change-this-in-production',
+    required: true,
     validate: (value: string) => typeof value === 'string' && value.length >= 32,
-    message: 'JWT_SECRET must be at least 32 characters long'
+    message: 'JWT_SECRET is required and must be at least 32 characters long'
   },
   ACCESS_TOKEN_EXPIRY: {
     required: false,
