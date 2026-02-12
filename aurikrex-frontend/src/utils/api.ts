@@ -15,13 +15,15 @@
  * - Backend must NOT use wildcard (*) origin when credentials are enabled
  */
 
+import { logger } from './logger';
+
 const API_URL = import.meta.env.VITE_API_URL;
 
 // Default timeout for API requests (90 seconds for complex AI questions)
 const DEFAULT_TIMEOUT = 90000;
 
 if (!API_URL) {
-  console.warn('⚠️ VITE_API_URL is not set. API calls will fail. Please configure your environment variables.');
+  logger.warn('VITE_API_URL is not set. API calls will fail. Please configure your environment variables.');
 }
 
 /**
@@ -98,7 +100,7 @@ export const apiRequest = async (
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   try {
-    console.log(`📡 API Request: ${options.method || 'GET'} ${url}`, {
+    logger.debug(`API Request: ${options.method || 'GET'} ${url}`, {
       hasAuth: !!token,
       timestamp: requestTimestamp,
       timeout,
@@ -116,14 +118,14 @@ export const apiRequest = async (
 
     // Log response details for debugging
     if (!response.ok) {
-      console.error('❌ API Error:', {
+      logger.error('API Error:', {
         url,
         status: response.status,
         statusText: response.statusText,
         timestamp: requestTimestamp,
       });
     } else {
-      console.log(`✅ API Response: ${response.status} ${response.statusText}`, {
+      logger.debug(`API Response: ${response.status} ${response.statusText}`, {
         url,
         timestamp: requestTimestamp,
       });
@@ -135,7 +137,7 @@ export const apiRequest = async (
     
     // Handle timeout (AbortError)
     if (error instanceof Error && error.name === 'AbortError') {
-      console.error('❌ API Timeout:', {
+      logger.error('API Timeout:', {
         url,
         timeout,
         timestamp: requestTimestamp,
@@ -158,7 +160,7 @@ export const apiRequest = async (
       hints.push('VITE_API_URL environment variable is not set');
     }
     
-    console.error('❌ Network Error:', {
+    logger.error('Network Error:', {
       url,
       errorMessage: err.message,
       errorName: err.name,
@@ -206,8 +208,8 @@ export const validateToken = (): boolean => {
     }
 
     return true;
-  } catch (error) {
-    console.error('Error validating token:', error);
+  } catch {
+    logger.error('Error validating token');
     return false;
   }
 };

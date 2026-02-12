@@ -193,15 +193,15 @@ async function startServer() {
       // Use environment-aware URL
       const backendURL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
       
-      // Use console for banner as it's startup information
-      console.log(`\n${'='.repeat(60)}`);
-      console.log(`🚀 Aurikrex Academy Backend Server`);
-      console.log(`${'='.repeat(60)}`);
-      console.log(`📍 Environment: ${NODE_ENV}`);
-      console.log(`🌐 Port: ${PORT}`);
-      console.log(`🔗 API URL: ${backendURL}/api`);
-      console.log(`🏥 Health Check: ${backendURL}/health`);
-      console.log(`${'='.repeat(60)}\n`);
+      // Use logger for startup banner
+      log.info(`${'='.repeat(60)}`);
+      log.info(`Aurikrex Academy Backend Server`);
+      log.info(`${'='.repeat(60)}`);
+      log.info(`Environment: ${NODE_ENV}`);
+      log.info(`Port: ${PORT}`);
+      log.info(`API URL: ${backendURL}/api`);
+      log.info(`Health Check: ${backendURL}/health`);
+      log.info(`${'='.repeat(60)}`);
     });
   } catch (error) {
     log.error('❌ Failed to start server', { error });

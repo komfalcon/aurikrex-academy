@@ -33,16 +33,14 @@ class MongoDB {
     
     if (!uri) {
       const errorMsg = 'MONGO_URI environment variable is not set. Please check your .env file.';
-      console.error('❌ Configuration Error:', errorMsg);
-      console.error('💡 Hint: Copy .env.example to .env and update the MONGO_URI value');
+      log.error('Configuration Error', { error: errorMsg, hint: 'Copy .env.example to .env and update the MONGO_URI value' });
       throw new Error(errorMsg);
     }
 
     // Validate URI format
     if (!uri.startsWith('mongodb://') && !uri.startsWith('mongodb+srv://')) {
       const errorMsg = 'MONGO_URI must start with mongodb:// or mongodb+srv://';
-      console.error('❌ Configuration Error:', errorMsg);
-      console.error('💡 Current URI format:', uri.substring(0, 20) + '...');
+      log.error('Configuration Error', { error: errorMsg, uriFormat: uri.substring(0, 20) + '...' });
       throw new Error(errorMsg);
     }
 
@@ -101,7 +99,7 @@ class MongoDB {
         // IP detection is optional, don't block connection
       }
 
-      log.info('🔌 Connecting to MongoDB Atlas...', {
+      log.info('Connecting to MongoDB Atlas...', {
         dbName: config.dbName,
         host: hostInfo,
         attempt: this.reconnectAttempts + 1,
@@ -110,12 +108,13 @@ class MongoDB {
         publicIP: publicIP
       });
 
-      console.log(`🔌 Attempting MongoDB connection (${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})...`);
-      console.log(`  Database: ${config.dbName}`);
-      console.log(`  Host: ${hostInfo}`);
-      console.log(`  Public IP: ${publicIP}`);
-      console.log(`  Timeout: ${config.options.serverSelectionTimeoutMS}ms`);
-      console.log(`  💡 If timeout occurs, whitelist IP ${publicIP} in MongoDB Atlas Network Access`);
+      log.info(`Attempting MongoDB connection (${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})...`, {
+        database: config.dbName,
+        host: hostInfo,
+        publicIP: publicIP,
+        timeout: `${config.options.serverSelectionTimeoutMS}ms`,
+        hint: `If timeout occurs, whitelist IP ${publicIP} in MongoDB Atlas Network Access`
+      });
 
       this.client = new MongoClient(config.uri, config.options);
       await this.client.connect();
@@ -159,38 +158,26 @@ class MongoDB {
         errorDetails.stack = error.stack;
       }
 
-      log.error('❌ MongoDB connection failed', errorDetails);
-
-      // Also log to console for immediate visibility during development
-      console.error('❌ MongoDB Connection Error Details:');
-      console.error('  Message:', errorDetails.message);
-      console.error('  Attempt:', `${errorDetails.attempt}/${errorDetails.maxAttempts}`);
-      if (errorDetails.code) console.error('  Error Code:', errorDetails.code);
-      if (errorDetails.codeName) console.error('  Error Name:', errorDetails.codeName);
-      if (errorDetails.cause) console.error('  Root Cause:', errorDetails.cause);
+      log.error('MongoDB connection failed', errorDetails);
       
       if (this.reconnectAttempts < this.maxReconnectAttempts) {
         const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
-        log.info(`🔄 Retrying connection in ${delay}ms...`);
+        log.info(`Retrying connection in ${delay}ms...`);
         
         await new Promise(resolve => setTimeout(resolve, delay));
         return this.connect();
       }
 
       // All retries exhausted - provide troubleshooting guidance
-      console.error('\n' + '='.repeat(70));
-      console.error('❌ MONGODB CONNECTION FAILED - All retry attempts exhausted');
-      console.error('='.repeat(70));
-      console.error('\n💡 Troubleshooting steps:');
-      console.error('  1. Verify your .env file exists and contains MONGO_URI');
-      console.error('  2. Verify MongoDB credentials are correct');
-      console.error('  3. Ensure your network allows connections to MongoDB Atlas');
-      console.error('  4. Check if MongoDB Atlas cluster is running');
-      console.error('\n📝 Error details:');
-      if (error instanceof Error) {
-        console.error(`  Message: ${error.message}`);
-      }
-      console.error('='.repeat(70) + '\n');
+      log.error('MONGODB CONNECTION FAILED - All retry attempts exhausted', {
+        troubleshooting: [
+          'Verify your .env file exists and contains MONGO_URI',
+          'Verify MongoDB credentials are correct',
+          'Ensure your network allows connections to MongoDB Atlas',
+          'Check if MongoDB Atlas cluster is running'
+        ],
+        errorMessage: error instanceof Error ? error.message : String(error)
+      });
 
       // Create a more informative final error message
       const finalErrorMsg = error instanceof Error 
