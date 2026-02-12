@@ -8,6 +8,12 @@
  * - Total Days Spent (distinct activity dates)
  * - Activity Timeline (activity grouped by date)
  * - Daily Breakdown (count by type for today)
+ * 
+ * Extended Metrics (Phase 2):
+ * - Learning insights (peak learning time, session length)
+ * - Assignment performance
+ * - FalkeAI insights (strengths, weaknesses, growth score)
+ * - Topics mastered
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -22,10 +28,20 @@ import {
   Upload,
   RefreshCw,
   TrendingUp,
+  TrendingDown,
   Loader2,
+  Target,
+  Award,
+  Clock,
+  Brain,
+  CheckCircle2,
+  AlertCircle,
+  Zap,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/context/AuthContext';
 import {
   AreaChart,
@@ -38,9 +54,11 @@ import {
   BarChart,
   Bar,
   Cell,
+  PieChart,
+  Pie,
 } from 'recharts';
-import { getUserAnalytics } from '@/utils/userAnalyticsApi';
-import type { UserAnalyticsData } from '@/types';
+import { getUserAnalytics, getExtendedUserAnalytics } from '@/utils/userAnalyticsApi';
+import type { ExtendedUserAnalyticsData } from '@/types';
 
 // Poll interval for auto-refresh (5 minutes)
 const POLL_INTERVAL_MS = 5 * 60 * 1000;
@@ -188,22 +206,280 @@ function DailyBreakdownCard({ breakdown }: { breakdown: UserAnalyticsData['daily
   );
 }
 
+// FalkeAI Insights Card
+function FalkeAIInsightsCard({ insights }: { insights: ExtendedUserAnalyticsData['falkeAIInsights'] }) {
+  if (!insights) {
+    return (
+      <Card className="border-border bg-card/50 backdrop-blur-sm">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Brain className="w-5 h-5 text-primary" />
+            FalkeAI Insights
+          </CardTitle>
+          <CardDescription>AI-powered learning analysis</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[200px] flex items-center justify-center text-muted-foreground">
+            <p className="text-sm">Not enough data yet. Keep learning!</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const trendIcon = insights.engagementTrend === 'increasing' 
+    ? <TrendingUp className="w-4 h-4 text-green-500" /> 
+    : insights.engagementTrend === 'decreasing'
+    ? <TrendingDown className="w-4 h-4 text-red-500" />
+    : <Activity className="w-4 h-4 text-yellow-500" />;
+
+  return (
+    <Card className="border-border bg-card/50 backdrop-blur-sm">
+      <CardHeader>
+        <CardTitle className="text-lg flex items-center gap-2">
+          <Brain className="w-5 h-5 text-primary" />
+          FalkeAI Insights
+        </CardTitle>
+        <CardDescription>AI-powered learning analysis</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Growth Score */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium">Growth Score</span>
+            <span className="text-sm font-bold text-primary">{insights.growthScore}%</span>
+          </div>
+          <Progress value={insights.growthScore} className="h-2" />
+        </div>
+
+        {/* Engagement Trend */}
+        <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+          <span className="text-sm">Engagement Trend</span>
+          <div className="flex items-center gap-2">
+            {trendIcon}
+            <span className="text-sm font-medium capitalize">{insights.engagementTrend}</span>
+          </div>
+        </div>
+
+        {/* Focus Area */}
+        <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+          <div className="flex items-center gap-2 mb-1">
+            <Target className="w-4 h-4 text-primary" />
+            <span className="text-sm font-medium">Focus Area</span>
+          </div>
+          <p className="text-sm text-muted-foreground">{insights.focusArea}</p>
+        </div>
+
+        {/* Strengths & Weaknesses */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3 text-green-500" /> Strengths
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {insights.strengths.length > 0 ? (
+                insights.strengths.slice(0, 3).map((s, i) => (
+                  <Badge key={i} variant="secondary" className="text-xs bg-green-500/10 text-green-600">
+                    {s}
+                  </Badge>
+                ))
+              ) : (
+                <span className="text-xs text-muted-foreground">Building...</span>
+              )}
+            </div>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+              <AlertCircle className="w-3 h-3 text-orange-500" /> To Improve
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {insights.weaknesses.length > 0 ? (
+                insights.weaknesses.slice(0, 3).map((w, i) => (
+                  <Badge key={i} variant="secondary" className="text-xs bg-orange-500/10 text-orange-600">
+                    {w}
+                  </Badge>
+                ))
+              ) : (
+                <span className="text-xs text-muted-foreground">Great job!</span>
+              )}
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Assignment Performance Card
+function AssignmentPerformanceCard({ performance }: { performance: ExtendedUserAnalyticsData['assignmentPerformance'] }) {
+  if (!performance) {
+    return null;
+  }
+
+  const total = performance.completed + performance.inProgress + performance.pending;
+  const completionRate = total > 0 ? Math.round((performance.completed / total) * 100) : 0;
+
+  const pieData = [
+    { name: 'Completed', value: performance.completed, color: '#10B981' },
+    { name: 'In Progress', value: performance.inProgress, color: '#3B82F6' },
+    { name: 'Pending', value: performance.pending, color: '#6B7280' },
+  ].filter(d => d.value > 0);
+
+  return (
+    <Card className="border-border bg-card/50 backdrop-blur-sm">
+      <CardHeader>
+        <CardTitle className="text-lg flex items-center gap-2">
+          <Zap className="w-5 h-5 text-primary" />
+          Assignments
+        </CardTitle>
+        <CardDescription>Track your assignment progress</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {total === 0 ? (
+          <div className="h-[150px] flex items-center justify-center text-muted-foreground">
+            <p className="text-sm">No assignments yet</p>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center gap-4">
+              <div className="w-24 h-24">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={25}
+                      outerRadius={40}
+                      dataKey="value"
+                    >
+                      {pieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex-1 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Completed</span>
+                  <span className="text-sm font-medium text-green-500">{performance.completed}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">In Progress</span>
+                  <span className="text-sm font-medium text-blue-500">{performance.inProgress}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Pending</span>
+                  <span className="text-sm font-medium text-gray-500">{performance.pending}</span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Accuracy */}
+            <div className="p-3 rounded-lg bg-secondary/50">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm">Solution Accuracy</span>
+                <span className="text-sm font-bold">{performance.accuracy}%</span>
+              </div>
+              <Progress value={performance.accuracy} className="h-2" />
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// Learning Insights Card
+function LearningInsightsCard({ 
+  insights, 
+  topicsMastered 
+}: { 
+  insights: ExtendedUserAnalyticsData['learningInsights'];
+  topicsMastered: string[];
+}) {
+  return (
+    <Card className="border-border bg-card/50 backdrop-blur-sm">
+      <CardHeader>
+        <CardTitle className="text-lg flex items-center gap-2">
+          <Award className="w-5 h-5 text-primary" />
+          Learning Insights
+        </CardTitle>
+        <CardDescription>Your learning patterns and achievements</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {insights && (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 rounded-lg bg-secondary/50">
+                <div className="flex items-center gap-2 mb-1">
+                  <Clock className="w-4 h-4 text-primary" />
+                  <span className="text-xs text-muted-foreground">Peak Time</span>
+                </div>
+                <p className="text-sm font-medium">{insights.peakLearningTime}</p>
+              </div>
+              <div className="p-3 rounded-lg bg-secondary/50">
+                <div className="flex items-center gap-2 mb-1">
+                  <Activity className="w-4 h-4 text-primary" />
+                  <span className="text-xs text-muted-foreground">Avg Session</span>
+                </div>
+                <p className="text-sm font-medium">{insights.averageSessionLength} min</p>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Topics Mastered */}
+        <div>
+          <p className="text-sm font-medium mb-2 flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-green-500" />
+            Topics Mastered ({topicsMastered.length})
+          </p>
+          {topicsMastered.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {topicsMastered.slice(0, 6).map((topic, i) => (
+                <Badge key={i} variant="outline" className="bg-green-500/10 border-green-500/20">
+                  {topic}
+                </Badge>
+              ))}
+              {topicsMastered.length > 6 && (
+                <Badge variant="outline">+{topicsMastered.length - 6} more</Badge>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Complete lessons to master topics!</p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function UserAnalyticsPanel() {
   const { user } = useAuth();
   
-  const [analytics, setAnalytics] = useState<UserAnalyticsData | null>(null);
+  const [analytics, setAnalytics] = useState<ExtendedUserAnalyticsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'insights'>('overview');
 
-  // Load analytics
+  // Load extended analytics
   const loadAnalytics = useCallback(async () => {
     if (!user?.uid) return;
     
     try {
       setError(null);
-      const data = await getUserAnalytics();
-      setAnalytics(data);
+      // Try to get extended analytics first, fall back to basic if not available
+      try {
+        const data = await getExtendedUserAnalytics();
+        setAnalytics(data);
+      } catch {
+        // Fall back to basic analytics
+        const basicData = await getUserAnalytics();
+        setAnalytics(basicData);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load analytics');
     } finally {
@@ -403,6 +679,31 @@ export default function UserAnalyticsPanel() {
               <DailyBreakdownCard breakdown={analytics.dailyBreakdown} />
             )}
           </div>
+
+          {/* Extended Analytics Section */}
+          {(analytics?.falkeAIInsights || analytics?.assignmentPerformance || analytics?.learningInsights) && (
+            <div className="mt-8">
+              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <Brain className="w-5 h-5 text-primary" />
+                Deep Insights
+              </h2>
+              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                {/* FalkeAI Insights */}
+                <FalkeAIInsightsCard insights={analytics?.falkeAIInsights} />
+                
+                {/* Learning Insights */}
+                <LearningInsightsCard 
+                  insights={analytics?.learningInsights} 
+                  topicsMastered={analytics?.topicsMastered || []} 
+                />
+                
+                {/* Assignment Performance */}
+                {analytics?.assignmentPerformance && (
+                  <AssignmentPerformanceCard performance={analytics.assignmentPerformance} />
+                )}
+              </div>
+            </div>
+          )}
         </>
       )}
     </motion.div>
