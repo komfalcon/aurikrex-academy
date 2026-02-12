@@ -509,3 +509,35 @@ export const rejectBook = async (bookId: string, reason?: string): Promise<Book>
   const result = await response.json();
   return result.data;
 };
+
+// ============================================
+// User Uploads API
+// ============================================
+
+/**
+ * Get user's uploaded books (to track upload status)
+ * Returns all books uploaded by the authenticated user
+ */
+export const getMyUploads = async (options: {
+  page?: number;
+  limit?: number;
+  status?: 'pending' | 'approved' | 'rejected' | 'published';
+} = {}): Promise<BooksResponse> => {
+  const params = new URLSearchParams();
+  
+  if (options.page) params.append('page', options.page.toString());
+  if (options.limit) params.append('limit', options.limit.toString());
+  if (options.status) params.append('status', options.status);
+
+  const queryString = params.toString();
+  const url = `/books/my-uploads${queryString ? `?${queryString}` : ''}`;
+  
+  const response = await apiRequest(url);
+  
+  if (!response.ok) {
+    throw new ApiError('Failed to fetch uploads', { status: response.status });
+  }
+  
+  const data = await response.json();
+  return data.data;
+};

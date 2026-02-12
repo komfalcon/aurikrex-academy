@@ -8,6 +8,7 @@
 import { apiRequest } from './api';
 import type { 
   UserAnalyticsData,
+  ExtendedUserAnalyticsData,
   ActivityTimelineEntry,
   DailyBreakdown 
 } from '../types';
@@ -35,6 +36,22 @@ export async function getUserAnalytics(): Promise<UserAnalyticsData> {
 }
 
 /**
+ * Get extended user analytics data
+ * Fetches comprehensive metrics from GET /api/user/analytics/extended
+ */
+export async function getExtendedUserAnalytics(): Promise<ExtendedUserAnalyticsData> {
+  const response = await apiRequest('/user/analytics/extended');
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || 'Failed to get extended user analytics');
+  }
+
+  const result: ApiResponse<ExtendedUserAnalyticsData> = await response.json();
+  return result.data || getEmptyExtendedUserAnalytics();
+}
+
+/**
  * Get empty user analytics for new users
  */
 function getEmptyUserAnalytics(): UserAnalyticsData {
@@ -52,6 +69,20 @@ function getEmptyUserAnalytics(): UserAnalyticsData {
   };
 }
 
+/**
+ * Get empty extended user analytics for new users
+ */
+function getEmptyExtendedUserAnalytics(): ExtendedUserAnalyticsData {
+  return {
+    ...getEmptyUserAnalytics(),
+    learningInsights: undefined,
+    assignmentPerformance: undefined,
+    falkeAIInsights: undefined,
+    topicsMastered: [],
+  };
+}
+
 export default {
   getUserAnalytics,
+  getExtendedUserAnalytics,
 };

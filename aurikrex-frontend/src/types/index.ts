@@ -570,6 +570,47 @@ export interface UserAnalyticsData {
   dailyBreakdown: DailyBreakdown;
 }
 
+/**
+ * Learning insights data
+ */
+export interface LearningInsights {
+  peakLearningTime: string;
+  averageSessionLength: number; // in minutes
+  lastUpdated: string;
+}
+
+/**
+ * Assignment performance data
+ */
+export interface AssignmentPerformanceData {
+  completed: number;
+  inProgress: number;
+  pending: number;
+  accuracy: number; // percentage
+}
+
+/**
+ * FalkeAI insights data
+ */
+export interface FalkeAIInsightsData {
+  focusArea: string;
+  strengths: string[];
+  weaknesses: string[];
+  engagementTrend: 'increasing' | 'stable' | 'decreasing';
+  growthScore: number;
+  lastUpdated: string;
+}
+
+/**
+ * Extended User Analytics Data from GET /api/user/analytics/extended
+ */
+export interface ExtendedUserAnalyticsData extends UserAnalyticsData {
+  learningInsights?: LearningInsights;
+  assignmentPerformance?: AssignmentPerformanceData;
+  falkeAIInsights?: FalkeAIInsightsData;
+  topicsMastered?: string[];
+}
+
 // ============================================
 // Chat History Types
 // ============================================

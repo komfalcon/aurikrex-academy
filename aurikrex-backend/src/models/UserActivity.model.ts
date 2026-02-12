@@ -49,6 +49,36 @@ export interface UserAnalyticsResponse {
 }
 
 /**
+ * Extended User Analytics Response (includes FalkeAI insights)
+ */
+export interface ExtendedUserAnalyticsResponse extends UserAnalyticsResponse {
+  // Learning insights (updated weekly)
+  learningInsights?: {
+    peakLearningTime: string;
+    averageSessionLength: number; // in minutes
+    lastUpdated: string;
+  };
+  // Assignment performance
+  assignmentPerformance?: {
+    completed: number;
+    inProgress: number;
+    pending: number;
+    accuracy: number; // percentage
+  };
+  // FalkeAI insights (updated weekly)
+  falkeAIInsights?: {
+    focusArea: string;
+    strengths: string[];
+    weaknesses: string[];
+    engagementTrend: 'increasing' | 'stable' | 'decreasing';
+    growthScore: number;
+    lastUpdated: string;
+  };
+  // Topics mastered
+  topicsMastered?: string[];
+}
+
+/**
  * UserActivity Model
  * Event-driven activity tracking for user analytics
  */

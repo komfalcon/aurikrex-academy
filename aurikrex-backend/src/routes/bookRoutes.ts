@@ -17,6 +17,7 @@ import {
   approveBook,
   rejectBook,
   getCategoriesFormatted,
+  getMyUploads,
 } from '../controllers/bookController.js';
 import { validateRequest } from '../middleware/validation.middleware.js';
 import { authenticate, authorize } from '../middleware/auth.middleware.js';
@@ -71,6 +72,23 @@ router.get('/categories', getCategories);
  * @access  Public
  */
 router.get('/categories/all', getCategoriesFormatted);
+
+/**
+ * @route   GET /api/books/my-uploads
+ * @desc    Get authenticated user's uploaded books
+ * @access  Private (authenticated users)
+ */
+router.get(
+  '/my-uploads',
+  authenticate,
+  [
+    query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
+    query('status').optional().isIn(['pending', 'approved', 'rejected', 'published']).withMessage('Invalid status'),
+  ],
+  validateRequest,
+  getMyUploads
+);
 
 /**
  * @route   GET /api/books/admin/pending

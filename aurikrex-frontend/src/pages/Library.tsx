@@ -8,6 +8,7 @@
  * - Prominent upload button always visible in the header
  * - Search, filter, and sort functionality  
  * - Pagination for book browsing
+ * - My Uploads tab to track upload status
  * - Error handling for uploads and confirmations for success
  * - Clear loading states and empty state messaging
  */
@@ -22,13 +23,16 @@ import {
   Plus,
   Upload,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  Library as LibraryIcon
 } from 'lucide-react';
 import { BookCard } from '@/components/library/BookCard';
 import { BookSearch, type BookFilters } from '@/components/library/BookSearch';
 import { UploadBookModal } from '@/components/library/UploadBookModal';
+import { MyUploadsPanel } from '@/components/library/MyUploadsPanel';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
 import { getBooks, getCategoriesFormatted } from '@/utils/libraryApi';
 import { useAuth } from '@/context/AuthContext';
@@ -115,6 +119,9 @@ function LibraryError({
 export function Library() {
   const { user } = useAuth();
   const { toast } = useToast();
+  
+  // Active tab state
+  const [activeTab, setActiveTab] = useState<'browse' | 'my-uploads'>('browse');
   
   // State for books and pagination
   const [books, setBooks] = useState<Book[]>([]);
@@ -286,117 +293,133 @@ export function Library() {
         </motion.div>
 
         {/* ============================================ */}
-        {/* Search & Filters */}
+        {/* Tabs for Browse / My Uploads */}
         {/* ============================================ */}
-        <BookSearch
-          filters={filters}
-          onFiltersChange={handleFiltersChange}
-          categories={categories.length > 0 ? categories : undefined}
-        />
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'browse' | 'my-uploads')} className="space-y-6">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="browse" className="gap-2">
+              <LibraryIcon className="w-4 h-4" />
+              Browse Library
+            </TabsTrigger>
+            <TabsTrigger value="my-uploads" className="gap-2">
+              <Upload className="w-4 h-4" />
+              My Uploads
+            </TabsTrigger>
+          </TabsList>
 
-        {/* ============================================ */}
-        {/* Results Count */}
-        {/* ============================================ */}
-        {!loading && !error && (
-          <div className="mb-4 text-sm text-muted-foreground">
-            Showing {books.length} of {total} books
-          </div>
-        )}
+          {/* Browse Tab Content */}
+          <TabsContent value="browse" className="space-y-6">
+            {/* Search & Filters */}
+            <BookSearch
+              filters={filters}
+              onFiltersChange={handleFiltersChange}
+              categories={categories.length > 0 ? categories : undefined}
+            />
 
-        {/* ============================================ */}
-        {/* Books Grid / Loading / Error / Empty States */}
-        {/* ============================================ */}
-        <div className="min-h-[400px]">
-          {loading ? (
-            <LibrarySkeleton />
-          ) : error ? (
-            <LibraryError 
-              message={error}
-              onRetry={loadBooks}
-            />
-          ) : books.length === 0 ? (
-            <EmptyLibrary
-              message={
-                filters.search || filters.category || filters.difficulty || filters.subject
-                  ? "No books match your filters. Try adjusting your search criteria."
-                  : "The library is empty. Be the first to upload a book!"
-              }
-              onUploadClick={handleUploadClick}
-              showUploadButton={!filters.search && !filters.category && !filters.difficulty && !filters.subject}
-            />
-          ) : (
-            <motion.div
-              key={page}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3 }}
-              className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
-            >
-              {books.map((book) => (
-                <BookCard
-                  key={book._id}
-                  book={book}
-                  onClick={handleBookClick}
+            {/* Results Count */}
+            {!loading && !error && (
+              <div className="text-sm text-muted-foreground">
+                Showing {books.length} of {total} books
+              </div>
+            )}
+
+            {/* Books Grid / Loading / Error / Empty States */}
+            <div className="min-h-[400px]">
+              {loading ? (
+                <LibrarySkeleton />
+              ) : error ? (
+                <LibraryError 
+                  message={error}
+                  onRetry={loadBooks}
                 />
-              ))}
-            </motion.div>
-          )}
-        </div>
-
-        {/* ============================================ */}
-        {/* Pagination */}
-        {/* ============================================ */}
-        {!loading && !error && totalPages > 1 && (
-          <Card className="mt-8 p-4 flex items-center justify-between bg-card/80 backdrop-blur-sm">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              Previous
-            </button>
-            
-            <div className="flex items-center gap-2">
-              {/* Page numbers */}
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum: number;
-                if (totalPages <= 5) {
-                  pageNum = i + 1;
-                } else if (page <= 3) {
-                  pageNum = i + 1;
-                } else if (page >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i;
-                } else {
-                  pageNum = page - 2 + i;
-                }
-                
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => setPage(pageNum)}
-                    className={`w-10 h-10 rounded-lg transition-colors ${
-                      page === pageNum
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-secondary hover:bg-secondary/80'
-                    }`}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
+              ) : books.length === 0 ? (
+                <EmptyLibrary
+                  message={
+                    filters.search || filters.category || filters.difficulty || filters.subject
+                      ? "No books match your filters. Try adjusting your search criteria."
+                      : "The library is empty. Be the first to upload a book!"
+                  }
+                  onUploadClick={handleUploadClick}
+                  showUploadButton={!filters.search && !filters.category && !filters.difficulty && !filters.subject}
+                />
+              ) : (
+                <motion.div
+                  key={page}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                  className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
+                >
+                  {books.map((book) => (
+                    <BookCard
+                      key={book._id}
+                      book={book}
+                      onClick={handleBookClick}
+                    />
+                  ))}
+                </motion.div>
+              )}
             </div>
-            
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Next
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </Card>
-        )}
+
+            {/* Pagination */}
+            {!loading && !error && totalPages > 1 && (
+              <Card className="p-4 flex items-center justify-between bg-card/80 backdrop-blur-sm">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Previous
+                </button>
+                
+                <div className="flex items-center gap-2">
+                  {/* Page numbers */}
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum: number;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (page <= 3) {
+                      pageNum = i + 1;
+                    } else if (page >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = page - 2 + i;
+                    }
+                    
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setPage(pageNum)}
+                        className={`w-10 h-10 rounded-lg transition-colors ${
+                          page === pageNum
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-secondary hover:bg-secondary/80'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* My Uploads Tab Content */}
+          <TabsContent value="my-uploads">
+            <MyUploadsPanel onUploadClick={handleUploadClick} />
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* ============================================ */}
