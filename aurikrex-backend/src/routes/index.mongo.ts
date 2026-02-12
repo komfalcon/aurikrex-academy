@@ -11,6 +11,7 @@ import userLibraryRoutes from "./userLibraryRoutes.js";
 import fileRoutes from "./fileRoutes.js";
 import dashboardRoutes from "./dashboardRoutes.js";
 import userAnalyticsRoutes from "./userAnalyticsRoutes.js";
+import adminRoutes from "./adminRoutes.js";
 
 const router = Router();
 
@@ -49,5 +50,8 @@ router.use("/dashboard", dashboardRoutes);
 
 // User Analytics routes (event-driven user analytics)
 router.use("/user", userAnalyticsRoutes);
+
+// Admin routes (admin dashboard, user management)
+router.use("/admin", adminRoutes);
 
 export default router;
