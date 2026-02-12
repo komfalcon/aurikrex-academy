@@ -732,3 +732,65 @@ export const getCategoriesFormatted = async (_req: Request, res: Response): Prom
     });
   }
 };
+
+/**
+ * Get user's uploaded books (for users to track their upload status)
+ * 
+ * Returns all books uploaded by the authenticated user, regardless of status.
+ * Users can see their pending, approved, rejected, and published books.
+ */
+export const getMyUploads = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    const { page = '1', limit = '20', status } = req.query;
+
+    if (!userId) {
+      res.status(401).json({
+        status: 'error',
+        message: 'Authentication required'
+      });
+      return;
+    }
+
+    const options: {
+      page: number;
+      limit: number;
+      uploadedBy: string;
+      status?: BookStatus;
+      sortBy: 'newest';
+      sortOrder: 'desc';
+    } = {
+      page: parseInt(page as string, 10),
+      limit: parseInt(limit as string, 10),
+      uploadedBy: userId,
+      sortBy: 'newest',
+      sortOrder: 'desc'
+    };
+
+    // Optionally filter by status
+    if (status && ['pending', 'approved', 'rejected', 'published'].includes(status as string)) {
+      options.status = status as BookStatus;
+    }
+
+    const result = await BookModel.list(options);
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        books: result.books,
+        pagination: {
+          page: result.page,
+          limit: result.limit,
+          total: result.total,
+          totalPages: Math.ceil(result.total / result.limit)
+        }
+      }
+    });
+  } catch (error) {
+    log.error('Error getting user uploads', { error, userId: req.user?.userId });
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch uploads'
+    });
+  }
+};

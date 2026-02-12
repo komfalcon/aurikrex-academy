@@ -7,7 +7,7 @@
 
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth.middleware.js';
-import { getUserAnalytics } from '../controllers/userAnalyticsController.js';
+import { getUserAnalytics, getExtendedAnalytics } from '../controllers/userAnalyticsController.js';
 
 const router = Router();
 
@@ -29,5 +29,21 @@ router.use(authenticate);
  * }
  */
 router.get('/analytics', getUserAnalytics);
+
+/**
+ * @route   GET /api/user/analytics/extended
+ * @desc    Get extended analytics including FalkeAI insights and assignment performance
+ * @access  Private (requires authentication)
+ * 
+ * Response (extends base analytics with):
+ * {
+ *   ...baseAnalytics,
+ *   learningInsights: { peakLearningTime, averageSessionLength, lastUpdated },
+ *   assignmentPerformance: { completed, inProgress, pending, accuracy },
+ *   falkeAIInsights: { focusArea, strengths, weaknesses, engagementTrend, growthScore, lastUpdated },
+ *   topicsMastered: string[]
+ * }
+ */
+router.get('/analytics/extended', getExtendedAnalytics);
 
 export default router;
