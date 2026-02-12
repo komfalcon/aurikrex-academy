@@ -64,13 +64,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/context/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ProfileDropdown } from "@/components/dashboard/ProfileDropdown";
-import { sendMessage } from "@/utils/falkeai";
+import { sendMessage, sendMessageWithHistory } from "@/utils/falkeai";
 import { analyzeProgress, type UserProgress, type AIInsight, type AIRecommendation } from "@/utils/aiAnalysis";
 import { HeroProgress } from "@/components/dashboard/HeroProgress";
 import { AIRecommendations } from "@/components/dashboard/AIRecommendations";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { DashboardSkeleton, AIThinkingIndicator } from "@/components/dashboard/LoadingSkeletons";
-import type { FalkeAIChatPage, UserAnalyticsData } from "@/types";
+import type { FalkeAIChatPage, UserAnalyticsData, ChatSessionSummary } from "@/types";
 import { apiRequest } from "@/utils/api";
 // Import real data panels
 import AnalyticsPanelReal from "@/components/dashboard/AnalyticsPanelReal";
@@ -80,6 +80,9 @@ import UserAnalyticsPanel from "@/components/dashboard/UserAnalyticsPanel";
 import activityEventBroadcaster from "@/services/ActivityEventBroadcaster";
 // Import user analytics API
 import { getUserAnalytics } from "@/utils/userAnalyticsApi";
+// Import chat history hook and API
+import { useChatHistory } from "@/hooks/useChatHistory";
+import { getChatHistory, getSession } from "@/utils/chatHistoryApi";
 import {
   AreaChart,
   Area,
@@ -1775,12 +1778,23 @@ function SettingsPanel() {
 }
 
 // ============================================================================
-// FALKEAI CHAT PANEL (Dedicated AI Chat Interface)
+// FALKEAI CHAT PANEL (Dedicated AI Chat Interface with Persistent History)
 // ============================================================================
 
 function FalkeAIPanel() {
   const { user } = useAuth();
-  const [selectedConversationId, setSelectedConversationId] = useState<string | undefined>(undefined);
+  const isMobile = useIsMobile();
+  
+  // Constants for display
+  const SESSION_ID_DISPLAY_LENGTH = 12;
+  
+  // Chat history state
+  const [sessions, setSessions] = useState<ChatSessionSummary[]>([]);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | undefined>(undefined);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(!isMobile);
+  
+  // Chat messages state
   const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant' | 'system'; content: string; timestamp: Date }>>([
     {
       role: 'system',
@@ -1790,50 +1804,91 @@ function FalkeAIPanel() {
   ]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const shouldReduceMotion = useReducedMotion();
+
+  // Load chat history on mount
+  useEffect(() => {
+    if (user?.uid) {
+      loadChatHistory();
+    }
+  }, [user?.uid]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Load conversation messages when a conversation is selected
-  const loadConversationMessages = useCallback(async (conversationId: string) => {
+  // Load chat history from API
+  const loadChatHistory = useCallback(async () => {
+    if (!user?.uid) return;
+    
+    setIsLoadingSessions(true);
     try {
-      const response = await apiRequest(`/conversations/${conversationId}`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.data?.messages) {
-          const formattedMessages = data.data.messages.map((msg: { role: 'user' | 'assistant'; content: string; timestamp: string }) => ({
-            role: msg.role,
-            content: msg.content,
-            timestamp: new Date(msg.timestamp),
-          }));
+      const result = await getChatHistory(user.uid, {
+        page: 1,
+        limit: 30,
+        pageFilter: 'Ask FalkeAI',
+      });
+      setSessions(result.sessions);
+    } catch (error) {
+      console.error('[FalkeAIPanel] Failed to load chat history:', error);
+    } finally {
+      setIsLoadingSessions(false);
+    }
+  }, [user?.uid]);
+
+  // Load session messages when a session is selected
+  const loadSessionMessages = useCallback(async (sessionId: string) => {
+    try {
+      const result = await getSession(sessionId);
+      if (result.session?.messages) {
+        const formattedMessages = result.session.messages.map((msg) => ({
+          role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
+          content: msg.content,
+          timestamp: new Date(msg.timestamp),
+        }));
+        // Add welcome message at the beginning if there are messages
+        if (formattedMessages.length > 0) {
           setMessages(formattedMessages);
+        } else {
+          setMessages([{
+            role: 'system',
+            content: '👋 This conversation is empty. Start by asking me a question!',
+            timestamp: new Date()
+          }]);
         }
       }
     } catch (error) {
-      console.error('Failed to load conversation messages:', error);
+      console.error('[FalkeAIPanel] Failed to load session messages:', error);
+      setMessages([{
+        role: 'system',
+        content: '⚠️ Failed to load conversation history. Please try again.',
+        timestamp: new Date()
+      }]);
     }
   }, []);
 
-  // Handle conversation selection from sidebar
-  const handleSelectConversation = useCallback((conversationId: string) => {
-    setSelectedConversationId(conversationId);
-    if (conversationId) {
-      loadConversationMessages(conversationId);
+  // Handle session selection from sidebar
+  const handleSelectSession = useCallback((sessionId: string | null) => {
+    if (sessionId) {
+      setSelectedSessionId(sessionId);
+      loadSessionMessages(sessionId);
     } else {
+      setSelectedSessionId(undefined);
       setMessages([{
         role: 'system',
         content: '👋 Welcome to FalkeAI! I\'m your intelligent learning companion. Ask me anything about your studies, request explanations, or get help with assignments. How can I assist you today?',
         timestamp: new Date()
       }]);
     }
-  }, [loadConversationMessages]);
+    // Close sidebar on mobile after selection
+    if (isMobile) {
+      setIsSidebarOpen(false);
+    }
+  }, [loadSessionMessages, isMobile]);
 
+  // Handle sending message with chat history integration
   const handleSendMessage = async () => {
     if (!inputMessage.trim()) return;
     
@@ -1849,20 +1904,20 @@ function FalkeAIPanel() {
     setIsLoading(true);
 
     try {
-      // Call FalkeAI API through the backend with conversation context
+      // Call FalkeAI API with chat history integration
       const page: FalkeAIChatPage = 'Ask FalkeAI';
-      const response = await sendMessage(
+      const result = await sendMessageWithHistory(
         messageContent,
         page,
         user?.uid || 'anonymous',
         user?.displayName || user?.email || 'Student',
-        undefined, // course
-        selectedConversationId // conversationId
+        selectedSessionId,
+        undefined // course
       );
 
       const assistantMessage = {
         role: 'assistant' as const,
-        content: response.reply,
+        content: result.response.reply,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, assistantMessage]);
@@ -1873,10 +1928,11 @@ function FalkeAIPanel() {
         metadata: { page: 'Ask FalkeAI' }
       });
       
-      // Update conversation ID if a new one was created
-      if (response.conversationId && !selectedConversationId) {
-        setSelectedConversationId(response.conversationId);
-        setRefreshKey(prev => prev + 1); // Refresh sidebar to show new conversation
+      // Update session ID if a new one was created
+      if (result.isNewSession && result.sessionId) {
+        setSelectedSessionId(result.sessionId);
+        // Reload sessions to show the new one
+        loadChatHistory();
       }
     } catch (error) {
       // Handle errors gracefully with user-friendly message displayed as assistant response
@@ -1909,14 +1965,29 @@ function FalkeAIPanel() {
   ];
 
   const handleNewConversation = useCallback(() => {
-    setSelectedConversationId(undefined);
+    setSelectedSessionId(undefined);
     setMessages([{
       role: 'system',
       content: '👋 New conversation started! How can I help you learn today?',
       timestamp: new Date()
     }]);
-    setRefreshKey(prev => prev + 1);
   }, []);
+
+  // Format date for display (DST-safe using date comparison)
+  const formatSessionDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    
+    // Compare dates at midnight to avoid DST issues
+    const dateAtMidnight = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const nowAtMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diffDays = Math.round((nowAtMidnight.getTime() - dateAtMidnight.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  };
 
   return (
     <motion.div
@@ -1924,16 +1995,107 @@ function FalkeAIPanel() {
       animate={{ opacity: 1, y: 0 }}
       className="h-[calc(100vh-120px)] flex gap-4"
     >
+      {/* Chat History Sidebar */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0, x: -20, width: 0 }}
+            animate={{ opacity: 1, x: 0, width: isMobile ? '100%' : 280 }}
+            exit={{ opacity: 0, x: -20, width: 0 }}
+            className={`${isMobile ? 'absolute inset-0 z-50' : 'relative'} flex flex-col bg-card/80 backdrop-blur-xl border border-border rounded-xl overflow-hidden`}
+          >
+            {/* Sidebar Header */}
+            <div className="p-4 border-b border-border flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-primary" />
+                <h3 className="font-semibold">Chat History</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleNewConversation}
+                  className="p-2 rounded-lg hover:bg-secondary transition-colors"
+                  title="New Chat"
+                >
+                  <Sparkles className="w-4 h-4 text-primary" />
+                </button>
+                {isMobile && (
+                  <button
+                    onClick={() => setIsSidebarOpen(false)}
+                    className="p-2 rounded-lg hover:bg-secondary transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Sessions List */}
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              {isLoadingSessions ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                </div>
+              ) : sessions.length === 0 ? (
+                <div className="text-center py-8 px-4">
+                  <MessageSquare className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">No chat history yet</p>
+                  <p className="text-xs text-muted-foreground mt-1">Start a new conversation!</p>
+                </div>
+              ) : (
+                sessions.map((session) => (
+                  <button
+                    key={session.sessionId}
+                    onClick={() => handleSelectSession(session.sessionId)}
+                    className={`w-full text-left p-3 rounded-lg transition-colors ${
+                      selectedSessionId === session.sessionId
+                        ? 'bg-primary/10 border border-primary/30'
+                        : 'hover:bg-secondary/50'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{session.title}</p>
+                        <p className="text-xs text-muted-foreground truncate mt-1">
+                          {session.lastMessage || 'No messages'}
+                        </p>
+                      </div>
+                      <span className="text-xs text-muted-foreground flex-shrink-0">
+                        {formatSessionDate(session.lastMessageAt)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Badge variant="secondary" className="text-xs">
+                        {session.messageCount} msgs
+                      </Badge>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2 flex items-center gap-3">
-            <Brain className="w-8 h-8 text-primary" />
-            FalkeAI Chat
-          </h1>
-          <p className="text-muted-foreground">Your intelligent learning companion — ask anything!</p>
+        <div className="flex items-center gap-3">
+          {/* Toggle sidebar button */}
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="p-2 rounded-lg hover:bg-secondary transition-colors"
+            title={isSidebarOpen ? 'Hide history' : 'Show history'}
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent flex items-center gap-2">
+              <Brain className="w-7 h-7 text-primary" />
+              FalkeAI Chat
+            </h1>
+            <p className="text-sm text-muted-foreground">Your intelligent learning companion</p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <Badge className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 border-green-500/30 text-green-600">
@@ -2071,19 +2233,19 @@ function FalkeAIPanel() {
           </div>
           <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
             <span>Press Enter to send, Shift+Enter for new line</span>
-            <span>Conversation ID: {selectedConversationId || 'New'}</span>
+            <span>Session: {selectedSessionId ? selectedSessionId.substring(0, SESSION_ID_DISPLAY_LENGTH) + '...' : 'New Chat'}</span>
           </div>
         </div>
       </Card>
 
-      {/* API Info */}
+      {/* Chat History Info */}
       <div className="mt-4 p-4 rounded-xl bg-primary/5 border border-primary/20">
         <div className="flex items-start gap-3">
           <Sparkles className="w-5 h-5 text-primary mt-0.5" />
           <div>
-            <p className="font-medium text-sm">FalkeAI Backend Integration</p>
+            <p className="font-medium text-sm">Persistent Chat History Active</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Ready to connect to <code className="px-1.5 py-0.5 bg-secondary rounded text-primary">/chat</code> and <code className="px-1.5 py-0.5 bg-secondary rounded text-primary">/conversation</code> endpoints. The AI tutor will provide personalized learning assistance once fully integrated.
+              Your conversations are saved automatically. Use the sidebar to browse past sessions or start a new chat.
             </p>
           </div>
         </div>
