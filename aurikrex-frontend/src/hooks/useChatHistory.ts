@@ -517,9 +517,11 @@ export function useChatHistory(
     setState(prev => {
       if (!prev.activeSession) return prev;
 
+      // Generate unique ID with timestamp and random component to avoid collisions
+      const uniqueId = `local_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
       const newMessage: ChatMessage = {
         ...message,
-        _id: `local_${Date.now()}`,
+        _id: uniqueId,
       };
 
       return {

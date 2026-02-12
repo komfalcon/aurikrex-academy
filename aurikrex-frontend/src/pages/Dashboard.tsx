@@ -1785,6 +1785,9 @@ function FalkeAIPanel() {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   
+  // Constants for display
+  const SESSION_ID_DISPLAY_LENGTH = 12;
+  
   // Chat history state
   const [sessions, setSessions] = useState<ChatSessionSummary[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string | undefined>(undefined);
@@ -1970,11 +1973,15 @@ function FalkeAIPanel() {
     }]);
   }, []);
 
-  // Format date for display
+  // Format date for display (DST-safe using date comparison)
   const formatSessionDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
-    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Compare dates at midnight to avoid DST issues
+    const dateAtMidnight = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const nowAtMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diffDays = Math.round((nowAtMidnight.getTime() - dateAtMidnight.getTime()) / (1000 * 60 * 60 * 24));
     
     if (diffDays === 0) return 'Today';
     if (diffDays === 1) return 'Yesterday';
@@ -2226,7 +2233,7 @@ function FalkeAIPanel() {
           </div>
           <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
             <span>Press Enter to send, Shift+Enter for new line</span>
-            <span>Session: {selectedSessionId ? selectedSessionId.substring(0, 12) + '...' : 'New Chat'}</span>
+            <span>Session: {selectedSessionId ? selectedSessionId.substring(0, SESSION_ID_DISPLAY_LENGTH) + '...' : 'New Chat'}</span>
           </div>
         </div>
       </Card>
