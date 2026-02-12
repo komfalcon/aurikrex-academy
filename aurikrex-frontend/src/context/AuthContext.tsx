@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { validateToken } from '../utils/api';
+import { logger } from '../utils/logger';
 
 /**
  * Backend API URL - Must be configured via VITE_API_URL environment variable
@@ -23,7 +24,7 @@ const validateApiUrl = (): { valid: boolean; error?: string } => {
   // In production, require HTTPS
   const isProduction = import.meta.env.PROD;
   if (isProduction && !API_URL.startsWith('https://')) {
-    console.warn('⚠️ VITE_API_URL should use HTTPS in production for security.');
+    logger.warn('VITE_API_URL should use HTTPS in production for security.');
   }
   
   // Validate URL format
@@ -41,7 +42,7 @@ const validateApiUrl = (): { valid: boolean; error?: string } => {
 
 const apiUrlValidation = validateApiUrl();
 if (!apiUrlValidation.valid) {
-  console.warn(`⚠️ ${apiUrlValidation.error}`);
+  logger.warn(apiUrlValidation.error ?? 'API URL validation failed');
 }
 
 // Supported OAuth providers
@@ -87,8 +88,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           localStorage.removeItem('aurikrex-token');
           localStorage.removeItem('aurikrex-refresh-token');
         }
-      } catch (error) {
-        console.error('Error parsing stored user:', error);
+      } catch {
+        logger.error('Error parsing stored user');
         localStorage.removeItem('aurikrex-user');
         localStorage.removeItem('aurikrex-token');
         localStorage.removeItem('aurikrex-refresh-token');
@@ -108,13 +109,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const requestUrl = `${API_URL}/auth/${provider}/url`;
     
     try {
-      console.log(`🔐 Initiating ${provider} OAuth flow...`);
-      console.log(`📡 Request URL: ${requestUrl}`);
+      logger.info(`Initiating ${provider} OAuth flow...`, { requestUrl });
       
       // Check if API URL is configured
       if (!API_URL) {
         const error = new Error('Backend API URL is not configured. Please contact support.');
-        console.error('❌ OAuth Error:', {
+        logger.error('OAuth Error:', {
           error: error.message,
           hint: 'Set VITE_API_URL environment variable in Vercel dashboard',
         });
@@ -135,11 +135,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }).catch((networkError: unknown) => {
         // Handle network-level errors (CORS, DNS, connection refused, etc.)
         const err = networkError instanceof Error ? networkError : new Error(String(networkError));
-        console.error('❌ Network error during OAuth:', {
+        logger.error('Network error during OAuth:', {
           requestUrl,
           error: err.message,
           name: err.name,
-          stack: err.stack,
         });
         
         // Provide helpful error messages for common issues
@@ -156,10 +155,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw err;
       });
 
-      console.log(`📥 Response received:`, {
+      logger.debug('Response received:', {
         status: urlResponse.status,
         statusText: urlResponse.statusText,
-        headers: Object.fromEntries(urlResponse.headers.entries()),
       });
 
       if (!urlResponse.ok) {
@@ -170,7 +168,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           // Response is not JSON, use status text
         }
         
-        console.error('❌ OAuth URL request failed:', {
+        logger.error('OAuth URL request failed:', {
           requestUrl,
           status: urlResponse.status,
           statusText: urlResponse.statusText,
@@ -186,7 +184,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const responseData = await urlResponse.json();
       
       if (!responseData.success || !responseData.data?.url) {
-        console.error('❌ Invalid OAuth response:', {
+        logger.error('Invalid OAuth response:', {
           requestUrl,
           responseData,
         });
@@ -194,8 +192,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       const oauthUrl = responseData.data.url;
-      console.log(`✅ Got ${provider} OAuth URL, redirecting...`);
-      console.log(`🔗 Redirect URL: ${oauthUrl.substring(0, 100)}...`);
+      logger.info(`Got ${provider} OAuth URL, redirecting...`);
 
       // Redirect to OAuth provider (browser redirect, not fetch)
       // This is correct - OAuth flows require full page redirect
@@ -203,11 +200,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       // Comprehensive error logging for debugging
       const err = error instanceof Error ? error : new Error(String(error));
-      console.error(`❌ Error signing in with ${provider}:`, {
+      logger.error(`Error signing in with ${provider}:`, {
         requestUrl,
         errorMessage: err.message,
         errorName: err.name,
-        errorStack: err.stack,
         currentOrigin: window.location.origin,
         apiUrl: API_URL,
       });
@@ -226,7 +222,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       fetch(`${API_URL}/auth/logout`, {
         method: 'POST',
         credentials: 'include',
-      }).catch(console.error);
+      }).catch(() => {
+        // Silently handle logout errors
+      });
     }
   };
 

@@ -72,6 +72,7 @@ import { QuickActions } from "@/components/dashboard/QuickActions";
 import { DashboardSkeleton, AIThinkingIndicator } from "@/components/dashboard/LoadingSkeletons";
 import type { FalkeAIChatPage } from "@/types";
 import { apiRequest } from "@/utils/api";
+import { logger } from "@/utils/logger";
 // Import real data panels
 import AnalyticsPanelReal from "@/components/dashboard/AnalyticsPanelReal";
 import LibraryPanel from "@/components/dashboard/LibraryPanel";
@@ -522,8 +523,8 @@ function DashboardPanel({ onLaunchFalkeAI }: DashboardPanelProps) {
       }
       
       setLastUpdated(new Date());
-    } catch (error) {
-      console.error('Failed to fetch real stats:', error);
+    } catch {
+      logger.error('Failed to fetch real stats');
     } finally {
       setIsLoadingStats(false);
     }
@@ -535,7 +536,7 @@ function DashboardPanel({ onLaunchFalkeAI }: DashboardPanelProps) {
     
     // Subscribe to activity events for immediate refresh
     const handleActivity = () => {
-      console.log('Activity detected, refreshing dashboard stats...');
+      logger.debug('Activity detected, refreshing dashboard stats...');
       fetchRealStats();
     };
 
@@ -582,18 +583,28 @@ function DashboardPanel({ onLaunchFalkeAI }: DashboardPanelProps) {
   const fetchAIInsights = useCallback(async () => {
     if (!user?.uid) return;
     
+    // Build userProgress inside the callback to avoid stale closure
+    const currentProgress: UserProgress = {
+      lessonsCompleted: realStats?.activities.totalQuestions || 0,
+      totalLessons: Math.max(10, realStats?.activities.totalQuestions || 0),
+      assignmentsCompleted: realStats?.assignments.graded || 0,
+      totalAssignments: realStats?.assignments.total || 0,
+      averageScore: realStats?.solutions.averageAccuracy || 0,
+      currentStreak: realStats?.streak || 0,
+      subjects: [],
+    };
+    
     setIsLoadingAI(true);
     try {
       const analysis = await analyzeProgress(
         user.uid,
         displayName,
-        userProgress
+        currentProgress
       );
       setAiInsights(analysis.insights);
       setAiRecommendations(analysis.recommendations);
       setAiSummary(analysis.summary);
-    } catch (error) {
-      console.error('Failed to fetch AI insights:', error);
+    } catch {
       // Set fallback insights based on real data
       const hasActivity = (realStats?.activities.totalQuestions || 0) > 0;
       setAiInsights([
@@ -637,7 +648,7 @@ function DashboardPanel({ onLaunchFalkeAI }: DashboardPanelProps) {
     if (!isLoadingStats) {
       fetchAIInsights();
     }
-  }, [isLoadingStats]);
+  }, [isLoadingStats, fetchAIInsights]);
 
   // Current lesson for resume learning
   const currentLesson = {
@@ -757,7 +768,7 @@ function DashboardPanel({ onLaunchFalkeAI }: DashboardPanelProps) {
             isLoading={isLoadingAI || isLoadingStats}
             onRefresh={fetchAIInsights}
             onActionClick={(action) => {
-              console.log('AI action clicked:', action);
+              logger.debug('AI action clicked:', action);
               if (action.toLowerCase().includes('ai') || action.toLowerCase().includes('lesson') || action.toLowerCase().includes('falke')) {
                 onLaunchFalkeAI();
               }
@@ -972,8 +983,8 @@ function LessonsPanel() {
           setChatMessages(formattedMessages);
         }
       }
-    } catch (error) {
-      console.error('Failed to load conversation messages:', error);
+    } catch {
+      logger.error('Failed to load conversation messages');
     }
   }, []);
 
@@ -1803,8 +1814,8 @@ function FalkeAIPanel() {
           setMessages(formattedMessages);
         }
       }
-    } catch (error) {
-      console.error('Failed to load conversation messages:', error);
+    } catch {
+      logger.error('Failed to load conversation messages');
     }
   }, []);
 
@@ -2104,8 +2115,8 @@ export default function Dashboard() {
           const data = await response.json();
           setCurrentStreak(data.data?.currentStreak || 0);
         }
-      } catch (error) {
-        console.error('Failed to fetch streak:', error);
+      } catch {
+        logger.error('Failed to fetch streak');
       }
     };
 
