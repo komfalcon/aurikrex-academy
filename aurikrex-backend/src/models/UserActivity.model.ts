@@ -156,10 +156,10 @@ export class UserActivityModel {
   }
 
   /**
-   * Calculate daily streak
+   * Calculate daily streak using UTC dates for consistency
    * Algorithm:
    * - Sort distinct activity dates descending
-   * - If today has activity, check if yesterday also had activity
+   * - If today (UTC) has activity, check if yesterday also had activity
    * - Continue backward until a gap appears
    * - If no activity today, streak = 0
    */
@@ -168,9 +168,9 @@ export class UserActivityModel {
       return 0;
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString().split('T')[0];
+    // Use UTC for consistent timezone handling
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
 
     // If no activity today, streak is 0
     if (!activityDatesSet.has(todayStr)) {
@@ -181,16 +181,17 @@ export class UserActivityModel {
     const sortedDates = Array.from(activityDatesSet).sort((a, b) => b.localeCompare(a));
 
     let streak = 0;
-    let currentDate = new Date(today);
+    // Start from UTC today
+    let expectedDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
     for (const dateStr of sortedDates) {
-      const currentDateStr = currentDate.toISOString().split('T')[0];
+      const expectedDateStr = expectedDate.toISOString().split('T')[0];
       
-      if (dateStr === currentDateStr) {
+      if (dateStr === expectedDateStr) {
         streak++;
-        // Move to previous day
-        currentDate.setDate(currentDate.getDate() - 1);
-      } else if (dateStr < currentDateStr) {
+        // Move to previous UTC day
+        expectedDate.setUTCDate(expectedDate.getUTCDate() - 1);
+      } else if (dateStr < expectedDateStr) {
         // Gap found, break the streak
         break;
       }
@@ -218,13 +219,13 @@ export class UserActivityModel {
   }
 
   /**
-   * Calculate daily breakdown for today
-   * Returns count by type for the current day
+   * Calculate daily breakdown for today using UTC dates for consistency
+   * Returns count by type for the current UTC day
    */
   private static calculateDailyBreakdown(activities: UserActivityDocument[]): DailyBreakdown {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString().split('T')[0];
+    // Use UTC for consistent timezone handling
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
 
     const breakdown: DailyBreakdown = {
       chat: 0,
@@ -234,6 +235,7 @@ export class UserActivityModel {
     };
 
     activities.forEach(a => {
+      // Activity timestamps are stored in UTC
       const dateStr = a.timestamp.toISOString().split('T')[0];
       if (dateStr === todayStr) {
         breakdown[a.type]++;

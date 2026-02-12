@@ -263,9 +263,9 @@ export default function UserAnalyticsPanel() {
     analytics.dailyStreak > 0
   );
 
-  // Prepare timeline data
+  // Prepare timeline data with locale-aware date formatting
   const timelineData = analytics?.activityTimeline.map(d => ({
-    date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    date: new Date(d.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
     count: d.count,
   })) || [];
 
