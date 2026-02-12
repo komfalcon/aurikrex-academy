@@ -7,6 +7,7 @@ import { UserModel } from "./models/User.model.js";
 import { LessonModel, LessonProgressModel } from "./models/Lesson.model.js";
 import { AnalyticsModel } from "./models/Analytics.model.js";
 import { OTPVerificationModel } from "./models/OTPVerification.model.js";
+import { UserActivityModel } from "./models/UserActivity.model.js";
 import { log } from "./utils/logger.js";
 import validateEnv from "./utils/env.mongo.js";
 import { apiLimiter } from "./middleware/rate-limit.middleware.js";
@@ -145,7 +146,8 @@ async function initializeDatabase() {
       LessonModel.createIndexes(),
       LessonProgressModel.createIndexes(),
       AnalyticsModel.createIndexes(),
-      OTPVerificationModel.createIndexes()
+      OTPVerificationModel.createIndexes(),
+      UserActivityModel.createIndexes()
     ]);
     log.info('Database indexes created successfully');
 

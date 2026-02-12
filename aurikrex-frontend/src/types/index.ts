@@ -531,3 +531,41 @@ export interface UserLibraryResponse {
     totalPages: number;
   };
 }
+
+// ============================================
+// User Analytics Types (Phase 1)
+// ============================================
+
+/**
+ * Activity types tracked for user analytics
+ */
+export type UserActivityType = 'chat' | 'login' | 'library_view' | 'book_upload';
+
+/**
+ * Activity timeline entry (date with count)
+ */
+export interface ActivityTimelineEntry {
+  date: string; // YYYY-MM-DD format
+  count: number;
+}
+
+/**
+ * Daily breakdown by activity type
+ */
+export interface DailyBreakdown {
+  chat: number;
+  login: number;
+  library_view: number;
+  book_upload: number;
+}
+
+/**
+ * User Analytics Data from GET /api/user/analytics
+ */
+export interface UserAnalyticsData {
+  totalQuestions: number;
+  dailyStreak: number;
+  totalDaysSpent: number;
+  activityTimeline: ActivityTimelineEntry[];
+  dailyBreakdown: DailyBreakdown;
+}

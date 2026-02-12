@@ -5,6 +5,7 @@ import { generateAccessToken, generateRefreshToken, verifyToken } from '../utils
 import { log } from '../utils/logger.js';
 import { sanitizeEmail } from '../utils/sanitize.js';
 import { userService } from '../services/UserService.mongo.js';
+import { UserActivityModel } from '../models/UserActivity.model.js';
 
 /**
  * OAuth user interface for callback handlers
@@ -171,6 +172,13 @@ export const googleAuthCallback = [
 
       log.info('Google OAuth successful', { email: sanitizeEmail(user.email) });
 
+      // Track login event for user analytics (async, don't block response)
+      UserActivityModel.create({
+        userId: user.uid,
+        type: 'login',
+        metadata: { provider: 'google' },
+      }).catch(err => log.warn('Failed to track login activity', { error: err.message }));
+
       const accessToken = generateAccessToken({
         userId: user.uid,
         email: user.email,
@@ -266,6 +274,13 @@ export const microsoftAuthCallback = [
       }
 
       log.info('Microsoft OAuth successful', { email: sanitizeEmail(user.email) });
+
+      // Track login event for user analytics (async, don't block response)
+      UserActivityModel.create({
+        userId: user.uid,
+        type: 'login',
+        metadata: { provider: 'microsoft' },
+      }).catch(err => log.warn('Failed to track login activity', { error: err.message }));
 
       const accessToken = generateAccessToken({
         userId: user.uid,
@@ -389,6 +404,13 @@ export const githubAuthCallback = [
       }
 
       log.info('GitHub OAuth successful', { email: sanitizeEmail(user.email) });
+
+      // Track login event for user analytics (async, don't block response)
+      UserActivityModel.create({
+        userId: user.uid,
+        type: 'login',
+        metadata: { provider: 'github' },
+      }).catch(err => log.warn('Failed to track login activity', { error: err.message }));
 
       const accessToken = generateAccessToken({
         userId: user.uid,

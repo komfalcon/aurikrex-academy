@@ -6,6 +6,7 @@ import { UserModel } from '../models/User.model.js';
 import CoverGenerationService from '../services/CoverGenerationService.js';
 import { log } from '../utils/logger.js';
 import { sendBookApprovedEmail, sendBookRejectedEmail } from '../utils/email.js';
+import { UserActivityModel } from '../models/UserActivity.model.js';
 
 /**
  * Get all books with pagination and filters
@@ -336,6 +337,17 @@ export const uploadBook = async (req: Request, res: Response): Promise<void> => 
       coverGenerationStatus: coverResult.status,
       status: 'pending',
     });
+
+    // Track book_upload event for user analytics (async, don't block response)
+    UserActivityModel.create({
+      userId,
+      type: 'book_upload',
+      metadata: {
+        bookId: book._id?.toString(),
+        title,
+        category: category || 'reference',
+      },
+    }).catch(err => log.warn('Failed to track book upload activity', { error: err.message }));
 
     res.status(201).json({
       status: 'success',

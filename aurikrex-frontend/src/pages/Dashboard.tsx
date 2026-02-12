@@ -70,13 +70,16 @@ import { HeroProgress } from "@/components/dashboard/HeroProgress";
 import { AIRecommendations } from "@/components/dashboard/AIRecommendations";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { DashboardSkeleton, AIThinkingIndicator } from "@/components/dashboard/LoadingSkeletons";
-import type { FalkeAIChatPage } from "@/types";
+import type { FalkeAIChatPage, UserAnalyticsData } from "@/types";
 import { apiRequest } from "@/utils/api";
 // Import real data panels
 import AnalyticsPanelReal from "@/components/dashboard/AnalyticsPanelReal";
 import LibraryPanel from "@/components/dashboard/LibraryPanel";
+import UserAnalyticsPanel from "@/components/dashboard/UserAnalyticsPanel";
 // Import activity event broadcaster for real-time updates
 import activityEventBroadcaster from "@/services/ActivityEventBroadcaster";
+// Import user analytics API
+import { getUserAnalytics } from "@/utils/userAnalyticsApi";
 import {
   AreaChart,
   Area,
@@ -141,6 +144,7 @@ function Sidebar({ activePanel, setActivePanel, isCollapsed, setIsCollapsed, isM
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "lessons", label: "Study Partner", icon: Brain },
     { id: "library", label: "Library", icon: Library },
+    { id: "my-progress", label: "My Progress", icon: Activity },
     { id: "analytics", label: "AI Analytics", icon: BarChart3 },
     { id: "settings", label: "Settings", icon: Settings },
   ];
@@ -468,6 +472,7 @@ function DashboardPanel({ onLaunchFalkeAI }: DashboardPanelProps) {
     learningHours: number;
     level: number;
     growthScore: number;
+    totalDaysSpent: number;
   } | null>(null);
   const [recentAssignments, setRecentAssignments] = useState<Array<{
     _id: string;
@@ -490,17 +495,24 @@ function DashboardPanel({ onLaunchFalkeAI }: DashboardPanelProps) {
     }
     
     try {
-      const [assignmentStatsRes, analyticsRes, assignmentsRes, overviewRes] = await Promise.all([
+      const [assignmentStatsRes, analyticsRes, assignmentsRes, overviewRes, userAnalyticsRes] = await Promise.all([
         apiRequest('/assignments/stats').catch(() => null),
         apiRequest('/falkeai-analytics/summary').catch(() => null),
         apiRequest('/assignments?limit=3&sortBy=createdAt&sortOrder=desc').catch(() => null),
         apiRequest('/dashboard/overview').catch(() => null),
+        apiRequest('/user/analytics').catch(() => null),
       ]);
 
       const assignmentStats = assignmentStatsRes?.ok ? await assignmentStatsRes.json() : null;
       const analytics = analyticsRes?.ok ? await analyticsRes.json() : null;
       const assignments = assignmentsRes?.ok ? await assignmentsRes.json() : null;
       const overview = overviewRes?.ok ? await overviewRes.json() : null;
+      const userAnalytics = userAnalyticsRes?.ok ? await userAnalyticsRes.json() : null;
+
+      // Use user analytics data when available (from new UserActivity collection)
+      const totalQuestions = userAnalytics?.data?.totalQuestions || analytics?.data?.totalQuestions || 0;
+      const dailyStreak = userAnalytics?.data?.dailyStreak || overview?.data?.currentStreak || 0;
+      const totalDaysSpent = userAnalytics?.data?.totalDaysSpent || 0;
 
       setRealStats({
         assignments: assignmentStats?.data || { total: 0, pending: 0, graded: 0 },
@@ -508,13 +520,13 @@ function DashboardPanel({ onLaunchFalkeAI }: DashboardPanelProps) {
           averageAccuracy: analytics?.data?.averageResponseQuality || 0,
           totalCorrect: analytics?.data?.topicsMastered || 0
         },
-        activities: { totalQuestions: analytics?.data?.totalQuestions || 0 },
-        streak: overview?.data?.currentStreak || 0,
+        activities: { totalQuestions },
+        streak: dailyStreak,
         learningHours: overview?.data?.totalLearningHours || 0,
         // Level calculation: 1 level per 10 questions asked
-        // TODO: Consider moving this to backend or a config file for easier adjustment
-        level: Math.floor((overview?.data?.totalQuestions || 0) / 10) + 1,
+        level: Math.floor(totalQuestions / 10) + 1,
         growthScore: analytics?.data?.growthScore || overview?.data?.growthScore || 0,
+        totalDaysSpent,
       });
 
       if (assignments?.data?.assignments) {
@@ -2140,6 +2152,9 @@ export default function Dashboard() {
       case "library":
         // Library panel for book reading
         return <LibraryPanel />;
+      case "my-progress":
+        // User analytics panel for event-driven activity tracking
+        return <UserAnalyticsPanel />;
       case "analytics":
         // Use real analytics panel with backend data
         return <AnalyticsPanelReal />;
