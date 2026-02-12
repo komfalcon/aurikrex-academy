@@ -191,7 +191,9 @@ router.delete(
 
 /**
  * @route   POST /api/books/upload
- * @desc    Upload a book (student uploads)
+ * @desc    Upload a book (both admin and users can upload)
+ *          - Admin uploads → immediately published
+ *          - User uploads → pending approval
  * @access  Private (authenticated)
  */
 router.post(
@@ -205,8 +207,9 @@ router.post(
     body('subject').optional().trim(),
     body('fileUrl').notEmpty().withMessage('File URL is required'),
     body('fileName').optional().trim(),
-    body('fileSize').optional().isFloat({ min: 0 }),
-    body('fileType').optional().isIn(['pdf', 'epub', 'doc', 'docx', 'ppt', 'pptx', 'txt', 'png', 'jpg']),
+    body('fileSize').optional().isFloat({ min: 0, max: 104857600 }).withMessage('File size must be less than 100MB'),
+    body('fileType').isIn(['pdf', 'epub', 'pptx']).withMessage('Only PDF, EPUB, and PPTX files are allowed'),
+    body('publicId').optional().trim(), // Cloudinary public ID for cover generation
   ],
   validateRequest,
   uploadBook

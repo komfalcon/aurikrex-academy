@@ -163,6 +163,26 @@ const envVars = {
     required: true,
     validate: (value: string) => value.length > 0,
     message: 'FALKEAI_API_KEY is required and must be a non-empty string'
+  },
+
+  // Cloudinary Configuration (optional - for book file uploads)
+  CLOUDINARY_CLOUD_NAME: {
+    required: false,
+    default: '',
+    validate: (_value: string) => true,
+    message: 'CLOUDINARY_CLOUD_NAME is optional'
+  },
+  CLOUDINARY_API_KEY: {
+    required: false,
+    default: '',
+    validate: (_value: string) => true,
+    message: 'CLOUDINARY_API_KEY is optional'
+  },
+  CLOUDINARY_API_SECRET: {
+    required: false,
+    default: '',
+    validate: (_value: string) => true,
+    message: 'CLOUDINARY_API_SECRET is optional'
   }
 } as const;
 

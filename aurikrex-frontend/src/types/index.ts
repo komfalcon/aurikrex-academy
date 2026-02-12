@@ -418,8 +418,8 @@ export interface ActivitySummary {
 
 export type BookDifficulty = 'beginner' | 'intermediate' | 'advanced';
 export type ReadingStatus = 'want-to-read' | 'reading' | 'completed';
-export type BookStatus = 'pending' | 'approved' | 'rejected';
-export type BookFileType = 'pdf' | 'epub' | 'doc' | 'docx' | 'ppt' | 'pptx' | 'txt' | 'png' | 'jpg';
+export type BookStatus = 'pending' | 'approved' | 'rejected' | 'published';
+export type BookFileType = 'pdf' | 'epub' | 'pptx';
 export type BookCategoryType = 'textbook' | 'reference' | 'notes' | 'slides' | 'research' | 'material' | 'other';
 export type CoverGenerationStatus = 'pending' | 'generated' | 'failed' | 'manual';
 
