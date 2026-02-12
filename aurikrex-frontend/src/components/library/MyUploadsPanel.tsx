@@ -67,28 +67,6 @@ const statusConfig: Record<BookStatus, { icon: React.ElementType; color: string;
   },
 };
 
-// Summary card for upload status
-function StatusSummaryCard({ status, count }: { status: BookStatus; count: number }) {
-  const config = statusConfig[status];
-  const Icon = config.icon;
-
-  return (
-    <Card className={`border-border ${config.bg}/50`}>
-      <CardContent className="p-4">
-        <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-lg ${config.bg}`}>
-            <Icon className={`w-5 h-5 ${config.color}`} />
-          </div>
-          <div>
-            <p className="text-2xl font-bold">{count}</p>
-            <p className="text-xs text-muted-foreground">{config.label}</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 // Empty state component
 function NoUploads({ onUploadClick }: { onUploadClick?: () => void }) {
   return (
@@ -130,14 +108,6 @@ export function MyUploadsPanel({ onUploadClick }: MyUploadsPanelProps) {
   const [totalPages, setTotalPages] = useState(0);
   const [total, setTotal] = useState(0);
 
-  // Summary counts
-  const [statusCounts, setStatusCounts] = useState({
-    pending: 0,
-    approved: 0,
-    published: 0,
-    rejected: 0,
-  });
-
   // Load uploads
   const loadUploads = useCallback(async (refresh = false) => {
     if (!user?.uid) return;
@@ -156,26 +126,6 @@ export function MyUploadsPanel({ onUploadClick }: MyUploadsPanelProps) {
       setBooks(response.books);
       setTotalPages(response.pagination.totalPages);
       setTotal(response.pagination.total);
-
-      // Calculate status counts from all uploads (not filtered)
-      if (statusFilter === 'all' && page === 1) {
-        const counts = {
-          pending: 0,
-          approved: 0,
-          published: 0,
-          rejected: 0,
-        };
-        response.books.forEach((book) => {
-          if (book.status && book.status in counts) {
-            counts[book.status as keyof typeof counts]++;
-          }
-        });
-        // This is a simple estimate - ideally we'd fetch counts from a separate endpoint
-        // For now, we use the total and assume proportional distribution if filtered
-        if (statusFilter === 'all') {
-          setStatusCounts(counts);
-        }
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load uploads');
     } finally {
@@ -270,16 +220,6 @@ export function MyUploadsPanel({ onUploadClick }: MyUploadsPanelProps) {
           <Button variant="outline" size="sm" onClick={() => loadUploads()}>
             Try Again
           </Button>
-        </div>
-      )}
-
-      {/* Status summary cards */}
-      {total > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <StatusSummaryCard status="pending" count={statusCounts.pending} />
-          <StatusSummaryCard status="approved" count={statusCounts.approved} />
-          <StatusSummaryCard status="published" count={statusCounts.published} />
-          <StatusSummaryCard status="rejected" count={statusCounts.rejected} />
         </div>
       )}
 
