@@ -36,5 +36,3 @@ const createLogger = (): Logger => {
 };
 
 export const logger = createLogger();
-
-export default logger;

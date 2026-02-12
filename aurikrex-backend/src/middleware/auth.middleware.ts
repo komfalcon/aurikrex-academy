@@ -4,8 +4,10 @@ import { log } from '../utils/logger.js';
 
 // Extend Express Request type to include user (overriding passport's User type)
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     // Override the User type from passport to be TokenPayload
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
     interface User extends TokenPayload {}
     
     interface Request {
