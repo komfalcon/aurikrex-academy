@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { UserLibraryModel, ReadingStatus } from '../models/UserLibrary.model.js';
 import { BookModel } from '../models/Book.model.js';
 import { log } from '../utils/logger.js';
+import { UserActivityModel } from '../models/UserActivity.model.js';
 
 /**
  * Get user's library
@@ -35,6 +36,13 @@ export const getUserLibrary = async (req: Request, res: Response): Promise<void>
     };
 
     const result = await UserLibraryModel.listUserLibrary(userId, options);
+
+    // Track library_view event for user analytics (async, don't block response)
+    UserActivityModel.create({
+      userId,
+      type: 'library_view',
+      metadata: { page: options.page },
+    }).catch(err => log.warn('Failed to track library view activity', { error: err.message }));
 
     // Fetch book details for each entry
     const entriesWithBooks = await Promise.all(

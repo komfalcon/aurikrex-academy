@@ -10,6 +10,7 @@ import bookRoutes from "./bookRoutes.js";
 import userLibraryRoutes from "./userLibraryRoutes.js";
 import fileRoutes from "./fileRoutes.js";
 import dashboardRoutes from "./dashboardRoutes.js";
+import userAnalyticsRoutes from "./userAnalyticsRoutes.js";
 
 const router = Router();
 
@@ -45,5 +46,8 @@ router.use("/files", fileRoutes);
 
 // Dashboard routes (comprehensive dashboard data)
 router.use("/dashboard", dashboardRoutes);
+
+// User Analytics routes (event-driven user analytics)
+router.use("/user", userAnalyticsRoutes);
 
 export default router;

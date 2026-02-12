@@ -26,6 +26,7 @@ import { AIChatRequest, EnhancedAIChatRequest, AIRequestType } from '../types/ai
 import { FalkeAIActivityLogger } from '../services/FalkeAIActivityLogger.js';
 import { ResponseFormatterService } from '../services/ResponseFormatterService.js';
 import { FALKEAI_VALIDATION_ERROR_MESSAGE, PromptValidationError } from '../services/PromptEnhancerService.js';
+import { UserActivityModel } from '../models/UserActivity.model.js';
 
 /**
  * POST /api/ai/chat
@@ -119,6 +120,17 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<void
       model: response.model,
       courseId: context.course,
     }).catch(err => log.warn('Failed to log chat activity', { error: err.message }));
+
+    // Track chat event for user analytics (async, don't block response)
+    UserActivityModel.create({
+      userId: context.userId,
+      type: 'chat',
+      metadata: {
+        questionLength: message.trim().length,
+        responseLength: response.reply.length,
+        provider: response.provider,
+      },
+    }).catch(err => log.warn('Failed to track chat activity', { error: err.message }));
 
     log.info('✅ AI Response received successfully', {
       page: context.page,
@@ -312,6 +324,18 @@ export const sendEnhancedChatMessage = async (req: Request, res: Response): Prom
       model: response.model,
       courseId: context.course,
     }).catch(err => log.warn('Failed to log enhanced chat activity', { error: err.message }));
+
+    // Track chat event for user analytics (async, don't block response)
+    UserActivityModel.create({
+      userId: context.userId,
+      type: 'chat',
+      metadata: {
+        questionLength: message.trim().length,
+        responseLength: response.reply.length,
+        provider: response.provider,
+        requestType: requestType || 'question',
+      },
+    }).catch(err => log.warn('Failed to track enhanced chat activity', { error: err.message }));
 
     log.info('✅ ENHANCED AI Response received successfully', {
       page: context.page,
