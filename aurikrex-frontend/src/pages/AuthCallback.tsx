@@ -55,7 +55,16 @@ export default function AuthCallback() {
         const [firstName = 'User', ...lastNameParts] = (displayName || email.split('@')[0]).split(' ');
         const lastName = lastNameParts.join(' ') || '';
 
-        // Create user object
+        // Decode the JWT token to get the user role
+        let role = 'student';
+        try {
+          const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+          role = tokenPayload.role || 'student';
+        } catch (e) {
+          console.warn('Failed to decode token for role:', e);
+        }
+
+        // Create user object with role
         const user = {
           uid,
           email,
@@ -64,16 +73,22 @@ export default function AuthCallback() {
           displayName: displayName || email.split('@')[0],
           emailVerified: true, // OAuth users are always verified
           provider,
+          role, // Include role from JWT token
         };
 
         // Store user data
         localStorage.setItem('aurikrex-user', JSON.stringify(user));
 
-        console.log(`✅ ${provider} OAuth successful, redirecting to dashboard`);
+        console.log(`✅ ${provider} OAuth successful, user role: ${role}`);
         toast.success(`Welcome, ${firstName}! 🎉`);
 
-        // Redirect to dashboard
-        navigate('/dashboard', { replace: true });
+        // Route based on role: admin goes to /admin, others go to /dashboard
+        if (role === 'admin') {
+          console.log('🔑 Admin user detected, redirecting to admin dashboard');
+          navigate('/admin', { replace: true });
+        } else {
+          navigate('/dashboard', { replace: true });
+        }
       } catch (err) {
         console.error('OAuth callback error:', err);
         toast.error('Authentication failed. Please try again.');

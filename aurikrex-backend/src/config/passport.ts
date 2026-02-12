@@ -16,6 +16,19 @@ const googleCallbackURL = process.env.GOOGLE_CALLBACK_URL || `${backendURL}/api/
 const microsoftCallbackURL = process.env.MICROSOFT_CALLBACK_URL || `${backendURL}/api/auth/microsoft/callback`;
 const githubCallbackURL = process.env.GITHUB_CALLBACK_URL || `${backendURL}/api/auth/github/callback`;
 
+// Admin email from environment (not hardcoded)
+const ADMIN_EMAIL = process.env.ADMIN_GOOGLE_EMAIL?.toLowerCase();
+
+/**
+ * Check if an email matches the admin email from environment
+ * @param email - Email to check
+ * @returns true if the email matches the admin email
+ */
+function isAdminEmail(email: string | undefined): boolean {
+  if (!email || !ADMIN_EMAIL) return false;
+  return email.toLowerCase() === ADMIN_EMAIL;
+}
+
 /**
  * Helper function to create user payload for JWT tokens
  */
@@ -65,7 +78,14 @@ passport.use(
           photoURL,
         });
 
-        log.info('✅ Google OAuth successful', { email: sanitizeEmail(email) });
+        // Check if this email should have admin role (from ADMIN_GOOGLE_EMAIL env var)
+        if (isAdminEmail(email) && user.role !== 'admin') {
+          log.info('🔑 Admin email detected, upgrading user role to admin', { email: sanitizeEmail(email) });
+          await UserModel.update(user._id!, { role: 'admin' });
+          user.role = 'admin';
+        }
+
+        log.info('✅ Google OAuth successful', { email: sanitizeEmail(email), role: user.role });
         return done(null, createUserPayload(user));
       } catch (error) {
         log.error('❌ Google OAuth error', { error: getErrorMessage(error) });

@@ -12,6 +12,7 @@ import Profile from './pages/Profile';
 import AuthCallback from './pages/AuthCallback';
 import Library from './pages/Library';
 import AdminApproval from './pages/AdminApproval';
+import AdminDashboard from './pages/Admin';
 
 // Protected Route Component
 interface ProtectedRouteProps {
@@ -33,6 +34,8 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 };
 
 // Admin Route Component (requires admin role)
+// NOTE: This component now shows a friendly "access denied" message instead of redirecting
+// The actual admin verification is done within the Admin page component for better UX
 const AdminRoute = ({ children }: ProtectedRouteProps) => {
   const { user, loading } = useAuth();
   
@@ -44,18 +47,12 @@ const AdminRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
   
-  // Check if user has admin role
-  const storedUser = localStorage.getItem('aurikrex-user');
-  const isAdmin = storedUser ? JSON.parse(storedUser).role === 'admin' : false;
-  
   if (!user) {
     return <Navigate to="/login" />;
   }
   
-  if (!isAdmin) {
-    return <Navigate to="/" />;
-  }
-  
+  // Role check is now handled inside the Admin component for better UX
+  // The Admin component will show a proper "access denied" message for non-admins
   return <>{children}</>;
 };
 
@@ -88,6 +85,14 @@ function AppRoutes() {
       />
       
       {/* Admin Routes */}
+      <Route
+        path="/admin"
+        element={
+          <AdminRoute>
+            <AdminDashboard />
+          </AdminRoute>
+        }
+      />
       <Route
         path="/admin/approval"
         element={
