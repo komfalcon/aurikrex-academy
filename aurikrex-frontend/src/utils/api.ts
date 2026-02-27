@@ -1,13 +1,9 @@
 /**
  * API utility for making authenticated requests to the backend
  * 
- * IMPORTANT: Set VITE_API_URL in your environment variables:
- * - Local development: http://localhost:5000/api
- * - Production (Vercel): https://api.aurikrex.tech/api
- * 
- * Required Vercel Environment Variables:
- * - VITE_API_URL: Backend API URL (e.g., https://api.aurikrex.tech/api)
- * - VITE_FRONTEND_URL: Frontend URL for redirects (e.g., https://aurikrex.tech)
+ * The backend URL is auto-detected by the build environment.
+ * Override with VITE_API_URL environment variable if needed.
+ * See src/config/api.ts for URL configuration.
  * 
  * CORS Requirements:
  * - Backend must allow the frontend origin in Access-Control-Allow-Origin
@@ -15,14 +11,12 @@
  * - Backend must NOT use wildcard (*) origin when credentials are enabled
  */
 
-const API_URL = import.meta.env.VITE_API_URL;
+import { API_BASE_URL } from '../config/api';
+
+const API_URL = API_BASE_URL;
 
 // Default timeout for API requests (90 seconds for complex AI questions)
 const DEFAULT_TIMEOUT = 90000;
-
-if (!API_URL) {
-  console.warn('⚠️ VITE_API_URL is not set. API calls will fail. Please configure your environment variables.');
-}
 
 /**
  * Custom error class for API errors with additional context

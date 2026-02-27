@@ -1,48 +1,13 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { validateToken } from '../utils/api';
+import { API_BASE_URL } from '../config/api';
 
 /**
- * Backend API URL - Must be configured via VITE_API_URL environment variable
- * 
- * Local development: http://localhost:5000/api
- * Production: https://api.aurikrex.tech/api
+ * Backend API URL - auto-detected by environment.
+ * Override with VITE_API_URL environment variable.
+ * See src/config/api.ts for URL configuration.
  */
-const API_URL = import.meta.env.VITE_API_URL;
-
-/**
- * Validate that the API URL is properly configured for the environment
- */
-const validateApiUrl = (): { valid: boolean; error?: string } => {
-  if (!API_URL) {
-    return { 
-      valid: false, 
-      error: 'VITE_API_URL is not set. Authentication will fail. Please configure your environment variables.' 
-    };
-  }
-  
-  // In production, require HTTPS
-  const isProduction = import.meta.env.PROD;
-  if (isProduction && !API_URL.startsWith('https://')) {
-    console.warn('⚠️ VITE_API_URL should use HTTPS in production for security.');
-  }
-  
-  // Validate URL format
-  try {
-    new URL(API_URL);
-  } catch {
-    return { 
-      valid: false, 
-      error: `VITE_API_URL is not a valid URL: ${API_URL}` 
-    };
-  }
-  
-  return { valid: true };
-};
-
-const apiUrlValidation = validateApiUrl();
-if (!apiUrlValidation.valid) {
-  console.warn(`⚠️ ${apiUrlValidation.error}`);
-}
+const API_URL = API_BASE_URL;
 
 // Supported OAuth providers
 type OAuthProvider = 'google' | 'microsoft' | 'github';
