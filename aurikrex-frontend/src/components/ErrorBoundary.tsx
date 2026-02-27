@@ -24,7 +24,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   handleReset = () => {
-    this.setState({ hasError: false, error: null });
     window.location.href = '/';
   };
 
@@ -40,7 +39,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
             <p className="text-muted-foreground">
               An unexpected error occurred. Please try refreshing the page.
             </p>
-            {this.state.error && (
+            {import.meta.env.DEV && this.state.error && (
               <p className="text-sm text-destructive bg-destructive/10 rounded-lg p-3 font-mono break-all">
                 {this.state.error.message}
               </p>
