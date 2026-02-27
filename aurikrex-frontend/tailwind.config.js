@@ -42,11 +42,31 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
+        },
+        gold: "#FFB81C",
+        navy: {
+          DEFAULT: "#0f1923",
+          dark: "#0a1118",
+        },
+        teal: {
+          DEFAULT: "#0a7ea4",
+          dark: "#065a75",
+        },
+        glass: "rgba(255,255,255,0.08)",
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        xl: "1rem",
+        "2xl": "1.25rem",
       },
       boxShadow: {
         glow: "var(--shadow-glow)",

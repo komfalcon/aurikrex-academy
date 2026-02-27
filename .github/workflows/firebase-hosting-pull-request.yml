@@ -49,3 +49,4 @@ jobs:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_AURIKREX_ACADEMY1 }}
           projectId: aurikrex-academy1
+          entryPoint: ./aurikrex-frontend
